@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "ESNext", "moduleResolution": "Bundler",
+    "jsx": "react-jsx", "strict": true, "noUncheckedIndexedAccess": true,
+    "esModuleInterop": true, "skipLibCheck": true, "declaration": true,
+    "paths": { "@/*": ["./src/*"] }, "types": ["react", "react-dom"]
+  },
+  "include": ["src", ".storybook"]
+}

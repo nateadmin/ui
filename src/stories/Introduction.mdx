@@ -1,0 +1,18 @@
+import { Meta, Markdown } from "@storybook/addon-docs/blocks"
+import pkg from "../../package.json"
+import changelog from "../../CHANGELOG.md?raw"
+
+<Meta title="Introduction" />
+
+# @nateadmin/ui v{pkg.version}
+
+Shared UI library for every app. shadcn base-nova style, Tailwind v4, light and dark mode.
+
+Install in an app: `npm i @nateadmin/ui`, then in the app's global CSS:
+
+```css
+@import "tailwindcss";
+@import "@nateadmin/ui/styles.css";
+```
+
+<Markdown>{changelog}</Markdown>
