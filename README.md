@@ -20,10 +20,14 @@ Shared React UI library for every app. shadcn/ui (base-nova style, Base UI primi
 
 Each app sets its brand color by overriding `--primary`, `--primary-foreground`, `--ring`, and `--sidebar-primary` after the import, in both `:root` and `.dark`.
 
+## Catalog
+
+https://ui.wefoundd.com lists every component, built with the library itself. The header has Desktop, Tablet, and Mobile preview sizes and a light/dark switch. The URL keeps the current component, size, and theme, so links can be shared.
+
 ## Change a component
 
-1. Edit it under `src/components/ui/`. Add or update its story in `src/stories/`.
-2. `npm run storybook` and check it in light and dark.
+1. Edit it under `src/components/ui/`. Add or update its examples in `src/catalog/entries.tsx`.
+2. `npm run dev` and check it in light and dark, and at desktop, tablet, and mobile widths.
 3. `npm run changeset` and write one line: which component changed and why.
 4. Commit and push to `main`. The Release workflow opens a "Release @nateadmin/ui" pull request that bumps the version and updates `CHANGELOG.md`. Merge it and the new version publishes.
 
@@ -40,12 +44,16 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | Calendar | Month and year dropdowns by default |
 | Popover | Base UI popover |
 | DatePicker | Calendar in a popover, shows mm/dd/yyyy |
+| Badge | Variants: default, secondary, outline, destructive |
+| Separator | Horizontal or vertical |
+| Switch | On and off |
+| Toggle, ToggleGroup | Single toggle or a segmented group |
 
 ## Scripts
 
 | Script | Does |
 | --- | --- |
-| `npm run storybook` | Component catalog at localhost:6006 |
+| `npm run dev` | Component catalog at localhost:5173 |
 | `npm run build` | Builds `dist/` (JS, types, styles.css) |
 | `npm run typecheck` | TypeScript check |
-| `npm run build-storybook` | Static catalog in `storybook-static/`, deployed to https://ui.wefoundd.com on every push to main |
+| `npm run build-site` | Builds the catalog to `site-dist/`, deployed to https://ui.wefoundd.com on every push to main |
