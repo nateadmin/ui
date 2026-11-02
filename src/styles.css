@@ -114,4 +114,37 @@
 @layer base {
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground; }
+
+  /* Anything clickable shows the hand cursor. Tailwind v4 removed this default for buttons. */
+  :where(
+    a[href],
+    button,
+    summary,
+    select,
+    label[for],
+    input[type="checkbox"],
+    input[type="radio"],
+    input[type="button"],
+    input[type="submit"],
+    input[type="reset"],
+    input[type="file"],
+    [role="button"],
+    [role="link"],
+    [role="switch"],
+    [role="checkbox"],
+    [role="radio"],
+    [role="tab"],
+    [role="option"],
+    [role="menuitem"],
+    [role="menuitemcheckbox"],
+    [role="menuitemradio"],
+    [role="combobox"],
+    [data-slot="toggle"],
+    [onclick]
+  ):not(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: pointer;
+  }
+  :where(button, input, select, [role="button"], [role="switch"], [role="option"]):is(:disabled, [aria-disabled="true"], [data-disabled]) {
+    cursor: not-allowed;
+  }
 }
