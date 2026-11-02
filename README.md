@@ -48,4 +48,4 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | `npm run storybook` | Component catalog at localhost:6006 |
 | `npm run build` | Builds `dist/` (JS, types, styles.css) |
 | `npm run typecheck` | TypeScript check |
-| `npm run build-storybook` | Static catalog in `storybook-static/` |
+| `npm run build-storybook` | Static catalog in `storybook-static/`, deployed to https://ui.wefoundd.com on every push to main |
