@@ -39,10 +39,11 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 
 | Component | Notes |
 | --- | --- |
-| Toolbar | The bar on top of a list, table, or board. Parts: `ToolbarViews` (Board/List switch), `ToolbarSearch` (fills the free space), `ToolbarFilter` (dropdown, optional "Label: Value" and color dots), `ToolbarActions` (right edge). Include only the parts a page needs. Wraps on narrow screens. |
+| Toolbar | The bar on top of a list, table, or board. Parts: `ToolbarViews` (segmented switch up to 3 views, a dropdown at 4 or more), `ToolbarSearch` (fills the free space), `ToolbarFilter` (single or `multiple` select, optional "Label: Value" and color dots), `ToolbarFilterDialog` ("Filters" button that opens every filter group in a dialog, with a count of active filters), `ToolbarActions` (right edge). Include only the parts a page needs. Dropdown buttons are as wide as their longest option and never change width. Wraps on narrow screens. |
 | Button | Variants: default, outline, secondary, ghost, destructive, link |
 | Input | Text input |
 | DropdownMenu | Items, checkbox items, radio items, submenus |
+| Dialog | Modal with header, footer, and close button |
 | Toggle, ToggleGroup | Single toggle or a segmented group |
 
 ### Toolbar
@@ -51,7 +52,9 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 <Toolbar>
   <ToolbarViews views={[{ value: "board", label: "Board" }, { value: "list", label: "List" }]} value={view} onValueChange={setView} />
   <ToolbarSearch placeholder="Search projects" value={q} onChange={(e) => setQ(e.target.value)} />
-  <ToolbarFilter label="Status" options={statusOptions} value={status} onValueChange={setStatus} />
+  <ToolbarFilter label="Owner" options={ownerOptions} value={owner} onValueChange={setOwner} />
+  <ToolbarFilter multiple label="Status" placeholder="All" options={statusOptions} values={statuses} onValuesChange={setStatuses} />
+  <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
   <ToolbarActions>
     <Button size="lg">New project</Button>
   </ToolbarActions>
