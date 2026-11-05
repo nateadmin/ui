@@ -39,7 +39,7 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 
 | Component | Notes |
 | --- | --- |
-| Toolbar | The bar on top of a list, table, or board. Parts: `ToolbarViews` (segmented switch up to 3 views, a dropdown at 4 or more), `ToolbarSearch` (fills the free space), `ToolbarFilter` (single or `multiple` select, optional "Label: Value" and color dots), `ToolbarFilterDialog` ("Filters" button that opens every filter group in a dialog, with a count of active filters), `ToolbarActions` (right edge). Include only the parts a page needs. Dropdown buttons are as wide as their longest option and never change width. Wraps on narrow screens. |
+| Toolbar | The bar on top of a list, table, or board. Parts: `ToolbarViews` (segmented switch up to 3 views, a dropdown at 4 or more), `ToolbarSearch` (fills the free space), `ToolbarFilter` (single or `multiple` select, optional "Label: Value" and color dots), `ToolbarFilterDialog` ("Filters" button that opens every filter group in a dialog, with a count of active filters), `ToolbarActions` (right edge), and `ToolbarActiveFilters` (applied filters as removable chips under the bar, with "Clear all"; hidden when nothing is applied). Include only the parts a page needs. Dropdown buttons are as wide as their longest option and never change width. Wraps on narrow screens. |
 | Button | Variants: default, outline, secondary, ghost, destructive, link |
 | Input | Text input |
 | DropdownMenu | Items, checkbox items, radio items, submenus |
@@ -59,7 +59,10 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
     <Button size="lg">New project</Button>
   </ToolbarActions>
 </Toolbar>
+<ToolbarActiveFilters items={activeFilterItems(filterGroups, filters, setFilters)} onClearAll={() => setFilters({})} />
 ```
+
+`activeFilterItems` builds the chips from the same filter groups and values the Filters dialog uses. For inline filters, pass chips yourself: `{ id, label, value, onRemove }`.
 
 ## Scripts
 

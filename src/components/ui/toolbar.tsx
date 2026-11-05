@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon } from "lucide-react"
+import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -40,6 +40,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
  *       <Button>New project</Button>
  *     </ToolbarActions>
  *   </Toolbar>
+ *   <ToolbarActiveFilters />   applied filters as removable chips, under the bar
  *
  * Every control is the same height, so any mix lines up. Dropdown buttons are
  * sized to their longest possible text, so they never change width when the
@@ -53,7 +54,7 @@ function Toolbar({ className, ...props }: React.ComponentProps<"div">) {
       data-slot="toolbar"
       className={cn(
         "bg-card text-card-foreground flex w-full flex-wrap items-center gap-2 rounded-xl border p-2",
-        className
+        className,
       )}
       {...props}
     />
@@ -249,19 +250,38 @@ function ToolbarFilter(props: ToolbarFilterProps) {
     const picked = options.filter((o) => props.values.includes(o.value))
     items = [
       { key: "__none", node: withLabel(label, props.placeholder) },
-      ...options.map((o) => ({ key: o.value, node: <><Dot color={o.color} />{withLabel(label, o.label)}</> })),
+      ...options.map((o) => ({
+        key: o.value,
+        node: (
+          <>
+            <Dot color={o.color} />
+            {withLabel(label, o.label)}
+          </>
+        ),
+      })),
       ...options.slice(1).map((_, i) => ({ key: `__${i + 2}`, node: withLabel(label, `${i + 2} selected`) })),
     ]
-    active = picked.length === 0 ? "__none" : picked.length === 1 ? (picked[0]?.value ?? "__none") : `__${picked.length}`
+    active =
+      picked.length === 0 ? "__none" : picked.length === 1 ? (picked[0]?.value ?? "__none") : `__${picked.length}`
   } else {
-    items = options.map((o) => ({ key: o.value, node: <><Dot color={o.color} />{withLabel(label, o.label)}</> }))
+    items = options.map((o) => ({
+      key: o.value,
+      node: (
+        <>
+          <Dot color={o.color} />
+          {withLabel(label, o.label)}
+        </>
+      ),
+    }))
     active = options.some((o) => o.value === props.value) ? props.value : (options[0]?.value ?? "")
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button variant="outline" size="lg" data-slot="toolbar-filter" className={cn(triggerClass, className)} />}
+        render={
+          <Button variant="outline" size="lg" data-slot="toolbar-filter" className={cn(triggerClass, className)} />
+        }
       >
         {icon}
         <StableLabel items={items} active={active} />
@@ -277,9 +297,7 @@ function ToolbarFilter(props: ToolbarFilterProps) {
                 closeOnClick={false}
                 checked={props.values.includes(o.value)}
                 onCheckedChange={(on: boolean) =>
-                  props.onValuesChange(
-                    on ? [...props.values, o.value] : props.values.filter((v) => v !== o.value)
-                  )
+                  props.onValuesChange(on ? [...props.values, o.value] : props.values.filter((v) => v !== o.value))
                 }
               >
                 <Dot color={o.color} />
@@ -344,16 +362,21 @@ function ToolbarFilterDialog({
     const current = values[group.id] ?? []
     const on = current.includes(option)
     const next =
-      group.multiple === false
-        ? on ? [] : [option]
-        : on ? current.filter((v) => v !== option) : [...current, option]
+      group.multiple === false ? (on ? [] : [option]) : on ? current.filter((v) => v !== option) : [...current, option]
     onValuesChange({ ...values, [group.id]: next })
   }
 
   return (
     <Dialog>
       <DialogTrigger
-        render={<Button variant="outline" size="lg" data-slot="toolbar-filter-dialog" className={cn(triggerClass, className)} />}
+        render={
+          <Button
+            variant="outline"
+            size="lg"
+            data-slot="toolbar-filter-dialog"
+            className={cn(triggerClass, className)}
+          />
+        }
       >
         <SlidersHorizontalIcon aria-hidden="true" />
         Filters
@@ -362,7 +385,7 @@ function ToolbarFilterDialog({
           aria-hidden={count === 0 ? true : undefined}
           className={cn(
             "bg-primary text-primary-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-medium tabular-nums",
-            count === 0 && "invisible"
+            count === 0 && "invisible",
           )}
         >
           {count}
@@ -410,6 +433,81 @@ function ToolbarFilterDialog({
   )
 }
 
+/* ---------- Active filters (chips under the bar) ---------- */
+
+type ToolbarActiveFilter = {
+  /** Unique key, for example "status:active". */
+  id: string
+  /** The filter's name, for example "Status". */
+  label: string
+  /** The applied value, for example "Working". */
+  value: string
+  onRemove: () => void
+}
+
+/** Shows each applied filter as a chip with a remove button, plus "Clear all".
+    Renders nothing when no filter is applied. */
+function ToolbarActiveFilters({
+  items,
+  onClearAll,
+  className,
+}: {
+  items: ToolbarActiveFilter[]
+  onClearAll: () => void
+  className?: string
+}) {
+  if (items.length === 0) return null
+  return (
+    <div
+      data-slot="toolbar-active-filters"
+      aria-label="Applied filters"
+      role="group"
+      className={cn("mt-2 flex flex-wrap items-center gap-2", className)}
+    >
+      {items.map((item) => (
+        <span
+          key={item.id}
+          className="bg-primary/5 dark:bg-primary/10 border-primary/15 inline-flex h-7 items-center gap-1.5 rounded-md border pr-1 pl-2.5 text-sm"
+        >
+          <span className="text-muted-foreground">{item.label}</span>
+          <span className="font-medium">{item.value}</span>
+          <button
+            type="button"
+            onClick={item.onRemove}
+            aria-label={`Remove ${item.label} ${item.value}`}
+            className="text-muted-foreground hover:bg-foreground/10 hover:text-foreground focus-visible:ring-ring/50 inline-flex size-5 items-center justify-center rounded outline-none focus-visible:ring-2"
+          >
+            <XIcon aria-hidden="true" className="size-3.5" />
+          </button>
+        </span>
+      ))}
+      <button
+        type="button"
+        onClick={onClearAll}
+        className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 h-7 rounded-md px-1.5 text-sm outline-none hover:underline focus-visible:ring-2"
+      >
+        Clear all
+      </button>
+    </div>
+  )
+}
+
+/** Builds chips from filter groups and one values record (the same shape ToolbarFilterDialog uses). */
+function activeFilterItems(
+  filters: ToolbarFilterGroup[],
+  values: ToolbarFilterValues,
+  onValuesChange: (values: ToolbarFilterValues) => void,
+): ToolbarActiveFilter[] {
+  return filters.flatMap((group) =>
+    (values[group.id] ?? []).map((v) => ({
+      id: `${group.id}:${v}`,
+      label: group.label,
+      value: group.options.find((o) => o.value === v)?.label ?? v,
+      onRemove: () => onValuesChange({ ...values, [group.id]: (values[group.id] ?? []).filter((x) => x !== v) }),
+    })),
+  )
+}
+
 /* ---------- Actions ---------- */
 
 function ToolbarActions({ className, ...props }: React.ComponentProps<"div">) {
@@ -422,5 +520,21 @@ function ToolbarActions({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
-export { Toolbar, ToolbarActions, ToolbarFilter, ToolbarFilterDialog, ToolbarSearch, ToolbarViews }
-export type { ToolbarFilterGroup, ToolbarFilterOption, ToolbarFilterProps, ToolbarFilterValues, ToolbarView }
+export {
+  Toolbar,
+  ToolbarActions,
+  ToolbarActiveFilters,
+  ToolbarFilter,
+  ToolbarFilterDialog,
+  ToolbarSearch,
+  ToolbarViews,
+  activeFilterItems,
+}
+export type {
+  ToolbarActiveFilter,
+  ToolbarFilterGroup,
+  ToolbarFilterOption,
+  ToolbarFilterProps,
+  ToolbarFilterValues,
+  ToolbarView,
+}

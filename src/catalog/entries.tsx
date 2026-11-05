@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button"
 import {
   Toolbar,
   ToolbarActions,
+  ToolbarActiveFilters,
+  activeFilterItems,
   ToolbarFilter,
   ToolbarFilterDialog,
   ToolbarSearch,
@@ -87,17 +89,54 @@ function NewProject() {
 function BoardToolbar() {
   const [view, setView] = useState("board")
   const [who, setWho] = useState("anyone")
-  const [status, setStatus] = useState<string[]>([])
-  const [filters, setFilters] = useState<ToolbarFilterValues>({})
+  const [status, setStatus] = useState<string[]>(["active"])
+  const [filters, setFilters] = useState<ToolbarFilterValues>({
+    owner: ["me"],
+    due: ["week"],
+  })
   return (
-    <Toolbar>
-      <ToolbarViews views={twoViews} value={view} onValueChange={setView} />
-      <ToolbarSearch placeholder="Search projects" />
-      <ToolbarFilter options={people} value={who} onValueChange={setWho} />
-      <ToolbarFilter multiple placeholder="All statuses" options={statusOptions} values={status} onValuesChange={setStatus} />
-      <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
-      <NewProject />
-    </Toolbar>
+    <div>
+      <Toolbar>
+        <ToolbarViews views={twoViews} value={view} onValueChange={setView} />
+        <ToolbarSearch placeholder="Search projects" />
+        <ToolbarFilter options={people} value={who} onValueChange={setWho} />
+        <ToolbarFilter
+          multiple
+          placeholder="All statuses"
+          options={statusOptions}
+          values={status}
+          onValuesChange={setStatus}
+        />
+        <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
+        <NewProject />
+      </Toolbar>
+      <ToolbarActiveFilters
+        items={[
+          ...(who === "anyone"
+            ? []
+            : [
+                {
+                  id: "who",
+                  label: "Assigned to",
+                  value: people.find((p) => p.value === who)?.label ?? who,
+                  onRemove: () => setWho("anyone"),
+                },
+              ]),
+          ...status.map((v) => ({
+            id: `status:${v}`,
+            label: "Status",
+            value: statusOptions.find((o) => o.value === v)?.label ?? v,
+            onRemove: () => setStatus(status.filter((x) => x !== v)),
+          })),
+          ...activeFilterItems(filterGroups, filters, setFilters),
+        ]}
+        onClearAll={() => {
+          setWho("anyone")
+          setStatus([])
+          setFilters({})
+        }}
+      />
+    </div>
   )
 }
 
@@ -150,13 +189,26 @@ function ListToolbar() {
 function FiltersOnlyToolbar() {
   const [who, setWho] = useState("anyone")
   const [status, setStatus] = useState<string[]>([])
-  const [filters, setFilters] = useState<ToolbarFilterValues>({})
+  const [filters, setFilters] = useState<ToolbarFilterValues>({ priority: ["high"] })
   return (
-    <Toolbar>
-      <ToolbarFilter label="Owner" options={people} value={who} onValueChange={setWho} />
-      <ToolbarFilter multiple label="Status" placeholder="All" options={statusOptions} values={status} onValuesChange={setStatus} />
-      <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
-    </Toolbar>
+    <div>
+      <Toolbar>
+        <ToolbarFilter label="Owner" options={people} value={who} onValueChange={setWho} />
+        <ToolbarFilter
+          multiple
+          label="Status"
+          placeholder="All"
+          options={statusOptions}
+          values={status}
+          onValuesChange={setStatus}
+        />
+        <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
+      </Toolbar>
+      <ToolbarActiveFilters
+        items={activeFilterItems(filterGroups, filters, setFilters)}
+        onClearAll={() => setFilters({})}
+      />
+    </div>
   )
 }
 
@@ -173,7 +225,13 @@ function MinimalToolbar() {
   return (
     <Toolbar>
       <ToolbarSearch placeholder="Search" />
-      <ToolbarFilter multiple placeholder="All statuses" options={statusOptions} values={status} onValuesChange={setStatus} />
+      <ToolbarFilter
+        multiple
+        placeholder="All statuses"
+        options={statusOptions}
+        values={status}
+        onValuesChange={setStatus}
+      />
     </Toolbar>
   )
 }
@@ -185,7 +243,11 @@ export const catalog: CatalogEntry[] = [
     examples: [
       { name: "Views, search, filters, Filters dialog, and an action", render: () => <BoardToolbar />, minHeight: 600 },
       { name: "Four or more views become a dropdown", render: () => <ManyViewsToolbar />, minHeight: 300 },
-      { name: "Search and three labeled filters (Service is multi-select)", render: () => <ListToolbar />, minHeight: 260 },
+      {
+        name: "Search and three labeled filters (Service is multi-select)",
+        render: () => <ListToolbar />,
+        minHeight: 260,
+      },
       { name: "Filters only, no search", render: () => <FiltersOnlyToolbar />, minHeight: 600 },
       { name: "Search only", render: () => <SearchOnlyToolbar /> },
       { name: "Search and one multi-select filter", render: () => <MinimalToolbar />, minHeight: 260 },
