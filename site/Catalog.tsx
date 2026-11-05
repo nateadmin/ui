@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react"
 import { Monitor, Moon, Smartphone, Sun, Tablet } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { catalog } from "@/catalog/entries"
 import pkg from "../package.json"
@@ -33,7 +30,7 @@ export function Catalog({ initialComponent, initialDevice, initialTheme }: Props
       <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
         <button type="button" onClick={() => setComponent("")} className="flex items-center gap-2 font-semibold">
           @nateadmin/ui
-          <Badge variant="secondary">v{pkg.version}</Badge>
+          <span className="bg-secondary text-secondary-foreground rounded-md px-1.5 py-0.5 text-xs font-medium">v{pkg.version}</span>
         </button>
         <div className="flex flex-1 justify-center">
           <ToggleGroup
@@ -58,15 +55,14 @@ export function Catalog({ initialComponent, initialDevice, initialTheme }: Props
             </ToggleGroupItem>
           </ToggleGroup>
         </div>
-        <label className="flex items-center gap-2">
-          <Sun className="text-muted-foreground size-4" />
-          <Switch
-            checked={theme === "dark"}
-            onCheckedChange={(on: boolean) => setTheme(on ? "dark" : "light")}
-            aria-label="Dark mode"
-          />
-          <Moon className="text-muted-foreground size-4" />
-        </label>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+        >
+          {theme === "dark" ? <Sun /> : <Moon />}
+        </Button>
       </header>
 
       <div className="flex min-h-0 flex-1">
@@ -78,7 +74,7 @@ export function Catalog({ initialComponent, initialDevice, initialTheme }: Props
           >
             Introduction
           </Button>
-          <Separator className="my-2" />
+          <div role="separator" className="bg-border my-2 h-px" />
           <p className="text-muted-foreground px-2 pb-1 text-xs font-medium uppercase">Components</p>
           {catalog.map((c) => (
             <Button

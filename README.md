@@ -16,7 +16,7 @@ Shared React UI library for every app. shadcn/ui (base-nova style, Base UI primi
    @import "tailwindcss";
    @import "@nateadmin/ui/styles.css";
    ```
-4. Import components: `import { Button, DatePicker } from "@nateadmin/ui"`.
+4. Import components: `import { Toolbar, ToolbarSearch } from "@nateadmin/ui"`.
 
 Each app sets its brand color by overriding `--primary`, `--primary-foreground`, `--ring`, and `--sidebar-primary` after the import, in both `:root` and `.dark`.
 
@@ -39,15 +39,24 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 
 | Component | Notes |
 | --- | --- |
+| Toolbar | The bar on top of a list, table, or board. Parts: `ToolbarViews` (Board/List switch), `ToolbarSearch` (fills the free space), `ToolbarFilter` (dropdown, optional "Label: Value" and color dots), `ToolbarActions` (right edge). Include only the parts a page needs. Wraps on narrow screens. |
 | Button | Variants: default, outline, secondary, ghost, destructive, link |
-| Card | Header, title, description, action, content, footer |
-| Calendar | Month and year dropdowns by default |
-| Popover | Base UI popover |
-| DatePicker | Calendar in a popover, shows mm/dd/yyyy |
-| Badge | Variants: default, secondary, outline, destructive |
-| Separator | Horizontal or vertical |
-| Switch | On and off |
+| Input | Text input |
+| DropdownMenu | Items, checkbox items, radio items, submenus |
 | Toggle, ToggleGroup | Single toggle or a segmented group |
+
+### Toolbar
+
+```tsx
+<Toolbar>
+  <ToolbarViews views={[{ value: "board", label: "Board" }, { value: "list", label: "List" }]} value={view} onValueChange={setView} />
+  <ToolbarSearch placeholder="Search projects" value={q} onChange={(e) => setQ(e.target.value)} />
+  <ToolbarFilter label="Status" options={statusOptions} value={status} onValueChange={setStatus} />
+  <ToolbarActions>
+    <Button size="lg">New project</Button>
+  </ToolbarActions>
+</Toolbar>
+```
 
 ## Scripts
 
