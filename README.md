@@ -16,7 +16,7 @@ Shared React UI library for every app. shadcn/ui (base-nova style, Base UI primi
    @import "tailwindcss";
    @import "@nateadmin/ui/styles.css";
    ```
-4. Import components: `import { Toolbar, ToolbarSearch } from "@nateadmin/ui"`.
+4. Import components: `import { PageHeader, Toolbar, ToolbarSearch } from "@nateadmin/ui"`.
 
 Each app sets its brand color by overriding `--primary`, `--primary-foreground`, `--ring`, and `--sidebar-primary` after the import, in both `:root` and `.dark`.
 
@@ -39,12 +39,33 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 
 | Component | Notes |
 | --- | --- |
-| Toolbar | The bar on top of a list, table, or board. Parts: `ToolbarViews` (segmented switch up to 3 views, a dropdown at 4 or more), `ToolbarSearch` (fills the free space), `ToolbarFilter` (single or `multiple` select, optional "Label: Value" and color dots), `ToolbarFilterDialog` ("Filters" button that opens every filter group in a dialog, with a count of active filters), `ToolbarActions` (right edge), and `ToolbarActiveFilters` (applied filters as removable chips under the bar, with "Clear all"; hidden when nothing is applied). Include only the parts a page needs. Dropdown buttons are as wide as their longest option and never change width. Wraps on narrow screens. |
+| PageHeader | Top of a page: optional icon, title, count next to the title, description, and buttons on the right. |
+| StatCard, StatGrid | Number tiles in a row that wraps. Pass values already formatted. |
+| Toolbar | The bar on top of a list, table, or board. Parts below. Include only the parts a page needs. Wraps on narrow screens. |
+| MultiSelect | Searchable checkbox dropdown for long lists (people, statuses). |
+| DatePicker | Calendar in a popover, shows mm/dd/yyyy, optional label and min/max. |
 | Button | Variants: default, outline, secondary, ghost, destructive, link |
 | Input | Text input |
 | DropdownMenu | Items, checkbox items, radio items, submenus |
 | Dialog | Modal with header, footer, and close button |
+| Calendar, Popover | Building blocks for the date picker |
 | Toggle, ToggleGroup | Single toggle or a segmented group |
+
+Toolbar parts:
+
+| Part | Does |
+| --- | --- |
+| `ToolbarViews` | Switch between views (Board, List). Up to 3 show as a segmented switch, 4 or more as a dropdown. Optional counts. |
+| `ToolbarTabs` | Status tabs that filter the list (Active 128, Monitor 41). Stay tabs at any number, scroll sideways when they do not fit. `stretch` fills the row. |
+| `ToolbarSearch` | Search box that fills the free space. |
+| `ToolbarFilter` | One filter. Use `multiple` unless the choices exclude each other. Over 10 options it becomes a searchable dropdown. The button keeps one width whatever is picked. |
+| `ToolbarFilterDialog` | "Filters" button with a count, opening every filter group in a dialog. Groups up to 8 options show as pills, longer ones as a searchable dropdown (`pillLimit`). |
+| `ToolbarDateRange` | From and To pickers plus presets (Today, Yesterday, This week, Last week, 7 days, This month, Last month, 30 days). "Today" follows `timeZone`, America/New_York by default. Weeks start Sunday. |
+| `ToolbarCount` | Result count text ("6,113 rows"). |
+| `ToolbarActions` | Buttons pinned to the right edge. |
+| `ToolbarActiveFilters` | Applied filters as removable chips under the bar, with Clear all. Hidden when nothing is applied. |
+
+Rule of thumb: a filter is multi-select whenever picking two values makes sense (people, statuses, services, priorities). Single-select is only for choices that exclude each other (views, status tabs, sort order).
 
 ### Toolbar
 

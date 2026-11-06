@@ -24,7 +24,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { DatePicker } from "@/components/ui/date-picker"
 import { Input } from "@/components/ui/input"
+import { MultiSelect } from "@/components/ui/multi-select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 /*
@@ -34,6 +36,9 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
  *   <Toolbar>
  *     <ToolbarViews />         Board / List. Four or more views become a dropdown.
  *     <ToolbarSearch />        fills the free space
+ *     <ToolbarTabs />          status tabs with counts (Active 12, Monitor 3)
+ *     <ToolbarDateRange />     From / To pickers plus presets (Today, 7 days, ...)
+ *     <ToolbarCount />         "6,113 rows"
  *     <ToolbarFilter />        one per filter, single or multi-select
  *     <ToolbarFilterDialog />  "Filters" button that opens every filter in a dialog
  *     <ToolbarActions>         pushed to the right edge
@@ -88,7 +93,18 @@ const triggerClass = "shrink-0 gap-2 font-normal"
 
 /* ---------- Views ---------- */
 
-type ToolbarView = { value: string; label: string; icon?: React.ReactNode }
+type ToolbarView = {
+  value: string
+  label: string
+  icon?: React.ReactNode
+  /** Optional number shown after the label, for example how many items the view holds. */
+  count?: number
+}
+
+function Count({ value }: { value?: number }) {
+  if (value == null) return null
+  return <span className="text-xs tabular-nums opacity-70">{value.toLocaleString("en-US")}</span>
+}
 
 /** Up to three views show as a segmented switch. Four or more show as a dropdown. */
 const MAX_TOGGLE_VIEWS = 3
@@ -128,6 +144,7 @@ function ToolbarViews({
                 <>
                   <span className="[&_svg:not([class*='size-'])]:size-4 flex">{v.icon}</span>
                   {v.label}
+                  <Count value={v.count} />
                 </>
               ),
             }))}
@@ -140,6 +157,7 @@ function ToolbarViews({
               <DropdownMenuRadioItem key={v.value} value={v.value} closeOnClick>
                 {v.icon}
                 {v.label}
+                <Count value={v.count} />
               </DropdownMenuRadioItem>
             ))}
           </DropdownMenuRadioGroup>
@@ -168,9 +186,201 @@ function ToolbarViews({
         >
           {view.icon}
           {view.label}
+          <Count value={view.count} />
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
+  )
+}
+
+/* ---------- Tabs (status tabs that filter the list) ---------- */
+
+type ToolbarTab = { value: string; label: string; count?: number }
+
+/** Tabs that filter the list by status, like Active, Monitor, Defaulted. Unlike views,
+    they stay tabs at any number and scroll sideways when they do not fit. */
+function ToolbarTabs({
+  tabs,
+  value,
+  onValueChange,
+  stretch = false,
+  className,
+  "aria-label": ariaLabel = "Status",
+}: {
+  tabs: ToolbarTab[]
+  value: string
+  onValueChange: (value: string) => void
+  /** Fill the free space on the row, with tabs sharing it evenly. */
+  stretch?: boolean
+  className?: string
+  "aria-label"?: string
+}) {
+  return (
+    <div
+      data-slot="toolbar-tabs"
+      className={cn("max-w-full min-w-0 overflow-x-auto", stretch ? "flex-[999_1_24rem]" : "shrink-0", className)}
+    >
+      <ToggleGroup
+        value={[value]}
+        onValueChange={(next: unknown[]) => {
+          const picked = next.at(-1)
+          if (typeof picked === "string") onValueChange(picked)
+        }}
+        spacing={1}
+        aria-label={ariaLabel}
+        className={cn("bg-muted min-w-max rounded-lg p-0.5", stretch && "w-full")}
+      >
+        {tabs.map((tab) => (
+          <ToggleGroupItem
+            key={tab.value}
+            value={tab.value}
+            className={cn(
+              "text-muted-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:hover:bg-background dark:aria-pressed:bg-input/50 h-8 gap-1.5 px-3 aria-pressed:shadow-sm",
+              stretch && "flex-[1_0_auto]",
+            )}
+          >
+            {tab.label}
+            <Count value={tab.count} />
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+    </div>
+  )
+}
+
+/* ---------- Count ---------- */
+
+/** Result count text, for example "6,113 rows". Announced to screen readers when it changes. */
+function ToolbarCount({ className, ...props }: React.ComponentProps<"span">) {
+  return (
+    <span
+      data-slot="toolbar-count"
+      aria-live="polite"
+      className={cn("text-muted-foreground shrink-0 px-1 text-sm whitespace-nowrap tabular-nums", className)}
+      {...props}
+    />
+  )
+}
+
+/* ---------- Date range ---------- */
+
+type ToolbarDateRangeValue = { from?: Date; to?: Date }
+
+type ToolbarDatePreset = {
+  id: string
+  label: string
+  /** Gets today's date (in the toolbar's time zone) and returns the range. */
+  range: (today: Date) => { from: Date; to: Date }
+}
+
+const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
+const startOfWeek = (d: Date) => addDays(d, -d.getDay())
+const sameDay = (a?: Date, b?: Date) =>
+  !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+
+/** Weeks start on Sunday. */
+const defaultDatePresets: ToolbarDatePreset[] = [
+  { id: "today", label: "Today", range: (t) => ({ from: t, to: t }) },
+  { id: "yesterday", label: "Yesterday", range: (t) => ({ from: addDays(t, -1), to: addDays(t, -1) }) },
+  { id: "this-week", label: "This week", range: (t) => ({ from: startOfWeek(t), to: t }) },
+  {
+    id: "last-week",
+    label: "Last week",
+    range: (t) => ({ from: addDays(startOfWeek(t), -7), to: addDays(startOfWeek(t), -1) }),
+  },
+  { id: "7-days", label: "7 days", range: (t) => ({ from: addDays(t, -6), to: t }) },
+  {
+    id: "this-month",
+    label: "This month",
+    range: (t) => ({ from: new Date(t.getFullYear(), t.getMonth(), 1), to: t }),
+  },
+  {
+    id: "last-month",
+    label: "Last month",
+    range: (t) => ({
+      from: new Date(t.getFullYear(), t.getMonth() - 1, 1),
+      to: new Date(t.getFullYear(), t.getMonth(), 0),
+    }),
+  },
+  { id: "30-days", label: "30 days", range: (t) => ({ from: addDays(t, -29), to: t }) },
+]
+
+/** Today's calendar date in an IANA time zone, as a local-midnight Date. */
+function todayIn(timeZone: string): Date {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+  }).formatToParts(new Date())
+  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value)
+  return new Date(get("year"), get("month") - 1, get("day"))
+}
+
+function ToolbarDateRange({
+  value,
+  onValueChange,
+  presets = defaultDatePresets,
+  timeZone = "America/New_York",
+  className,
+}: {
+  value: ToolbarDateRangeValue
+  onValueChange: (value: ToolbarDateRangeValue) => void
+  /** Quick ranges shown after the pickers. Pass [] to hide them. */
+  presets?: ToolbarDatePreset[]
+  /** Decides what "today" is for the presets. */
+  timeZone?: string
+  className?: string
+}) {
+  const today = todayIn(timeZone)
+  const active = presets.find((p) => {
+    const r = p.range(today)
+    return sameDay(r.from, value.from) && sameDay(r.to, value.to)
+  })
+  return (
+    <div data-slot="toolbar-date-range" className={cn("flex flex-wrap items-center gap-2", className)}>
+      <DatePicker
+        label="From"
+        placeholder="Any"
+        size="lg"
+        className="w-44"
+        value={value.from}
+        max={value.to}
+        onChange={(from) => onValueChange({ ...value, from })}
+      />
+      <DatePicker
+        label="To"
+        placeholder="Any"
+        size="lg"
+        className="w-40"
+        value={value.to}
+        min={value.from}
+        onChange={(to) => onValueChange({ ...value, to })}
+      />
+      {presets.length > 0 ? (
+        <ToggleGroup
+          value={active ? [active.id] : []}
+          onValueChange={(next: unknown[]) => {
+            const preset = presets.find((p) => p.id === next.at(-1))
+            if (preset) onValueChange(preset.range(today))
+          }}
+          spacing={1}
+          aria-label="Date presets"
+          className="flex-wrap"
+        >
+          {presets.map((p) => (
+            <ToggleGroupItem
+              key={p.id}
+              value={p.id}
+              variant="outline"
+              className="aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary aria-pressed:hover:bg-primary h-8 px-2.5"
+            >
+              {p.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      ) : null}
+    </div>
   )
 }
 
@@ -241,6 +451,9 @@ function withLabel(label: string | undefined, text: React.ReactNode) {
   )
 }
 
+/** A multi-select filter with more options than this gets a search box. */
+const MENU_OPTION_LIMIT = 10
+
 function ToolbarFilter(props: ToolbarFilterProps) {
   const { label, options, icon, className } = props
 
@@ -274,6 +487,27 @@ function ToolbarFilter(props: ToolbarFilterProps) {
       ),
     }))
     active = options.some((o) => o.value === props.value) ? props.value : (options[0]?.value ?? "")
+  }
+
+  // Long lists get a search box instead of a plain menu.
+  if (props.multiple && options.length > MENU_OPTION_LIMIT) {
+    return (
+      <MultiSelect
+        options={options}
+        values={props.values}
+        onValuesChange={props.onValuesChange}
+        placeholder={props.placeholder}
+        searchPlaceholder={label ? `Search ${label.toLowerCase()}` : "Search"}
+        aria-label={label}
+        className={cn(triggerClass, className)}
+        trigger={
+          <>
+            {icon}
+            <StableLabel items={items} active={active} />
+          </>
+        }
+      />
+    )
   }
 
   return (
@@ -346,6 +580,7 @@ function ToolbarFilterDialog({
   values,
   onValuesChange,
   title = "Filters",
+  pillLimit = 8,
   description,
   className,
 }: {
@@ -353,6 +588,8 @@ function ToolbarFilterDialog({
   values: ToolbarFilterValues
   onValuesChange: (values: ToolbarFilterValues) => void
   title?: string
+  /** Groups with more options than this show a searchable dropdown instead of pills. */
+  pillLimit?: number
   description?: string
   className?: string
 }) {
@@ -401,24 +638,36 @@ function ToolbarFilterDialog({
           {filters.map((group) => (
             <fieldset key={group.id} className="space-y-2">
               <legend className="text-sm font-medium">{group.label}</legend>
-              <div className="flex flex-wrap gap-2">
-                {group.options.map((o) => {
-                  const on = (values[group.id] ?? []).includes(o.value)
-                  return (
-                    <Button
-                      key={o.value}
-                      type="button"
-                      variant="outline"
-                      aria-pressed={on}
-                      onClick={() => toggle(group, o.value)}
-                      className="aria-pressed:border-primary aria-pressed:bg-primary/10 aria-pressed:text-foreground dark:aria-pressed:bg-primary/20 h-8 gap-2 rounded-full px-3 font-normal"
-                    >
-                      <Dot color={o.color} />
-                      {o.label}
-                    </Button>
-                  )
-                })}
-              </div>
+              {group.multiple !== false && group.options.length > pillLimit ? (
+                <MultiSelect
+                  options={group.options}
+                  values={values[group.id] ?? []}
+                  onValuesChange={(next) => onValuesChange({ ...values, [group.id]: next })}
+                  placeholder={`Any ${group.label.toLowerCase()}`}
+                  searchPlaceholder={`Search ${group.label.toLowerCase()}`}
+                  aria-label={group.label}
+                  className="w-full"
+                />
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {group.options.map((o) => {
+                    const on = (values[group.id] ?? []).includes(o.value)
+                    return (
+                      <Button
+                        key={o.value}
+                        type="button"
+                        variant="outline"
+                        aria-pressed={on}
+                        onClick={() => toggle(group, o.value)}
+                        className="aria-pressed:border-primary aria-pressed:bg-primary/10 aria-pressed:text-foreground dark:aria-pressed:bg-primary/20 h-8 gap-2 rounded-full px-3 font-normal"
+                      >
+                        <Dot color={o.color} />
+                        {o.label}
+                      </Button>
+                    )
+                  })}
+                </div>
+              )}
             </fieldset>
           ))}
         </div>
@@ -524,14 +773,21 @@ export {
   Toolbar,
   ToolbarActions,
   ToolbarActiveFilters,
+  ToolbarCount,
+  ToolbarDateRange,
   ToolbarFilter,
   ToolbarFilterDialog,
   ToolbarSearch,
+  ToolbarTabs,
   ToolbarViews,
   activeFilterItems,
+  defaultDatePresets,
 }
 export type {
   ToolbarActiveFilter,
+  ToolbarDatePreset,
+  ToolbarDateRangeValue,
+  ToolbarTab,
   ToolbarFilterGroup,
   ToolbarFilterOption,
   ToolbarFilterProps,
