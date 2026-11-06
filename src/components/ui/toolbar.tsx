@@ -218,7 +218,7 @@ function ToolbarTabs({
   return (
     <div
       data-slot="toolbar-tabs"
-      className={cn("max-w-full min-w-0 overflow-x-auto", stretch ? "flex-[999_1_24rem]" : "shrink-0", className)}
+      className={cn("max-w-full min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", stretch ? "flex-[999_1_24rem]" : "shrink-0", className)}
     >
       <ToggleGroup
         value={[value]}
@@ -634,7 +634,7 @@ function ToolbarFilterDialog({
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
         </DialogHeader>
-        <div className="-mx-4 max-h-[60vh] space-y-5 overflow-y-auto px-4 py-1">
+        <div className="-mx-4 max-h-[60vh] space-y-5 overflow-y-auto px-4 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {filters.map((group) => (
             <fieldset key={group.id} className="space-y-2">
               <legend className="text-sm font-medium">{group.label}</legend>

@@ -101,7 +101,12 @@ function MultiSelect({
             className="placeholder:text-muted-foreground h-10 w-full bg-transparent pr-3 pl-9 text-sm outline-none"
           />
         </div>
-        <div id={listId} role="group" aria-label={ariaLabel ?? "Options"} className="max-h-64 overflow-y-auto p-1">
+        <div
+          id={listId}
+          role="group"
+          aria-label={ariaLabel ?? "Options"}
+          className="max-h-64 overflow-y-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {shown.length === 0 ? (
             <p className="text-muted-foreground px-2 py-6 text-center text-sm">No matches</p>
           ) : (
@@ -113,19 +118,19 @@ function MultiSelect({
                   className="hover:bg-muted has-focus-visible:bg-muted flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-sm"
                 >
                   <input type="checkbox" checked={on} onChange={() => toggle(o.value)} className="peer sr-only" />
+                  {o.color ? (
+                    <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: o.color }} />
+                  ) : null}
+                  <span className="truncate">{o.label}</span>
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "flex size-4 shrink-0 items-center justify-center rounded border",
+                      "ml-auto flex size-4 shrink-0 items-center justify-center rounded border",
                       on ? "bg-primary border-primary text-primary-foreground" : "border-input",
                     )}
                   >
                     {on ? <CheckIcon className="size-3" /> : null}
                   </span>
-                  {o.color ? (
-                    <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: o.color }} />
-                  ) : null}
-                  <span className="truncate">{o.label}</span>
                 </label>
               )
             })
