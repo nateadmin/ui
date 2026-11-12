@@ -36,6 +36,8 @@ import {
   type ToolbarFilterValues,
 } from "@/components/ui/toolbar"
 
+import { SimplyFundingList } from "./list-sample"
+
 export type CatalogExample = { name: string; render: () => ReactNode; minHeight?: number }
 export type CatalogEntry = { id: string; name: string; examples: CatalogExample[] }
 
@@ -483,6 +485,13 @@ function UsersHeader() {
 }
 
 export const catalog: CatalogEntry[] = [
+  {
+    id: "list",
+    name: "List",
+    examples: [
+      { name: "Applications list, current layout (placeholder data)", render: () => <SimplyFundingList />, minHeight: 640 },
+    ],
+  },
   {
     id: "page-header",
     name: "Page Header",

@@ -46,6 +46,7 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | DatePicker | Calendar in a popover, shows mm/dd/yyyy, optional label and min/max. |
 | Button | Variants: default, outline, secondary, ghost, destructive, link |
 | Input | Text input |
+| Table | Table primitives: header, body, row, head, cell, footer, caption |
 | DropdownMenu | Items, checkbox items, radio items, submenus |
 | Dialog | Modal with header, footer, and close button |
 | Calendar, Popover | Building blocks for the date picker |
