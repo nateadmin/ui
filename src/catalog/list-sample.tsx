@@ -468,7 +468,7 @@ export function SimplyFundingList() {
   return (
     <div className="space-y-3">
       {shown.length === 0 ? (
-        <div className="bg-card rounded-lg border p-12 text-center">
+        <div className="bg-card rounded-lg border border-border/60 p-12 text-center">
           <p className="text-muted-foreground text-[13px]">No applications to show.</p>
         </div>
       ) : (
@@ -476,7 +476,11 @@ export function SimplyFundingList() {
           <ul className="m-0 grid list-none gap-2 p-0 lg:hidden">
             {shown.map((r) => (
               <li key={r.id}>
-                <div role="button" tabIndex={0} className="bg-card w-full rounded-lg border p-3 text-left">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  className="bg-card w-full rounded-lg border border-border/60 p-3 text-left"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="pt-0.5">
                       <SelectCircle
@@ -534,7 +538,9 @@ export function SimplyFundingList() {
 
           <ContextMenu>
             <ContextMenuTrigger
-              render={<div className="bg-card hidden overflow-hidden rounded-lg border select-auto lg:block" />}
+              render={
+                <div className="bg-card hidden overflow-hidden rounded-lg border border-border/60 select-auto lg:block" />
+              }
             >
               <table className="w-full table-fixed caption-bottom text-[13px]">
                 <colgroup>
@@ -551,7 +557,7 @@ export function SimplyFundingList() {
                   <col className="w-10" />
                 </colgroup>
                 <TableHeader>
-                  <TableRow className="hover:bg-transparent">
+                  <TableRow className="border-border/60 hover:bg-transparent">
                     <TableHead className="h-8 w-9 pr-0 pl-3">
                       <SelectCircle
                         checked={allPicked}
@@ -579,7 +585,7 @@ export function SimplyFundingList() {
                     <TableRow
                       key={r.id}
                       data-state={selected.includes(r.id) ? "selected" : undefined}
-                      className="group hover:bg-muted/30 data-[state=selected]:bg-primary/5 cursor-pointer"
+                      className="group border-border/60 hover:bg-muted/30 data-[state=selected]:bg-primary/5 cursor-pointer"
                       onContextMenu={() => {
                         if (!selected.includes(r.id)) {
                           setSelected([r.id])
@@ -587,47 +593,47 @@ export function SimplyFundingList() {
                         }
                       }}
                     >
-                      <TableCell className="w-9 py-1.5 pr-0 pl-3">
+                      <TableCell className="w-9 py-2.5 pr-0 pl-3">
                         <SelectCircle
                           checked={selected.includes(r.id)}
                           onChange={(e) => toggle(r.id, e)}
                           label={`Select ${r.subject}`}
                         />
                       </TableCell>
-                      <TableCell className="py-1.5 overflow-hidden">
+                      <TableCell className="py-2.5 overflow-hidden">
                         <p className="truncate text-[13px]" title={r.from}>
                           {r.from}
                         </p>
                       </TableCell>
-                      <TableCell className="py-1.5">
+                      <TableCell className="py-2.5">
                         <Files count={r.files} />
                       </TableCell>
-                      <TableCell className="py-1.5 overflow-hidden">
+                      <TableCell className="py-2.5 overflow-hidden">
                         <p className="truncate text-[13px] font-medium" title={r.subject}>
                           {r.subject}
                         </p>
                       </TableCell>
-                      <TableCell className="py-1.5">
+                      <TableCell className="py-2.5">
                         <span className="block truncate text-[13px]">{r.agent}</span>
                       </TableCell>
-                      <TableCell className="py-1.5 overflow-hidden">
+                      <TableCell className="py-2.5 overflow-hidden">
                         <span className="block truncate text-[13px]" title={r.underwriter}>
                           {r.underwriter}
                         </span>
                       </TableCell>
-                      <TableCell className="py-1.5">
+                      <TableCell className="py-2.5">
                         <Check row={r} />
                       </TableCell>
-                      <TableCell className="py-1.5">
+                      <TableCell className="py-2.5">
                         <Decision row={r} />
                       </TableCell>
-                      <TableCell className="py-1.5 whitespace-nowrap">
+                      <TableCell className="py-2.5 whitespace-nowrap">
                         <Onyx row={r} />
                       </TableCell>
-                      <TableCell className="py-1.5 text-right whitespace-nowrap">
+                      <TableCell className="py-2.5 text-right whitespace-nowrap">
                         <span className="text-muted-foreground text-[11px]">{r.received}</span>
                       </TableCell>
-                      <TableCell className="py-1.5 pr-2 text-right">
+                      <TableCell className="py-2.5 pr-2 text-right">
                         <RowActions row={r} onDelete={() => removeRow(r.id)} />
                       </TableCell>
                     </TableRow>
