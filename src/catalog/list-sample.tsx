@@ -9,6 +9,9 @@ import {
   Download,
   Trash2,
   UserPlus,
+  ClipboardList,
+  ExternalLink,
+  MoreVertical,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,12 +23,19 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /*
  * The applications list layout as it ships in Simply Funding (underwriting):
  * a table that always fits its box (no sideways scroll; long text is cut with "…"),
- * cards on mobile, and Previous / Next under it. This is the starting point
+ * cards on mobile, and Previous / Next under it. Each row ends with a three-dot actions menu. This is the starting point
  * for the library's list design; it is a sample, not an exported component.
  * All rows are made-up placeholder data.
  */
@@ -181,10 +191,11 @@ const TOTAL = 1240
 const PAGE_SIZE = 50
 const TOTAL_PAGES = Math.ceil(TOTAL / PAGE_SIZE)
 
+const decisionLabel = { APPROVE: "Approve", DECLINE: "Decline", REVIEW: "Review" }
 const decisionClass = {
-  APPROVE: "text-emerald-600 dark:text-emerald-400",
-  DECLINE: "text-red-600 dark:text-red-400",
-  REVIEW: "text-amber-600 dark:text-amber-400",
+  APPROVE: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
+  DECLINE: "bg-red-500/15 text-red-700 dark:text-red-400",
+  REVIEW: "bg-amber-500/15 text-amber-700 dark:text-amber-400",
 }
 
 function Files({ count }: { count: number }) {
@@ -212,7 +223,11 @@ function Check({ row }: { row: Row }) {
 
 function Decision({ row }: { row: Row }) {
   return row.decision ? (
-    <span className={`text-[11px] font-medium ${decisionClass[row.decision]}`}>{row.decision}</span>
+    <span
+      className={`inline-flex h-5 items-center rounded-full px-2 text-[11px] font-medium ${decisionClass[row.decision]}`}
+    >
+      {decisionLabel[row.decision]}
+    </span>
   ) : (
     <span className="text-muted-foreground text-[11px]">-</span>
   )
@@ -294,6 +309,51 @@ function sortValue(r: Row, key: SortKey): string | number {
   }
 }
 
+/** Three-dot button at the end of a row; opens that row's actions. */
+function RowActions({ row, onDelete }: { row: Row; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={`Actions for ${row.subject}`}
+            className="text-muted-foreground"
+            onClick={(e) => e.stopPropagation()}
+          />
+        }
+      >
+        <MoreVertical />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuItem>
+          <ExternalLink />
+          Open application
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <ClipboardList />
+          Scorecard
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <UserPlus />
+          Assign underwriter
+        </DropdownMenuItem>
+        <DropdownMenuItem>
+          <Download />
+          Export
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem variant="destructive" onClick={onDelete}>
+          <Trash2 />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 type Sort = { key: SortKey; dir: "asc" | "desc" } | null
 
 /** Two angular arrows side by side: down on the left, up on the right.
@@ -361,6 +421,11 @@ export function SimplyFundingList() {
   const [note, setNote] = useState("")
   const act = (what: string) =>
     setNote(`${what}: ${selected.length} ${selected.length === 1 ? "application" : "applications"}`)
+  const removeRow = (id: string) => {
+    setNote("Deleted: 1 application")
+    setData((cur) => cur.filter((r) => r.id !== id))
+    setSelected((cur) => cur.filter((x) => x !== id))
+  }
   const removeSelected = () => {
     setNote(`Deleted: ${selected.length} ${selected.length === 1 ? "application" : "applications"}`)
     setData((cur) => cur.filter((r) => !selected.includes(r.id)))
@@ -428,6 +493,9 @@ export function SimplyFundingList() {
                       <p className="text-muted-foreground text-[11px]">Received</p>
                       <p className="text-muted-foreground text-[11px]">{r.received}</p>
                     </div>
+                    <div className="-mt-1 -mr-1 shrink-0">
+                      <RowActions row={r} onDelete={() => removeRow(r.id)} />
+                    </div>
                   </div>
                   <div className="mt-2 min-w-0">
                     <p className="text-muted-foreground text-[11px]">Subject</p>
@@ -459,9 +527,6 @@ export function SimplyFundingList() {
                       <Onyx row={r} />
                     </div>
                   </div>
-                  <Button type="button" className="mt-3 min-h-9 w-full">
-                    Scorecard
-                  </Button>
                 </div>
               </li>
             ))}
@@ -483,7 +548,7 @@ export function SimplyFundingList() {
                   <col className="w-[6.5rem]" />
                   <col className="w-[7.5rem]" />
                   <col className="w-[7.5rem]" />
-                  <col className="w-24" />
+                  <col className="w-10" />
                 </colgroup>
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
@@ -504,8 +569,8 @@ export function SimplyFundingList() {
                     <SortHead label="Underwriting" field="underwriting" sort={sort} onSort={sortBy} />
                     <SortHead label="ONYX" field="onyx" sort={sort} onSort={sortBy} />
                     <SortHead label="Received" field="received" sort={sort} onSort={sortBy} align="right" />
-                    <TableHead className="text-muted-foreground h-8 pr-3 text-right text-[11px] font-medium">
-                      Scorecard
+                    <TableHead className="h-8 pr-2">
+                      <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -562,10 +627,8 @@ export function SimplyFundingList() {
                       <TableCell className="py-1.5 text-right whitespace-nowrap">
                         <span className="text-muted-foreground text-[11px]">{r.received}</span>
                       </TableCell>
-                      <TableCell className="py-1.5 pr-3 text-right">
-                        <Button type="button" size="xs" className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                          Scorecard
-                        </Button>
+                      <TableCell className="py-1.5 pr-2 text-right">
+                        <RowActions row={r} onDelete={() => removeRow(r.id)} />
                       </TableCell>
                     </TableRow>
                   ))}
