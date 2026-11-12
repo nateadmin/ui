@@ -1,6 +1,6 @@
 {
   "name": "@nateadmin/ui",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Shared React UI library (shadcn, Tailwind v4) for all apps.",
   "type": "module",
   "license": "UNLICENSED",
