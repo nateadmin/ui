@@ -16,7 +16,7 @@ Shared React UI library for every app. shadcn/ui (base-nova style, Base UI primi
    @import "tailwindcss";
    @import "@nateadmin/ui/styles.css";
    ```
-4. Import components: `import { PageHeader, Toolbar, ToolbarSearch } from "@nateadmin/ui"`.
+4. Import components: `import { Toolbar, ToolbarSearch } from "@nateadmin/ui"`.
 
 Each app sets its brand color by overriding `--primary`, `--primary-foreground`, `--ring`, and `--sidebar-primary` after the import, in both `:root` and `.dark`.
 
@@ -39,8 +39,6 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 
 | Component | Notes |
 | --- | --- |
-| PageHeader | Top of a page: optional icon, title, count next to the title, description, and buttons on the right. |
-| StatCard, StatGrid | Number tiles in a row that wraps. Pass values already formatted. |
 | Toolbar | The bar on top of a list, table, or board. Parts below. Include only the parts a page needs. Wraps on narrow screens. |
 | MultiSelect | Searchable checkbox dropdown for long lists (people, statuses). |
 | DatePicker | Calendar in a popover, shows mm/dd/yyyy, optional label and min/max. |

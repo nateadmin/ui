@@ -1,6 +1,4 @@
 export { cn } from "./lib/utils"
-export * from "./components/ui/page-header"
-export * from "./components/ui/stat-card"
 export * from "./components/ui/toolbar"
 export * from "./components/ui/button"
 export * from "./components/ui/input"

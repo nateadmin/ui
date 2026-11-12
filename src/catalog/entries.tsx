@@ -1,21 +1,16 @@
 import { useState, type ReactNode } from "react"
 import {
-  BarChart3,
   CalendarDays,
   ChevronDown,
   ChevronsUpDown,
   Download,
   GanttChart,
-  Inbox,
   LayoutGrid,
   List,
-  Pause,
   Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { PageHeader } from "@/components/ui/page-header"
-import { StatCard, StatGrid } from "@/components/ui/stat-card"
 import {
   Toolbar,
   ToolbarActions,
@@ -445,78 +440,12 @@ function DateRangeToolbar() {
   )
 }
 
-/* ---------- Page header and stat examples ---------- */
-
-function EmailsHeader() {
-  return (
-    <PageHeader
-      icon={<Inbox />}
-      title="All emails"
-      meta="20,695 emails"
-      actions={
-        <>
-          <Button variant="outline" size="lg">
-            <Pause />
-            Pause Forml
-          </Button>
-          <Button variant="outline" size="lg">
-            <Pause />
-            Pause Pipeline
-          </Button>
-        </>
-      }
-    />
-  )
-}
-
-function UsersHeader() {
-  return (
-    <PageHeader
-      title="Users and Permissions"
-      description="Manage who can sign in to Simply apps and per-app admin roles. Hub admins get every app; others need app access selected below."
-      actions={
-        <Button size="lg">
-          <Plus />
-          Add user
-        </Button>
-      }
-    />
-  )
-}
-
 export const catalog: CatalogEntry[] = [
   {
     id: "list",
     name: "List",
     examples: [
       { name: "Applications list, current layout (placeholder data)", render: () => <SimplyFundingList />, minHeight: 640 },
-    ],
-  },
-  {
-    id: "page-header",
-    name: "Page Header",
-    examples: [
-      { name: "Icon, title, count, and actions", render: () => <EmailsHeader /> },
-      { name: "Title, description, and one action", render: () => <UsersHeader /> },
-      { name: "Title only", render: () => <PageHeader icon={<BarChart3 />} title="Reports" /> },
-    ],
-  },
-  {
-    id: "stat-card",
-    name: "Stat Card",
-    examples: [
-      {
-        name: "A row of stats",
-        render: () => (
-          <StatGrid>
-            <StatCard label="Team bounced today" value="$18,040.55" />
-            <StatCard label="Team promise today" value="$26,291.85" />
-            <StatCard label="Team bounced 30 days" value="$394,149.04" />
-            <StatCard label="Team promise 30 days" value="$386,558.02" />
-            <StatCard label="Settled 30 days" value="$0.00" hint="No settlements yet" />
-          </StatGrid>
-        ),
-      },
     ],
   },
   {
