@@ -30,11 +30,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /*
  * The applications list layout as it ships in Simply Funding (underwriting):
- * a table that always fits its box (no sideways scroll; long text is cut with "…"),
+ * a list that always fits its box (no sideways scroll; long text is cut with "…"),
  * cards on mobile, and Previous / Next under it. Each row ends with a three-dot actions menu. This is the starting point
  * for the library's list design; it is a sample, not an exported component.
  * All rows are made-up placeholder data.
@@ -393,9 +392,10 @@ function SortHead({
   const active = sort?.key === field
   const dir = active ? sort.dir : null
   return (
-    <TableHead
+    <div
+      role="columnheader"
       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}
-      className={`h-8 px-3 text-[11px] font-medium select-none ${align === "right" ? "text-right" : ""} ${className}`}
+      className={`flex min-w-0 text-[11px] font-medium whitespace-nowrap select-none ${align === "right" ? "justify-end" : ""} ${className}`}
     >
       <button
         type="button"
@@ -407,7 +407,7 @@ function SortHead({
         {label}
         <SortIcon dir={dir} />
       </button>
-    </TableHead>
+    </div>
   )
 }
 
@@ -542,104 +542,94 @@ export function SimplyFundingList() {
                 <div className="bg-card hidden overflow-hidden rounded-lg border border-border/40 select-auto lg:block" />
               }
             >
-              <table className="w-full table-fixed caption-bottom text-[13px]">
-                <colgroup>
-                  <col className="w-9" />
-                  <col className="w-[9.5rem] xl:w-[12rem] 2xl:w-[14rem]" />
-                  <col className="w-[3.75rem]" />
-                  <col className="2xl:w-[22rem]" />
-                  <col className="w-[5.5rem]" />
-                  <col className="w-[6.5rem] xl:w-[8rem]" />
-                  <col className="w-[4.25rem]" />
-                  <col className="w-[6.75rem]" />
-                  <col className="w-[8rem]" />
-                  <col className="w-[8rem]" />
-                  <col className="w-12" />
-                </colgroup>
-                <TableHeader>
-                  <TableRow className="border-border/40 hover:bg-transparent">
-                    <TableHead className="h-8 w-9 pr-0 pl-3">
+              {/* A CSS grid, not a <table>: every column sizes to its widest value and
+                  the gap between columns is the same 24px everywhere. From, Subject and
+                  Underwriter cap their width and cut long text with "…"; the last column
+                  takes whatever room is left, so the three-dot button stays at the edge. */}
+              <div
+                role="table"
+                aria-label="Applications"
+                className="grid grid-cols-[auto_fit-content(14rem)_auto_fit-content(50ch)_auto_fit-content(10rem)_auto_auto_auto_auto_1fr] gap-x-6 text-[13px]"
+              >
+                <div
+                  role="row"
+                  className="border-border/40 col-span-full grid h-8 grid-cols-subgrid items-center border-b px-3"
+                >
+                  <div role="columnheader">
+                    <SelectCircle
+                      checked={allPicked}
+                      indeterminate={pickedShown > 0 && !allPicked}
+                      onChange={toggleAll}
+                      label="Select all"
+                    />
+                  </div>
+                  <SortHead label="From" field="from" sort={sort} onSort={sortBy} />
+                  <SortHead label="Files" field="files" sort={sort} onSort={sortBy} />
+                  <SortHead label="Subject" field="subject" sort={sort} onSort={sortBy} />
+                  <SortHead label="Agent" field="agent" sort={sort} onSort={sortBy} />
+                  <SortHead label="Underwriter" field="underwriter" sort={sort} onSort={sortBy} />
+                  <SortHead label="Forml" field="forml" sort={sort} onSort={sortBy} />
+                  <SortHead label="Underwriting" field="underwriting" sort={sort} onSort={sortBy} />
+                  <SortHead label="ONYX" field="onyx" sort={sort} onSort={sortBy} />
+                  <SortHead label="Received" field="received" sort={sort} onSort={sortBy} />
+                  <div role="columnheader" className="text-right">
+                    <span className="sr-only">Actions</span>
+                  </div>
+                </div>
+                {shown.map((r) => (
+                  <div
+                    key={r.id}
+                    role="row"
+                    aria-selected={selected.includes(r.id)}
+                    data-state={selected.includes(r.id) ? "selected" : undefined}
+                    className="group border-border/40 hover:bg-muted/30 data-[state=selected]:bg-primary/5 col-span-full grid h-10 cursor-pointer grid-cols-subgrid items-center border-b px-3 transition-colors last:border-b-0"
+                    onContextMenu={() => {
+                      if (!selected.includes(r.id)) {
+                        setSelected([r.id])
+                        anchor.current = r.id
+                      }
+                    }}
+                  >
+                    <div role="cell" className="flex">
                       <SelectCircle
-                        checked={allPicked}
-                        indeterminate={pickedShown > 0 && !allPicked}
-                        onChange={toggleAll}
-                        label="Select all"
+                        checked={selected.includes(r.id)}
+                        onChange={(e) => toggle(r.id, e)}
+                        label={`Select ${r.subject}`}
                       />
-                    </TableHead>
-                    <SortHead label="From" field="from" sort={sort} onSort={sortBy} />
-                    <SortHead label="Files" field="files" sort={sort} onSort={sortBy} />
-                    <SortHead label="Subject" field="subject" sort={sort} onSort={sortBy} />
-                    <SortHead label="Agent" field="agent" sort={sort} onSort={sortBy} />
-                    <SortHead label="Underwriter" field="underwriter" sort={sort} onSort={sortBy} />
-                    <SortHead label="Forml" field="forml" sort={sort} onSort={sortBy} />
-                    <SortHead label="Underwriting" field="underwriting" sort={sort} onSort={sortBy} />
-                    <SortHead label="ONYX" field="onyx" sort={sort} onSort={sortBy} />
-                    <SortHead label="Received" field="received" sort={sort} onSort={sortBy} align="right" />
-                    <TableHead className="h-8 pr-3">
-                      <span className="sr-only">Actions</span>
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {shown.map((r) => (
-                    <TableRow
-                      key={r.id}
-                      data-state={selected.includes(r.id) ? "selected" : undefined}
-                      className="group border-border/40 hover:bg-muted/30 data-[state=selected]:bg-primary/5 cursor-pointer"
-                      onContextMenu={() => {
-                        if (!selected.includes(r.id)) {
-                          setSelected([r.id])
-                          anchor.current = r.id
-                        }
-                      }}
-                    >
-                      <TableCell className="w-9 py-2 pr-0 pl-3">
-                        <SelectCircle
-                          checked={selected.includes(r.id)}
-                          onChange={(e) => toggle(r.id, e)}
-                          label={`Select ${r.subject}`}
-                        />
-                      </TableCell>
-                      <TableCell className="px-3 py-2 overflow-hidden">
-                        <p className="truncate text-[13px]" title={r.from}>
-                          {r.from}
-                        </p>
-                      </TableCell>
-                      <TableCell className="px-3 py-2">
-                        <Files count={r.files} />
-                      </TableCell>
-                      <TableCell className="px-3 py-2 overflow-hidden">
-                        <p className="max-w-[50ch] truncate text-[13px]" title={r.subject}>
-                          {r.subject}
-                        </p>
-                      </TableCell>
-                      <TableCell className="px-3 py-2">
-                        <span className="block truncate text-[13px]">{r.agent}</span>
-                      </TableCell>
-                      <TableCell className="px-3 py-2 overflow-hidden">
-                        <span className="block truncate text-[13px]" title={r.underwriter}>
-                          {r.underwriter}
-                        </span>
-                      </TableCell>
-                      <TableCell className="px-3 py-2">
-                        <Check row={r} />
-                      </TableCell>
-                      <TableCell className="px-3 py-2">
-                        <Decision row={r} />
-                      </TableCell>
-                      <TableCell className="px-3 py-2 whitespace-nowrap">
-                        <Onyx row={r} />
-                      </TableCell>
-                      <TableCell className="px-3 py-2 text-right whitespace-nowrap">
-                        <span className="text-muted-foreground text-[11px]">{r.received}</span>
-                      </TableCell>
-                      <TableCell className="py-1 pr-3 pl-1 text-right">
-                        <RowActions row={r} onDelete={() => removeRow(r.id)} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </table>
+                    </div>
+                    <div role="cell" className="min-w-0 truncate" title={r.from}>
+                      {r.from}
+                    </div>
+                    <div role="cell" className="flex">
+                      <Files count={r.files} />
+                    </div>
+                    <div role="cell" className="min-w-0 truncate" title={r.subject}>
+                      {r.subject}
+                    </div>
+                    <div role="cell" className="whitespace-nowrap">
+                      {r.agent}
+                    </div>
+                    <div role="cell" className="min-w-0 truncate" title={r.underwriter}>
+                      {r.underwriter}
+                    </div>
+                    <div role="cell" className="flex">
+                      <Check row={r} />
+                    </div>
+                    <div role="cell" className="flex">
+                      <Decision row={r} />
+                    </div>
+                    <div role="cell" className="whitespace-nowrap">
+                      <Onyx row={r} />
+                    </div>
+                    <div role="cell" className="text-muted-foreground text-[11px] whitespace-nowrap">
+                      {r.received}
+                    </div>
+                    <div role="cell" className="flex justify-end">
+                      <RowActions row={r} onDelete={() => removeRow(r.id)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </ContextMenuTrigger>
             <ContextMenuContent className="w-56">
               {selected.length === 0 ? (
