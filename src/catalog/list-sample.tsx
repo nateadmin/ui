@@ -1,5 +1,16 @@
-import { useState } from "react"
-import { Check as CheckIcon, CheckCircle2, ChevronLeft, ChevronRight, Minus, Paperclip, Search } from "lucide-react"
+import { useRef, useState, type MouseEvent } from "react"
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Check as CheckIcon,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Minus,
+  Paperclip,
+  Search,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -218,7 +229,7 @@ function SelectCircle({
 }: {
   checked: boolean
   indeterminate?: boolean
-  onChange: () => void
+  onChange: (event: MouseEvent) => void
   label: string
 }) {
   const on = checked || indeterminate
@@ -230,7 +241,7 @@ function SelectCircle({
       aria-label={label}
       onClick={(e) => {
         e.stopPropagation()
-        onChange()
+        onChange(e)
       }}
       className="focus-visible:ring-ring/50 relative flex size-4 shrink-0 items-center justify-center rounded-full outline-none before:absolute before:-inset-2.5 focus-visible:ring-3"
     >
@@ -250,15 +261,103 @@ function SelectCircle({
   )
 }
 
-const th = "text-muted-foreground h-8 text-[11px] font-medium select-none"
+type SortKey = "from" | "files" | "subject" | "agent" | "underwriter" | "forml" | "underwriting" | "onyx" | "received"
+
+/** "11/12/26, 9:38 AM" as a sortable number. */
+function stamp(text: string): number {
+  const m = /^(\d+)\/(\d+)\/(\d+), (\d+):(\d+) (AM|PM)$/.exec(text)
+  if (!m) return 0
+  const hour = (Number(m[4]) % 12) + (m[6] === "PM" ? 12 : 0)
+  return Date.UTC(2000 + Number(m[3]), Number(m[1]) - 1, Number(m[2]), hour, Number(m[5]))
+}
+
+function sortValue(r: Row, key: SortKey): string | number {
+  switch (key) {
+    case "files":
+      return r.files
+    case "forml":
+      return r.decision ? 1 : 0
+    case "underwriting":
+      return r.decision ?? ""
+    case "onyx":
+      return r.onyx ? stamp(r.onyx) : 0
+    case "received":
+      return stamp(r.received)
+    default:
+      return r[key].toLowerCase()
+  }
+}
+
+/** Column title that sorts. The arrows always show: faint when idle, solid on the sorted column. */
+function SortHead({
+  label,
+  field,
+  sort,
+  onSort,
+  className = "",
+  align = "left",
+}: {
+  label: string
+  field: SortKey
+  sort: { key: SortKey; dir: "asc" | "desc" }
+  onSort: (key: SortKey) => void
+  className?: string
+  align?: "left" | "right"
+}) {
+  const active = sort.key === field
+  const Icon = active ? (sort.dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown
+  return (
+    <TableHead
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+      className={`h-8 text-[11px] font-medium select-none ${align === "right" ? "text-right" : ""} ${className}`}
+    >
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className={`hover:text-foreground focus-visible:ring-ring/50 -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 outline-none focus-visible:ring-2 ${
+          active ? "text-foreground" : "text-muted-foreground"
+        }`}
+      >
+        {label}
+        <Icon aria-hidden="true" className={`size-3 ${active ? "" : "opacity-50"}`} />
+      </button>
+    </TableHead>
+  )
+}
+
 const pinned = "sticky right-0 z-10 min-w-[5.5rem] px-3 text-right shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.25)]"
 
 export function SimplyFundingList() {
   const [q, setQ] = useState("")
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string[]>([])
-  const toggle = (id: string) => setSelected((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]))
-  const shown = rows.filter((r) => `${r.from} ${r.subject} ${r.agent}`.toLowerCase().includes(q.trim().toLowerCase()))
+  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "received", dir: "desc" })
+  const anchor = useRef<string | null>(null)
+
+  const filtered = rows.filter((r) =>
+    `${r.from} ${r.subject} ${r.agent}`.toLowerCase().includes(q.trim().toLowerCase()),
+  )
+  const shown = [...filtered].sort((a, b) => {
+    const va = sortValue(a, sort.key)
+    const vb = sortValue(b, sort.key)
+    const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb))
+    return sort.dir === "asc" ? cmp : -cmp
+  })
+
+  const sortBy = (key: SortKey) =>
+    setSort((cur) => (cur.key === key ? { key, dir: cur.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }))
+
+  /* Click selects one row. Shift+click selects (or clears) every row between
+     the last clicked row and this one. */
+  const toggle = (id: string, event: MouseEvent) => {
+    const turnOn = !selected.includes(id)
+    const ids = shown.map((r) => r.id)
+    const from = anchor.current ? ids.indexOf(anchor.current) : -1
+    const to = ids.indexOf(id)
+    const range = event.shiftKey && from !== -1 ? ids.slice(Math.min(from, to), Math.max(from, to) + 1) : [id]
+    setSelected((cur) => (turnOn ? [...new Set([...cur, ...range])] : cur.filter((x) => !range.includes(x))))
+    anchor.current = id
+  }
 
   const shownIds = shown.map((r) => r.id)
   const pickedShown = shownIds.filter((id) => selected.includes(id)).length
@@ -312,7 +411,7 @@ export function SimplyFundingList() {
                     <div className="pt-0.5">
                       <SelectCircle
                         checked={selected.includes(r.id)}
-                        onChange={() => toggle(r.id)}
+                        onChange={(e) => toggle(r.id, e)}
                         label={`Select ${r.subject}`}
                       />
                     </div>
@@ -375,15 +474,21 @@ export function SimplyFundingList() {
                       label="Select all"
                     />
                   </TableHead>
-                  <TableHead className={th}>From</TableHead>
-                  <TableHead className={th}>Files</TableHead>
-                  <TableHead className={`${th} w-[20rem] max-w-[20rem]`}>Subject</TableHead>
-                  <TableHead className={th}>Agent</TableHead>
-                  <TableHead className={th}>Underwriter</TableHead>
-                  <TableHead className={th}>Forml</TableHead>
-                  <TableHead className={th}>Underwriting</TableHead>
-                  <TableHead className={th}>ONYX</TableHead>
-                  <TableHead className={`${th} text-right`}>Received</TableHead>
+                  <SortHead label="From" field="from" sort={sort} onSort={sortBy} />
+                  <SortHead label="Files" field="files" sort={sort} onSort={sortBy} />
+                  <SortHead
+                    label="Subject"
+                    field="subject"
+                    sort={sort}
+                    onSort={sortBy}
+                    className="w-[20rem] max-w-[20rem]"
+                  />
+                  <SortHead label="Agent" field="agent" sort={sort} onSort={sortBy} />
+                  <SortHead label="Underwriter" field="underwriter" sort={sort} onSort={sortBy} />
+                  <SortHead label="Forml" field="forml" sort={sort} onSort={sortBy} />
+                  <SortHead label="Underwriting" field="underwriting" sort={sort} onSort={sortBy} />
+                  <SortHead label="ONYX" field="onyx" sort={sort} onSort={sortBy} />
+                  <SortHead label="Received" field="received" sort={sort} onSort={sortBy} align="right" />
                   <TableHead className={`${pinned} bg-card text-muted-foreground h-8 text-[11px] font-medium`}>
                     Scorecard
                   </TableHead>
@@ -399,7 +504,7 @@ export function SimplyFundingList() {
                     <TableCell className="w-9 py-1.5 pr-0 pl-3">
                       <SelectCircle
                         checked={selected.includes(r.id)}
-                        onChange={() => toggle(r.id)}
+                        onChange={(e) => toggle(r.id, e)}
                         label={`Select ${r.subject}`}
                       />
                     </TableCell>
@@ -434,7 +539,9 @@ export function SimplyFundingList() {
                     <TableCell className="py-1.5 text-right whitespace-nowrap">
                       <span className="text-muted-foreground text-[11px]">{r.received}</span>
                     </TableCell>
-                    <TableCell className={`py-1.5 ${pinned} bg-card group-hover:bg-[color-mix(in_oklch,var(--muted)_30%,var(--card))] group-data-[state=selected]:bg-[color-mix(in_oklch,var(--primary)_5%,var(--card))] whitespace-nowrap`}>
+                    <TableCell
+                      className={`py-1.5 ${pinned} bg-card group-hover:bg-[color-mix(in_oklch,var(--muted)_30%,var(--card))] group-data-[state=selected]:bg-[color-mix(in_oklch,var(--primary)_5%,var(--card))] whitespace-nowrap`}
+                    >
                       <Button type="button" size="xs" className="shrink-0" onClick={(e) => e.stopPropagation()}>
                         Scorecard
                       </Button>
