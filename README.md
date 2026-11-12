@@ -45,6 +45,7 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | Button | Variants: default, outline, secondary, ghost, destructive, link |
 | Input | Text input |
 | Table | Table primitives: header, body, row, head, cell, footer, caption |
+| ListPagination | Footer under a list: rows-per-page dropdown (50 to 2,000), "Showing x–y of total", Previous / Next and a page field you can type into. Controlled: the app saves page size to the user's profile (never the browser) and passes it back. |
 | DropdownMenu | Items, checkbox items, radio items, submenus |
 | ContextMenu | Right-click menu: items, labels, separators, submenus |
 | Dialog | Modal with header, footer, and close button |

@@ -2,8 +2,6 @@ import { useRef, useState, type MouseEvent } from "react"
 import {
   Check as CheckIcon,
   CheckCircle2,
-  ChevronLeft,
-  ChevronRight,
   Minus,
   Paperclip,
   Download,
@@ -14,6 +12,7 @@ import {
   MoreVertical,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ListPagination } from "@/components/ui/list-pagination"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -34,7 +33,7 @@ import {
 /*
  * The applications list layout as it ships in Simply Funding (underwriting):
  * a list that always fits its box (no sideways scroll; long text is cut with "…"),
- * cards on mobile, and Previous / Next under it. Each row ends with a three-dot actions menu. This is the starting point
+ * cards on mobile, and ListPagination under it. Each row ends with a three-dot actions menu. This is the starting point
  * for the library's list design; it is a sample, not an exported component.
  * All rows are made-up placeholder data.
  */
@@ -187,8 +186,6 @@ const rows: Row[] = [
 ]
 
 const TOTAL = 1240
-const PAGE_SIZE = 50
-const TOTAL_PAGES = Math.ceil(TOTAL / PAGE_SIZE)
 
 const decisionLabel = { APPROVE: "Approve", DECLINE: "Decline", REVIEW: "Review" }
 const decisionClass = {
@@ -413,6 +410,8 @@ function SortHead({
 
 export function SimplyFundingList() {
   const [page, setPage] = useState(1)
+  // In an app this comes from, and is saved to, the user's profile.
+  const [pageSize, setPageSize] = useState(50)
   const [selected, setSelected] = useState<string[]>([])
   const [sort, setSort] = useState<Sort>(null)
   const anchor = useRef<string | null>(null)
@@ -667,52 +666,32 @@ export function SimplyFundingList() {
             </ContextMenuContent>
           </ContextMenu>
 
-          <div className="flex flex-col items-stretch justify-between gap-2 pt-1 sm:flex-row sm:items-center">
-            <p className="text-muted-foreground text-center text-[11px] sm:text-left" aria-live="polite">
-              {selected.length > 0 ? (
-                <>
-                  <span className="text-foreground font-medium">{selected.length} selected</span>
-                  {" · "}
-                  <button
-                    type="button"
-                    className="hover:text-foreground underline-offset-2 hover:underline"
-                    onClick={() => setSelected([])}
-                  >
-                    Clear
-                  </button>
-                  {" · "}
-                </>
-              ) : null}
-              {note ? <>{note} · </> : null}
-              Showing {((page - 1) * PAGE_SIZE + 1).toLocaleString("en-US")}–
-              {(page * PAGE_SIZE).toLocaleString("en-US")} of {TOTAL.toLocaleString("en-US")}
-            </p>
-            <div className="flex w-full items-center justify-between gap-2 sm:w-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1"
-                disabled={page <= 1}
-                onClick={() => setPage(page - 1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Previous
-              </Button>
-              <span className="text-muted-foreground min-w-18 text-center font-mono text-[11px]">
-                {page} / {TOTAL_PAGES}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 gap-1"
-                disabled={page >= TOTAL_PAGES}
-                onClick={() => setPage(page + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-                Next
-              </Button>
-            </div>
-          </div>
+          <ListPagination
+            page={page}
+            pageSize={pageSize}
+            total={TOTAL}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+            status={
+              <>
+                {selected.length > 0 ? (
+                  <>
+                    <span className="text-foreground font-medium">{selected.length} selected</span>
+                    {" · "}
+                    <button
+                      type="button"
+                      className="hover:text-foreground underline-offset-2 hover:underline"
+                      onClick={() => setSelected([])}
+                    >
+                      Clear
+                    </button>
+                    {" · "}
+                  </>
+                ) : null}
+                {note ? <>{note} · </> : null}
+              </>
+            }
+          />
         </>
       )}
     </div>
