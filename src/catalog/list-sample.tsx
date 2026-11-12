@@ -318,9 +318,9 @@ function RowActions({ row, onDelete }: { row: Row; onDelete: () => void }) {
           <Button
             type="button"
             variant="ghost"
-            size="icon-xs"
+            size="icon"
             aria-label={`Actions for ${row.subject}`}
-            className="text-muted-foreground"
+            className="text-muted-foreground h-9 w-8"
             onClick={(e) => e.stopPropagation()}
           />
         }
@@ -468,7 +468,7 @@ export function SimplyFundingList() {
   return (
     <div className="space-y-3">
       {shown.length === 0 ? (
-        <div className="bg-card rounded-lg border border-border/60 p-12 text-center">
+        <div className="bg-card rounded-lg border border-border/40 p-12 text-center">
           <p className="text-muted-foreground text-[13px]">No applications to show.</p>
         </div>
       ) : (
@@ -479,7 +479,7 @@ export function SimplyFundingList() {
                 <div
                   role="button"
                   tabIndex={0}
-                  className="bg-card w-full rounded-lg border border-border/60 p-3 text-left"
+                  className="bg-card w-full rounded-lg border border-border/40 p-3 text-left"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="pt-0.5">
@@ -539,7 +539,7 @@ export function SimplyFundingList() {
           <ContextMenu>
             <ContextMenuTrigger
               render={
-                <div className="bg-card hidden overflow-hidden rounded-lg border border-border/60 select-auto lg:block" />
+                <div className="bg-card hidden overflow-hidden rounded-lg border border-border/40 select-auto lg:block" />
               }
             >
               <table className="w-full table-fixed caption-bottom text-[13px]">
@@ -557,7 +557,7 @@ export function SimplyFundingList() {
                   <col className="w-10" />
                 </colgroup>
                 <TableHeader>
-                  <TableRow className="border-border/60 hover:bg-transparent">
+                  <TableRow className="border-border/40 hover:bg-transparent">
                     <TableHead className="h-8 w-9 pr-0 pl-3">
                       <SelectCircle
                         checked={allPicked}
@@ -585,7 +585,7 @@ export function SimplyFundingList() {
                     <TableRow
                       key={r.id}
                       data-state={selected.includes(r.id) ? "selected" : undefined}
-                      className="group border-border/60 hover:bg-muted/30 data-[state=selected]:bg-primary/5 cursor-pointer"
+                      className="group border-border/40 hover:bg-muted/30 data-[state=selected]:bg-primary/5 cursor-pointer"
                       onContextMenu={() => {
                         if (!selected.includes(r.id)) {
                           setSelected([r.id])
@@ -633,7 +633,7 @@ export function SimplyFundingList() {
                       <TableCell className="py-2.5 text-right whitespace-nowrap">
                         <span className="text-muted-foreground text-[11px]">{r.received}</span>
                       </TableCell>
-                      <TableCell className="py-2.5 pr-2 text-right">
+                      <TableCell className="py-1 pr-1 text-right">
                         <RowActions row={r} onDelete={() => removeRow(r.id)} />
                       </TableCell>
                     </TableRow>
