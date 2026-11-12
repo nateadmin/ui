@@ -46,6 +46,7 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | Input | Text input |
 | Table | Table primitives: header, body, row, head, cell, footer, caption |
 | DropdownMenu | Items, checkbox items, radio items, submenus |
+| ContextMenu | Right-click menu: items, labels, separators, submenus |
 | Dialog | Modal with header, footer, and close button |
 | Calendar, Popover | Building blocks for the date picker |
 | Toggle, ToggleGroup | Single toggle or a segmented group |

@@ -9,13 +9,25 @@ import {
   ChevronRight,
   Minus,
   Paperclip,
+  Download,
+  Trash2,
+  UserPlus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuGroup,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu"
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /*
  * The applications list layout as it ships in Simply Funding (underwriting):
- * a wide table that scrolls sideways with the Scorecard column pinned right,
+ * a table that always fits its box (no sideways scroll; long text is cut with "…"),
  * cards on mobile, and Previous / Next under it. This is the starting point
  * for the library's list design; it is a sample, not an exported component.
  * All rows are made-up placeholder data.
@@ -322,15 +334,22 @@ function SortHead({
   )
 }
 
-const pinned = "sticky right-0 z-10 min-w-[5.5rem] px-3 text-right shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.25)]"
-
 export function SimplyFundingList() {
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string[]>([])
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "received", dir: "desc" })
   const anchor = useRef<string | null>(null)
 
-  const shown = [...rows].sort((a, b) => {
+  const [data, setData] = useState(rows)
+  const [note, setNote] = useState("")
+  const act = (what: string) =>
+    setNote(`${what}: ${selected.length} ${selected.length === 1 ? "application" : "applications"}`)
+  const removeSelected = () => {
+    setNote(`Deleted: ${selected.length} ${selected.length === 1 ? "application" : "applications"}`)
+    setData((cur) => cur.filter((r) => !selected.includes(r.id)))
+    setSelected([])
+  }
+  const shown = [...data].sort((a, b) => {
     const va = sortValue(a, sort.key)
     const vb = sortValue(b, sort.key)
     const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb))
@@ -366,7 +385,7 @@ export function SimplyFundingList() {
         </div>
       ) : (
         <>
-          <ul className="m-0 grid list-none gap-2 p-0 md:hidden">
+          <ul className="m-0 grid list-none gap-2 p-0 lg:hidden">
             {shown.map((r) => (
               <li key={r.id}>
                 <div role="button" tabIndex={0} className="bg-card w-full rounded-lg border p-3 text-left">
@@ -425,95 +444,146 @@ export function SimplyFundingList() {
             ))}
           </ul>
 
-          <div className="bg-card hidden overflow-x-auto rounded-lg border md:block">
-            <table className="w-max min-w-full caption-bottom text-[13px]">
-              <TableHeader>
-                <TableRow className="hover:bg-transparent">
-                  <TableHead className="h-8 w-9 pr-0 pl-3">
-                    <SelectCircle
-                      checked={allPicked}
-                      indeterminate={pickedShown > 0 && !allPicked}
-                      onChange={toggleAll}
-                      label="Select all"
-                    />
-                  </TableHead>
-                  <SortHead label="From" field="from" sort={sort} onSort={sortBy} />
-                  <SortHead label="Files" field="files" sort={sort} onSort={sortBy} />
-                  <SortHead
-                    label="Subject"
-                    field="subject"
-                    sort={sort}
-                    onSort={sortBy}
-                    className="w-[20rem] max-w-[20rem]"
-                  />
-                  <SortHead label="Agent" field="agent" sort={sort} onSort={sortBy} />
-                  <SortHead label="Underwriter" field="underwriter" sort={sort} onSort={sortBy} />
-                  <SortHead label="Forml" field="forml" sort={sort} onSort={sortBy} />
-                  <SortHead label="Underwriting" field="underwriting" sort={sort} onSort={sortBy} />
-                  <SortHead label="ONYX" field="onyx" sort={sort} onSort={sortBy} />
-                  <SortHead label="Received" field="received" sort={sort} onSort={sortBy} align="right" />
-                  <TableHead className={`${pinned} bg-card text-muted-foreground h-8 text-[11px] font-medium`}>
-                    Scorecard
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {shown.map((r) => (
-                  <TableRow
-                    key={r.id}
-                    data-state={selected.includes(r.id) ? "selected" : undefined}
-                    className="group hover:bg-muted/30 data-[state=selected]:bg-primary/5 cursor-pointer"
-                  >
-                    <TableCell className="w-9 py-1.5 pr-0 pl-3">
+          <ContextMenu>
+            <ContextMenuTrigger
+              render={<div className="bg-card hidden overflow-hidden rounded-lg border select-auto lg:block" />}
+            >
+              <table className="w-full table-fixed caption-bottom text-[13px]">
+                <colgroup>
+                  <col className="w-9" />
+                  <col className="w-[15%]" />
+                  <col className="w-14" />
+                  <col />
+                  <col className="w-20" />
+                  <col className="w-[7.5rem]" />
+                  <col className="w-16" />
+                  <col className="w-[6.5rem]" />
+                  <col className="w-[7.5rem]" />
+                  <col className="w-[7.5rem]" />
+                  <col className="w-24" />
+                </colgroup>
+                <TableHeader>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="h-8 w-9 pr-0 pl-3">
                       <SelectCircle
-                        checked={selected.includes(r.id)}
-                        onChange={(e) => toggle(r.id, e)}
-                        label={`Select ${r.subject}`}
+                        checked={allPicked}
+                        indeterminate={pickedShown > 0 && !allPicked}
+                        onChange={toggleAll}
+                        label="Select all"
                       />
-                    </TableCell>
-                    <TableCell className="py-1.5 w-[14rem] max-w-[14rem] min-w-[10rem] overflow-hidden">
-                      <p className="truncate text-[13px]" title={r.from}>
-                        {r.from}
-                      </p>
-                    </TableCell>
-                    <TableCell className="py-1.5">
-                      <Files count={r.files} />
-                    </TableCell>
-                    <TableCell className="py-1.5 w-[20rem] max-w-[20rem] overflow-hidden">
-                      <p className="truncate text-[13px] font-medium" title={r.subject}>
-                        {r.subject}
-                      </p>
-                    </TableCell>
-                    <TableCell className="py-1.5">
-                      <span className="inline-block max-w-35 truncate text-[13px]">{r.agent}</span>
-                    </TableCell>
-                    <TableCell className="py-1.5 whitespace-nowrap">
-                      <span className="text-[13px]">{r.underwriter}</span>
-                    </TableCell>
-                    <TableCell className="py-1.5">
-                      <Check row={r} />
-                    </TableCell>
-                    <TableCell className="py-1.5">
-                      <Decision row={r} />
-                    </TableCell>
-                    <TableCell className="py-1.5 whitespace-nowrap">
-                      <Onyx row={r} />
-                    </TableCell>
-                    <TableCell className="py-1.5 text-right whitespace-nowrap">
-                      <span className="text-muted-foreground text-[11px]">{r.received}</span>
-                    </TableCell>
-                    <TableCell
-                      className={`py-1.5 ${pinned} bg-card group-hover:bg-[color-mix(in_oklch,var(--muted)_30%,var(--card))] group-data-[state=selected]:bg-[color-mix(in_oklch,var(--primary)_5%,var(--card))] whitespace-nowrap`}
-                    >
-                      <Button type="button" size="xs" className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                        Scorecard
-                      </Button>
-                    </TableCell>
+                    </TableHead>
+                    <SortHead label="From" field="from" sort={sort} onSort={sortBy} />
+                    <SortHead label="Files" field="files" sort={sort} onSort={sortBy} />
+                    <SortHead label="Subject" field="subject" sort={sort} onSort={sortBy} />
+                    <SortHead label="Agent" field="agent" sort={sort} onSort={sortBy} />
+                    <SortHead label="Underwriter" field="underwriter" sort={sort} onSort={sortBy} />
+                    <SortHead label="Forml" field="forml" sort={sort} onSort={sortBy} />
+                    <SortHead label="Underwriting" field="underwriting" sort={sort} onSort={sortBy} />
+                    <SortHead label="ONYX" field="onyx" sort={sort} onSort={sortBy} />
+                    <SortHead label="Received" field="received" sort={sort} onSort={sortBy} align="right" />
+                    <TableHead className="text-muted-foreground h-8 pr-3 text-right text-[11px] font-medium">
+                      Scorecard
+                    </TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {shown.map((r) => (
+                    <TableRow
+                      key={r.id}
+                      data-state={selected.includes(r.id) ? "selected" : undefined}
+                      className="group hover:bg-muted/30 data-[state=selected]:bg-primary/5 cursor-pointer"
+                      onContextMenu={() => {
+                        if (!selected.includes(r.id)) {
+                          setSelected([r.id])
+                          anchor.current = r.id
+                        }
+                      }}
+                    >
+                      <TableCell className="w-9 py-1.5 pr-0 pl-3">
+                        <SelectCircle
+                          checked={selected.includes(r.id)}
+                          onChange={(e) => toggle(r.id, e)}
+                          label={`Select ${r.subject}`}
+                        />
+                      </TableCell>
+                      <TableCell className="py-1.5 overflow-hidden">
+                        <p className="truncate text-[13px]" title={r.from}>
+                          {r.from}
+                        </p>
+                      </TableCell>
+                      <TableCell className="py-1.5">
+                        <Files count={r.files} />
+                      </TableCell>
+                      <TableCell className="py-1.5 overflow-hidden">
+                        <p className="truncate text-[13px] font-medium" title={r.subject}>
+                          {r.subject}
+                        </p>
+                      </TableCell>
+                      <TableCell className="py-1.5">
+                        <span className="block truncate text-[13px]">{r.agent}</span>
+                      </TableCell>
+                      <TableCell className="py-1.5 overflow-hidden">
+                        <span className="block truncate text-[13px]" title={r.underwriter}>
+                          {r.underwriter}
+                        </span>
+                      </TableCell>
+                      <TableCell className="py-1.5">
+                        <Check row={r} />
+                      </TableCell>
+                      <TableCell className="py-1.5">
+                        <Decision row={r} />
+                      </TableCell>
+                      <TableCell className="py-1.5 whitespace-nowrap">
+                        <Onyx row={r} />
+                      </TableCell>
+                      <TableCell className="py-1.5 text-right whitespace-nowrap">
+                        <span className="text-muted-foreground text-[11px]">{r.received}</span>
+                      </TableCell>
+                      <TableCell className="py-1.5 pr-3 text-right">
+                        <Button type="button" size="xs" className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                          Scorecard
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </table>
+            </ContextMenuTrigger>
+            <ContextMenuContent className="w-56">
+              {selected.length === 0 ? (
+                <ContextMenuGroup>
+                  <ContextMenuLabel>Select rows to see bulk actions</ContextMenuLabel>
+                </ContextMenuGroup>
+              ) : (
+                <>
+                  <ContextMenuGroup>
+                    <ContextMenuLabel>
+                      {selected.length} {selected.length === 1 ? "application" : "applications"} selected
+                    </ContextMenuLabel>
+                  </ContextMenuGroup>
+                  <ContextMenuItem onClick={() => act("Assigned to an underwriter")}>
+                    <UserPlus />
+                    Assign underwriter
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => act("Marked as reviewed")}>
+                    <CheckCircle2 />
+                    Mark as reviewed
+                  </ContextMenuItem>
+                  <ContextMenuItem onClick={() => act("Exported")}>
+                    <Download />
+                    Export selected
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem variant="destructive" onClick={removeSelected}>
+                    <Trash2 />
+                    Delete
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onClick={() => setSelected([])}>Clear selection</ContextMenuItem>
+                </>
+              )}
+            </ContextMenuContent>
+          </ContextMenu>
 
           <div className="flex flex-col items-stretch justify-between gap-2 pt-1 sm:flex-row sm:items-center">
             <p className="text-muted-foreground text-center text-[11px] sm:text-left" aria-live="polite">
@@ -531,6 +601,7 @@ export function SimplyFundingList() {
                   {" · "}
                 </>
               ) : null}
+              {note ? <>{note} · </> : null}
               Showing {((page - 1) * PAGE_SIZE + 1).toLocaleString("en-US")}–
               {(page * PAGE_SIZE).toLocaleString("en-US")} of {TOTAL.toLocaleString("en-US")}
             </p>
