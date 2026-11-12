@@ -320,7 +320,7 @@ function RowActions({ row, onDelete }: { row: Row; onDelete: () => void }) {
             variant="ghost"
             size="icon"
             aria-label={`Actions for ${row.subject}`}
-            className="text-muted-foreground h-9 w-8"
+            className="text-muted-foreground h-8 w-8"
             onClick={(e) => e.stopPropagation()}
           />
         }
@@ -395,7 +395,7 @@ function SortHead({
   return (
     <TableHead
       aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}
-      className={`h-8 text-[11px] font-medium select-none ${align === "right" ? "text-right" : ""} ${className}`}
+      className={`h-8 px-3 text-[11px] font-medium select-none ${align === "right" ? "text-right" : ""} ${className}`}
     >
       <button
         type="button"
@@ -545,16 +545,16 @@ export function SimplyFundingList() {
               <table className="w-full table-fixed caption-bottom text-[13px]">
                 <colgroup>
                   <col className="w-9" />
-                  <col className="w-[15%]" />
-                  <col className="w-14" />
-                  <col />
-                  <col className="w-20" />
-                  <col className="w-[7.5rem]" />
-                  <col className="w-16" />
-                  <col className="w-[6.5rem]" />
-                  <col className="w-[7.5rem]" />
-                  <col className="w-[7.5rem]" />
-                  <col className="w-10" />
+                  <col className="w-[9.5rem] xl:w-[12rem] 2xl:w-[14rem]" />
+                  <col className="w-[3.75rem]" />
+                  <col className="2xl:w-[22rem]" />
+                  <col className="w-[5.5rem]" />
+                  <col className="w-[6.5rem] xl:w-[8rem]" />
+                  <col className="w-[4.25rem]" />
+                  <col className="w-[6.75rem]" />
+                  <col className="w-[8rem]" />
+                  <col className="w-[8rem]" />
+                  <col className="w-12" />
                 </colgroup>
                 <TableHeader>
                   <TableRow className="border-border/40 hover:bg-transparent">
@@ -575,7 +575,7 @@ export function SimplyFundingList() {
                     <SortHead label="Underwriting" field="underwriting" sort={sort} onSort={sortBy} />
                     <SortHead label="ONYX" field="onyx" sort={sort} onSort={sortBy} />
                     <SortHead label="Received" field="received" sort={sort} onSort={sortBy} align="right" />
-                    <TableHead className="h-8 pr-2">
+                    <TableHead className="h-8 pr-3">
                       <span className="sr-only">Actions</span>
                     </TableHead>
                   </TableRow>
@@ -593,47 +593,47 @@ export function SimplyFundingList() {
                         }
                       }}
                     >
-                      <TableCell className="w-9 py-2.5 pr-0 pl-3">
+                      <TableCell className="w-9 py-2 pr-0 pl-3">
                         <SelectCircle
                           checked={selected.includes(r.id)}
                           onChange={(e) => toggle(r.id, e)}
                           label={`Select ${r.subject}`}
                         />
                       </TableCell>
-                      <TableCell className="py-2.5 overflow-hidden">
+                      <TableCell className="px-3 py-2 overflow-hidden">
                         <p className="truncate text-[13px]" title={r.from}>
                           {r.from}
                         </p>
                       </TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="px-3 py-2">
                         <Files count={r.files} />
                       </TableCell>
-                      <TableCell className="py-2.5 overflow-hidden">
-                        <p className="truncate text-[13px] font-medium" title={r.subject}>
+                      <TableCell className="px-3 py-2 overflow-hidden">
+                        <p className="max-w-[50ch] truncate text-[13px]" title={r.subject}>
                           {r.subject}
                         </p>
                       </TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="px-3 py-2">
                         <span className="block truncate text-[13px]">{r.agent}</span>
                       </TableCell>
-                      <TableCell className="py-2.5 overflow-hidden">
+                      <TableCell className="px-3 py-2 overflow-hidden">
                         <span className="block truncate text-[13px]" title={r.underwriter}>
                           {r.underwriter}
                         </span>
                       </TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="px-3 py-2">
                         <Check row={r} />
                       </TableCell>
-                      <TableCell className="py-2.5">
+                      <TableCell className="px-3 py-2">
                         <Decision row={r} />
                       </TableCell>
-                      <TableCell className="py-2.5 whitespace-nowrap">
+                      <TableCell className="px-3 py-2 whitespace-nowrap">
                         <Onyx row={r} />
                       </TableCell>
-                      <TableCell className="py-2.5 text-right whitespace-nowrap">
+                      <TableCell className="px-3 py-2 text-right whitespace-nowrap">
                         <span className="text-muted-foreground text-[11px]">{r.received}</span>
                       </TableCell>
-                      <TableCell className="py-1 pr-1 text-right">
+                      <TableCell className="py-1 pr-3 pl-1 text-right">
                         <RowActions row={r} onDelete={() => removeRow(r.id)} />
                       </TableCell>
                     </TableRow>
