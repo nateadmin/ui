@@ -9,16 +9,13 @@ import {
   ChevronRight,
   Minus,
   Paperclip,
-  Search,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 /*
  * The applications list layout as it ships in Simply Funding (underwriting):
- * search and count on top, a
- * wide table that scrolls sideways with the Scorecard column pinned right,
+ * a wide table that scrolls sideways with the Scorecard column pinned right,
  * cards on mobile, and Previous / Next under it. This is the starting point
  * for the library's list design; it is a sample, not an exported component.
  * All rows are made-up placeholder data.
@@ -328,16 +325,12 @@ function SortHead({
 const pinned = "sticky right-0 z-10 min-w-[5.5rem] px-3 text-right shadow-[-4px_0_8px_-4px_rgba(0,0,0,0.25)]"
 
 export function SimplyFundingList() {
-  const [q, setQ] = useState("")
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string[]>([])
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "received", dir: "desc" })
   const anchor = useRef<string | null>(null)
 
-  const filtered = rows.filter((r) =>
-    `${r.from} ${r.subject} ${r.agent}`.toLowerCase().includes(q.trim().toLowerCase()),
-  )
-  const shown = [...filtered].sort((a, b) => {
+  const shown = [...rows].sort((a, b) => {
     const va = sortValue(a, sort.key)
     const vb = sortValue(b, sort.key)
     const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb))
@@ -367,39 +360,9 @@ export function SimplyFundingList() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative w-full max-w-md flex-1">
-          <Search className="text-muted-foreground absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2" />
-          <Input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search subject, sender, agent…"
-            aria-label="Search applications"
-            className="h-9 pr-9 pl-9"
-          />
-        </div>
-        <p className="text-muted-foreground shrink-0 text-[11px]" aria-live="polite">
-          {selected.length > 0 ? (
-            <>
-              <span className="text-foreground font-medium">{selected.length} selected</span>
-              {" · "}
-              <button
-                type="button"
-                className="hover:text-foreground underline-offset-2 hover:underline"
-                onClick={() => setSelected([])}
-              >
-                Clear
-              </button>
-            </>
-          ) : (
-            <>{TOTAL.toLocaleString("en-US")} applications</>
-          )}
-        </p>
-      </div>
-
       {shown.length === 0 ? (
         <div className="bg-card rounded-lg border p-12 text-center">
-          <p className="text-muted-foreground text-[13px]">No applications match your search.</p>
+          <p className="text-muted-foreground text-[13px]">No applications to show.</p>
         </div>
       ) : (
         <>
@@ -553,7 +516,21 @@ export function SimplyFundingList() {
           </div>
 
           <div className="flex flex-col items-stretch justify-between gap-2 pt-1 sm:flex-row sm:items-center">
-            <p className="text-muted-foreground text-center text-[11px] sm:text-left">
+            <p className="text-muted-foreground text-center text-[11px] sm:text-left" aria-live="polite">
+              {selected.length > 0 ? (
+                <>
+                  <span className="text-foreground font-medium">{selected.length} selected</span>
+                  {" · "}
+                  <button
+                    type="button"
+                    className="hover:text-foreground underline-offset-2 hover:underline"
+                    onClick={() => setSelected([])}
+                  >
+                    Clear
+                  </button>
+                  {" · "}
+                </>
+              ) : null}
               Showing {((page - 1) * PAGE_SIZE + 1).toLocaleString("en-US")}–
               {(page * PAGE_SIZE).toLocaleString("en-US")} of {TOTAL.toLocaleString("en-US")}
             </p>
