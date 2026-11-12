@@ -1,8 +1,5 @@
 import { useRef, useState, type MouseEvent } from "react"
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   Check as CheckIcon,
   CheckCircle2,
   ChevronLeft,
@@ -297,6 +294,26 @@ function sortValue(r: Row, key: SortKey): string | number {
   }
 }
 
+type Sort = { key: SortKey; dir: "asc" | "desc" } | null
+
+/** Two angular arrows side by side: down on the left, up on the right.
+    Sorting up fills the right arrow, sorting down fills the left one. */
+function SortIcon({ dir }: { dir: "asc" | "desc" | null }) {
+  const arrow = (on: boolean) => ({
+    fill: on ? "currentColor" : "none",
+    stroke: "currentColor",
+    strokeWidth: 1,
+    strokeLinejoin: "round" as const,
+    opacity: on ? 1 : 0.45,
+  })
+  return (
+    <svg aria-hidden="true" viewBox="0 0 12 12" className="size-[11px] shrink-0">
+      <path d="M5 11.25 1 6.75h2V2h2z" {...arrow(dir === "desc")} />
+      <path d="M7 .75 11 5.25H9V10H7z" {...arrow(dir === "asc")} />
+    </svg>
+  )
+}
+
 /** Column title that sorts. The arrows always show: faint when idle, solid on the sorted column. */
 function SortHead({
   label,
@@ -308,16 +325,16 @@ function SortHead({
 }: {
   label: string
   field: SortKey
-  sort: { key: SortKey; dir: "asc" | "desc" }
+  sort: Sort
   onSort: (key: SortKey) => void
   className?: string
   align?: "left" | "right"
 }) {
-  const active = sort.key === field
-  const Icon = active ? (sort.dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown
+  const active = sort?.key === field
+  const dir = active ? sort.dir : null
   return (
     <TableHead
-      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+      aria-sort={dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none"}
       className={`h-8 text-[11px] font-medium select-none ${align === "right" ? "text-right" : ""} ${className}`}
     >
       <button
@@ -328,7 +345,7 @@ function SortHead({
         }`}
       >
         {label}
-        <Icon aria-hidden="true" className={`size-3 ${active ? "" : "opacity-50"}`} />
+        <SortIcon dir={dir} />
       </button>
     </TableHead>
   )
@@ -337,7 +354,7 @@ function SortHead({
 export function SimplyFundingList() {
   const [page, setPage] = useState(1)
   const [selected, setSelected] = useState<string[]>([])
-  const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "received", dir: "desc" })
+  const [sort, setSort] = useState<Sort>(null)
   const anchor = useRef<string | null>(null)
 
   const [data, setData] = useState(rows)
@@ -349,15 +366,21 @@ export function SimplyFundingList() {
     setData((cur) => cur.filter((r) => !selected.includes(r.id)))
     setSelected([])
   }
-  const shown = [...data].sort((a, b) => {
-    const va = sortValue(a, sort.key)
-    const vb = sortValue(b, sort.key)
-    const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb))
-    return sort.dir === "asc" ? cmp : -cmp
-  })
+  // No sort picked: rows stay in their original order.
+  const shown = !sort
+    ? data
+    : [...data].sort((a, b) => {
+        const va = sortValue(a, sort.key)
+        const vb = sortValue(b, sort.key)
+        const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb))
+        return sort.dir === "asc" ? cmp : -cmp
+      })
 
   const sortBy = (key: SortKey) =>
-    setSort((cur) => (cur.key === key ? { key, dir: cur.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }))
+    setSort((cur) => {
+      if (cur?.key !== key) return { key, dir: "asc" }
+      return cur.dir === "asc" ? { key, dir: "desc" } : null
+    })
 
   /* Click selects one row. Shift+click selects (or clears) every row between
      the last clicked row and this one. */
