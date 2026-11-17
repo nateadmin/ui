@@ -63,6 +63,7 @@ Toolbar parts:
 | `ToolbarFilter` | One filter. Use `multiple` unless the choices exclude each other. Over 10 options it becomes a searchable dropdown. The button keeps one width whatever is picked. |
 | `ToolbarFilterDialog` | "Filters" button with a count, opening every filter group in a dialog. Groups up to 8 options show as pills, longer ones as a searchable dropdown (`pillLimit`). |
 | `ToolbarDateRange` | A presets dropdown (Today, Yesterday, This week, Last week, 7 days, This month, Last month, 30 days) plus a DateRangePicker. Presets never show as a row of chips. "Today" follows `timeZone`, America/New_York by default. Weeks start Sunday. |
+| `ToolbarSavedViews` | Named views of a list (filters, search, sort) for interactive browsing. Pick a view, see a dot when filters changed, "Update" the active view, "Save current view as..." with a name, delete views. The app stores views on the user's profile. Not the same as saving a report on a reports page. |
 | `ToolbarExport` | Export button that opens a dropdown to pick the format (CSV or PDF by default; pass `formats` to change). |
 | `ToolbarCount` | Result count text ("6,113 rows"). |
 | `ToolbarActions` | Buttons pinned to the right edge. |

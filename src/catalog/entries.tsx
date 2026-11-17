@@ -11,6 +11,7 @@ import {
   ToolbarExport,
   ToolbarFilter,
   ToolbarFilterDialog,
+  ToolbarSavedViews,
   ToolbarSearch,
   ToolbarTabs,
   ToolbarViews,
@@ -43,9 +44,15 @@ const statusOptions: ToolbarFilterOption[] = [
   { value: "done", label: "Done", color: "#3b82f6" },
 ]
 
+const firstNames = ["Avi", "Bella", "Chaim", "Dina", "Eli", "Faigy", "Gavriel", "Hadassah", "Isaac", "Judith"]
+const lastNames = ["Adler", "Berger", "Cohen", "Dahan", "Edelman", "Feld", "Gold", "Hirsch", "Katz", "Levy"]
+const manyPeople: ToolbarFilterOption[] = firstNames.flatMap((f) =>
+  lastNames.map((l) => ({ value: `${f}-${l}`.toLowerCase(), label: `${f} ${l}` })),
+)
+
 const filterGroups: ToolbarFilterGroup[] = [
   { id: "status", label: "Status", options: statusOptions },
-  { id: "owner", label: "Owner", options: people },
+  { id: "owner", label: "Owner", options: manyPeople },
   {
     id: "priority",
     label: "Priority",
@@ -67,11 +74,6 @@ const filterGroups: ToolbarFilterGroup[] = [
   },
 ]
 
-const firstNames = ["Avi", "Bella", "Chaim", "Dina", "Eli", "Faigy", "Gavriel", "Hadassah", "Isaac", "Judith"]
-const lastNames = ["Adler", "Berger", "Cohen", "Dahan", "Edelman", "Feld", "Gold", "Hirsch", "Katz", "Levy"]
-const manyPeople: ToolbarFilterOption[] = firstNames.flatMap((f) =>
-  lastNames.map((l) => ({ value: `${f}-${l}`.toLowerCase(), label: `${f} ${l}` })),
-)
 const statusWords = [
   "New",
   "Contacted",
@@ -155,9 +157,47 @@ function BoardToolbar() {
   const [owners, setOwners] = useState<string[]>([])
   const [status, setStatus] = useState<string[]>(["active"])
   const [filters, setFilters] = useState<ToolbarFilterValues>({ due: ["week"] })
+
+  // Saved views. In an app these live on the user's profile.
+  type Snapshot = { owners: string[]; status: string[]; filters: ToolbarFilterValues }
+  const [views, setViews] = useState<Array<{ id: string; name: string; snap: Snapshot }>>([
+    { id: "v1", name: "My active projects", snap: { owners: ["me"], status: ["active"], filters: {} } },
+    { id: "v2", name: "At risk this week", snap: { owners: [], status: ["at-risk"], filters: { due: ["week"] } } },
+  ])
+  const [activeView, setActiveView] = useState<string | null>(null)
+  const current: Snapshot = { owners, status, filters }
+  const apply = (snap: Snapshot) => {
+    setOwners(snap.owners)
+    setStatus(snap.status)
+    setFilters(snap.filters)
+  }
+  const blank: Snapshot = { owners: [], status: [], filters: {} }
+  const base = views.find((v) => v.id === activeView)?.snap ?? blank
+  const modified = JSON.stringify(base) !== JSON.stringify(current)
+
   return (
     <div>
       <Toolbar>
+        <ToolbarSavedViews
+          views={views}
+          activeId={activeView}
+          modified={modified}
+          defaultLabel="All projects"
+          onSelect={(id) => {
+            setActiveView(id)
+            apply(views.find((v) => v.id === id)?.snap ?? blank)
+          }}
+          onSave={(name) => {
+            const id = `v${Date.now()}`
+            setViews((cur) => [...cur, { id, name, snap: current }])
+            setActiveView(id)
+          }}
+          onUpdate={(id) => setViews((cur) => cur.map((v) => (v.id === id ? { ...v, snap: current } : v)))}
+          onDelete={(id) => {
+            setViews((cur) => cur.filter((v) => v.id !== id))
+            if (activeView === id) setActiveView(null)
+          }}
+        />
         <ToolbarViews views={twoViews} value={view} onValueChange={setView} />
         <ToolbarSearch placeholder="Search projects" />
         <ToolbarFilter multiple placeholder="Anyone" options={people} values={owners} onValuesChange={setOwners} />

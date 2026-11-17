@@ -2,12 +2,15 @@
 
 import * as React from "react"
 import {
+  BookmarkIcon,
   CalendarRangeIcon,
   ChevronDownIcon,
   DownloadIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
+  SaveIcon,
   SearchIcon,
+  Trash2Icon,
   SlidersHorizontalIcon,
   XIcon,
 } from "lucide-react"
@@ -767,6 +770,154 @@ function activeFilterItems(
   )
 }
 
+/* ---------- Saved views ---------- */
+
+type ToolbarSavedView = { id: string; name: string }
+
+/*
+ * Named snapshots of a list's filters, search and sort, for interactive
+ * viewing. (Saving a report on a reports page is a different feature.)
+ * The app stores views on the user's profile; this only shows them and
+ * reports what the user picked, saved, updated or deleted.
+ */
+function ToolbarSavedViews({
+  views,
+  activeId,
+  modified = false,
+  defaultLabel = "All items",
+  onSelect,
+  onSave,
+  onUpdate,
+  onDelete,
+  className,
+}: {
+  views: ToolbarSavedView[]
+  /** The view in use, or null for the default unfiltered list. */
+  activeId: string | null
+  /** The filters changed since the active view was opened. */
+  modified?: boolean
+  defaultLabel?: string
+  onSelect: (id: string | null) => void
+  onSave: (name: string) => void
+  onUpdate?: (id: string) => void
+  onDelete?: (id: string) => void
+  className?: string
+}) {
+  const [saving, setSaving] = React.useState(false)
+  const [name, setName] = React.useState("")
+  const active = views.find((v) => v.id === activeId)
+  const taken = views.some((v) => v.name.trim().toLowerCase() === name.trim().toLowerCase())
+  const canSave = name.trim().length > 0 && !taken
+
+  const save = () => {
+    if (!canSave) return
+    onSave(name.trim())
+    setName("")
+    setSaving(false)
+  }
+
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="outline"
+              size="lg"
+              data-slot="toolbar-saved-views"
+              className={cn(triggerClass, "max-w-56", className)}
+            />
+          }
+        >
+          <BookmarkIcon aria-hidden="true" />
+          <span className="truncate">{active ? active.name : defaultLabel}</span>
+          {modified ? (
+            <span className="bg-primary size-1.5 shrink-0 rounded-full" aria-label="Unsaved changes" />
+          ) : null}
+          <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-64">
+          <DropdownMenuRadioGroup
+            value={activeId ?? "__default"}
+            onValueChange={(v: unknown) => onSelect(v === "__default" ? null : String(v))}
+          >
+            <DropdownMenuRadioItem value="__default" closeOnClick>
+              {defaultLabel}
+            </DropdownMenuRadioItem>
+            {views.map((v) => (
+              <DropdownMenuRadioItem key={v.id} value={v.id} closeOnClick className="group/view pr-14">
+                <span className="truncate">{v.name}</span>
+                {onDelete ? (
+                  <button
+                    type="button"
+                    aria-label={`Delete view ${v.name}`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDelete(v.id)
+                    }}
+                    className="text-muted-foreground hover:text-destructive absolute right-7 flex size-6 items-center justify-center rounded opacity-0 group-hover/view:opacity-100 focus-visible:opacity-100"
+                  >
+                    <Trash2Icon className="size-3.5" />
+                  </button>
+                ) : null}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+          <DropdownMenuSeparator />
+          {active && modified && onUpdate ? (
+            <DropdownMenuItem onClick={() => onUpdate(active.id)}>
+              <SaveIcon />
+              Update "{active.name}"
+            </DropdownMenuItem>
+          ) : null}
+          <DropdownMenuItem onClick={() => setSaving(true)}>
+            <BookmarkIcon />
+            Save current view as...
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <Dialog open={saving} onOpenChange={setSaving}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Save view</DialogTitle>
+            <DialogDescription>
+              Saves the current filters, search and sort under a name you can pick later.
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              save()
+            }}
+            className="space-y-1.5"
+          >
+            <label htmlFor="toolbar-view-name" className="text-sm font-medium">
+              Name
+            </label>
+            <Input
+              id="toolbar-view-name"
+              autoFocus
+              value={name}
+              maxLength={60}
+              placeholder="For example: My open deals"
+              onChange={(e) => setName(e.target.value)}
+              aria-invalid={taken || undefined}
+            />
+            {taken ? <p className="text-destructive text-xs">A view with this name already exists.</p> : null}
+          </form>
+          <DialogFooter>
+            <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
+            <Button disabled={!canSave} onClick={save}>
+              Save view
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
 /* ---------- Export ---------- */
 
 type ToolbarExportFormat = { value: string; label: string; description?: string }
@@ -833,6 +984,7 @@ export {
   ToolbarExport,
   ToolbarFilter,
   ToolbarFilterDialog,
+  ToolbarSavedViews,
   ToolbarSearch,
   ToolbarTabs,
   ToolbarViews,
@@ -841,6 +993,7 @@ export {
 }
 export type {
   ToolbarActiveFilter,
+  ToolbarSavedView,
   ToolbarExportFormat,
   ToolbarDatePreset,
   ToolbarDateRangeValue,
