@@ -42,6 +42,7 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | Toolbar | The bar on top of a list, table, or board. Parts below. Include only the parts a page needs. Wraps on narrow screens. |
 | MultiSelect | Searchable checkbox dropdown for long lists (people, statuses). |
 | DatePicker | Calendar in a popover, shows mm/dd/yyyy, optional label and min/max. |
+| DateRangePicker | One field for a start and end date. Opens two months side by side (one on phones), like an airline site: first click sets the start, second the end, hover previews the range. |
 | Button | Variants: default, outline, secondary, ghost, destructive, link |
 | Input | Text input |
 | Table | Table primitives: header, body, row, head, cell, footer, caption |
@@ -61,7 +62,8 @@ Toolbar parts:
 | `ToolbarSearch` | Search box that fills the free space. |
 | `ToolbarFilter` | One filter. Use `multiple` unless the choices exclude each other. Over 10 options it becomes a searchable dropdown. The button keeps one width whatever is picked. |
 | `ToolbarFilterDialog` | "Filters" button with a count, opening every filter group in a dialog. Groups up to 8 options show as pills, longer ones as a searchable dropdown (`pillLimit`). |
-| `ToolbarDateRange` | A presets dropdown (Today, Yesterday, This week, Last week, 7 days, This month, Last month, 30 days) plus From and To pickers. Presets never show as a row of chips. "Today" follows `timeZone`, America/New_York by default. Weeks start Sunday. |
+| `ToolbarDateRange` | A presets dropdown (Today, Yesterday, This week, Last week, 7 days, This month, Last month, 30 days) plus a DateRangePicker. Presets never show as a row of chips. "Today" follows `timeZone`, America/New_York by default. Weeks start Sunday. |
+| `ToolbarExport` | Export button that opens a dropdown to pick the format (CSV or PDF by default; pass `formats` to change). |
 | `ToolbarCount` | Result count text ("6,113 rows"). |
 | `ToolbarActions` | Buttons pinned to the right edge. |
 | `ToolbarActiveFilters` | Applied filters as removable chips under the bar, with Clear all. Hidden when nothing is applied. |

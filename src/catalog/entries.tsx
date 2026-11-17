@@ -1,14 +1,5 @@
 import { useState, type ReactNode } from "react"
-import {
-  CalendarDays,
-  ChevronDown,
-  ChevronsUpDown,
-  Download,
-  GanttChart,
-  LayoutGrid,
-  List,
-  Plus,
-} from "lucide-react"
+import { CalendarDays, ChevronDown, ChevronsUpDown, Download, GanttChart, LayoutGrid, List, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -17,6 +8,7 @@ import {
   ToolbarActiveFilters,
   ToolbarCount,
   ToolbarDateRange,
+  ToolbarExport,
   ToolbarFilter,
   ToolbarFilterDialog,
   ToolbarSearch,
@@ -375,6 +367,7 @@ function SearchCountActionToolbar() {
 }
 
 function ReportsMenuToolbar() {
+  const [exported, setExported] = useState("")
   return (
     <Toolbar>
       <DropdownMenu>
@@ -392,12 +385,9 @@ function ReportsMenuToolbar() {
         Save as report
       </Button>
       <ToolbarSearch placeholder="Filter rows" />
-      <ToolbarCount>6,113 rows total</ToolbarCount>
+      <ToolbarCount>{exported ? `Exporting ${exported.toUpperCase()}…` : "6,113 rows total"}</ToolbarCount>
       <ToolbarActions>
-        <Button size="lg">
-          <Download />
-          Export
-        </Button>
+        <ToolbarExport onExport={setExported} />
       </ToolbarActions>
     </Toolbar>
   )
@@ -445,7 +435,11 @@ export const catalog: CatalogEntry[] = [
     id: "list",
     name: "List",
     examples: [
-      { name: "Applications list, current layout (placeholder data)", render: () => <SimplyFundingList />, minHeight: 640 },
+      {
+        name: "Applications list, current layout (placeholder data)",
+        render: () => <SimplyFundingList />,
+        minHeight: 640,
+      },
     ],
   },
   {

@@ -1,7 +1,16 @@
 "use client"
 
 import * as React from "react"
-import { CalendarRangeIcon, ChevronDownIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "lucide-react"
+import {
+  CalendarRangeIcon,
+  ChevronDownIcon,
+  DownloadIcon,
+  FileSpreadsheetIcon,
+  FileTextIcon,
+  SearchIcon,
+  SlidersHorizontalIcon,
+  XIcon,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -24,7 +33,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DatePicker } from "@/components/ui/date-picker"
+import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { Input } from "@/components/ui/input"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -380,24 +389,7 @@ function ToolbarDateRange({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-      <DatePicker
-        label="From"
-        placeholder="Any"
-        size="lg"
-        className="w-44"
-        value={value.from}
-        max={value.to}
-        onChange={(from) => onValueChange({ ...value, from })}
-      />
-      <DatePicker
-        label="To"
-        placeholder="Any"
-        size="lg"
-        className="w-40"
-        value={value.to}
-        min={value.from}
-        onChange={(to) => onValueChange({ ...value, to })}
-      />
+      <DateRangePicker value={value} onChange={onValueChange} />
     </div>
   )
 }
@@ -775,6 +767,51 @@ function activeFilterItems(
   )
 }
 
+/* ---------- Export ---------- */
+
+type ToolbarExportFormat = { value: string; label: string; description?: string }
+
+const DEFAULT_EXPORT_FORMATS: ToolbarExportFormat[] = [
+  { value: "csv", label: "CSV", description: "Spreadsheet for Excel or Sheets" },
+  { value: "pdf", label: "PDF", description: "Printable document" },
+]
+
+/** Export button that asks which format before exporting. */
+function ToolbarExport({
+  onExport,
+  formats = DEFAULT_EXPORT_FORMATS,
+  label = "Export",
+  className,
+}: {
+  onExport: (format: string) => void
+  formats?: ToolbarExportFormat[]
+  label?: string
+  className?: string
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={<Button size="lg" data-slot="toolbar-export" className={cn("shrink-0 gap-2", className)} />}
+      >
+        <DownloadIcon aria-hidden="true" />
+        {label}
+        <ChevronDownIcon aria-hidden="true" className="opacity-70" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-60">
+        {formats.map((f) => (
+          <DropdownMenuItem key={f.value} onClick={() => onExport(f.value)} className="items-start py-1.5">
+            {f.value === "pdf" ? <FileTextIcon className="mt-0.5" /> : <FileSpreadsheetIcon className="mt-0.5" />}
+            <span className="flex flex-col">
+              <span className="font-medium">{f.label}</span>
+              {f.description ? <span className="text-muted-foreground text-xs">{f.description}</span> : null}
+            </span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /* ---------- Actions ---------- */
 
 function ToolbarActions({ className, ...props }: React.ComponentProps<"div">) {
@@ -793,6 +830,7 @@ export {
   ToolbarActiveFilters,
   ToolbarCount,
   ToolbarDateRange,
+  ToolbarExport,
   ToolbarFilter,
   ToolbarFilterDialog,
   ToolbarSearch,
@@ -803,6 +841,7 @@ export {
 }
 export type {
   ToolbarActiveFilter,
+  ToolbarExportFormat,
   ToolbarDatePreset,
   ToolbarDateRangeValue,
   ToolbarTab,
