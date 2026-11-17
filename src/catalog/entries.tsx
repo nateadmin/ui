@@ -1,10 +1,9 @@
-import { useState, type ReactNode } from "react"
-import { CalendarDays, Check, ChevronDown, GanttChart, LayoutGrid, List, Plus } from "lucide-react"
+import { Fragment, useState, type ReactNode } from "react"
+import { CalendarDays, Check, ChevronDown, GanttChart, GripVertical, LayoutGrid, List, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   Toolbar,
-  ToolbarActions,
   ToolbarActiveFilters,
   ToolbarCount,
   ToolbarDateRange,
@@ -97,8 +96,8 @@ function chipsFor(label: string, options: ToolbarFilterOption[], values: string[
 
 /* ---------- Toolbar builder ---------- */
 
-/* One toolbar. Switch parts on and off and they drop into place, in the
-   order the toolbar always uses, so the toolbar reads as one component. */
+/* One toolbar. Switch parts on and off, then drag them (or use the arrow
+   keys) to set the order they sit in. */
 
 type PartKey =
   | "savedViews"
@@ -113,6 +112,7 @@ type PartKey =
   | "reports"
   | "export"
   | "primary"
+  | "spacer"
   | "chips"
 
 const PARTS: Array<{ key: PartKey; label: string }> = [
@@ -128,16 +128,67 @@ const PARTS: Array<{ key: PartKey; label: string }> = [
   { key: "reports", label: "Report actions" },
   { key: "export", label: "Export" },
   { key: "primary", label: "Primary button" },
+  { key: "spacer", label: "Push right" },
   { key: "chips", label: "Applied filter chips" },
 ]
 
-const DEFAULT_PARTS: PartKey[] = ["savedViews", "views", "search", "filterShort", "filtersDialog", "primary", "chips"]
+const partLabel = (k: PartKey) => PARTS.find((p) => p.key === k)?.label ?? k
+
+/* Default order. "Push right" is a spacer: parts after it sit at the right edge. */
+const DEFAULT_ORDER: PartKey[] = [
+  "savedViews",
+  "reports",
+  "views",
+  "search",
+  "statusTabs",
+  "filterShort",
+  "filterLong",
+  "filtersDialog",
+  "dateRange",
+  "count",
+  "spacer",
+  "export",
+  "primary",
+]
+
+const DEFAULT_PARTS: PartKey[] = [
+  "savedViews",
+  "views",
+  "search",
+  "filterShort",
+  "filtersDialog",
+  "spacer",
+  "primary",
+  "chips",
+]
 
 function ToolbarBuilder() {
   const [on, setOn] = useState<PartKey[]>(DEFAULT_PARTS)
   const [viewCount, setViewCount] = useState<2 | 4>(2)
   const has = (k: PartKey) => on.includes(k)
   const flip = (k: PartKey) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
+
+  // Order of the parts on the bar. Drag a chip onto another to move it there.
+  const [order, setOrder] = useState<PartKey[]>(DEFAULT_ORDER)
+  const [dragging, setDragging] = useState<PartKey | null>(null)
+  const [over, setOver] = useState<PartKey | null>(null)
+  const placed = order.filter(has)
+  const move = (from: PartKey, to: PartKey) => {
+    if (from === to) return
+    setOrder((cur) => {
+      const next = cur.filter((k) => k !== from)
+      const at = next.indexOf(to)
+      const fromIdx = cur.indexOf(from)
+      const toIdx = cur.indexOf(to)
+      next.splice(fromIdx < toIdx ? at + 1 : at, 0, from)
+      return next
+    })
+  }
+  const nudge = (k: PartKey, dir: -1 | 1) => {
+    const i = placed.indexOf(k)
+    const target = placed[i + dir]
+    if (target) move(k, target)
+  }
 
   const [view, setView] = useState("board")
   const [tab, setTab] = useState("active")
@@ -173,6 +224,118 @@ function ToolbarBuilder() {
     ...(has("filterLong") ? chipsFor("Owner", manyPeople, owners, setOwners) : []),
     ...(has("filtersDialog") ? activeFilterItems(filterGroups, filters, setFilters) : []),
   ]
+
+  const renderPart = (k: PartKey): ReactNode => {
+    switch (k) {
+      case "savedViews":
+        return (
+          <ToolbarSavedViews
+            views={views}
+            activeId={activeView}
+            modified={modified}
+            defaultLabel="All projects"
+            onSelect={(id) => {
+              setActiveView(id)
+              apply(views.find((v) => v.id === id)?.snap ?? blank)
+            }}
+            onSave={(name) => {
+              const id = `v${Date.now()}`
+              setViews((cur) => [...cur, { id, name, snap: current }])
+              setActiveView(id)
+            }}
+            onUpdate={(id) => setViews((cur) => cur.map((v) => (v.id === id ? { ...v, snap: current } : v)))}
+            onDelete={(id) => {
+              setViews((cur) => cur.filter((v) => v.id !== id))
+              if (activeView === id) setActiveView(null)
+            }}
+          />
+        )
+      case "reports":
+        return (
+          <>
+            <DropdownMenu>
+              <DropdownMenuTrigger render={<Button variant="outline" size="lg" className="gap-2 font-normal" />}>
+                Reports
+                <ChevronDown className="text-muted-foreground" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem>Funded this month</DropdownMenuItem>
+                <DropdownMenuItem>Defaults by ISO</DropdownMenuItem>
+                <DropdownMenuItem>Renewals due</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button variant="outline" size="lg" className="font-normal">
+              Save as report
+            </Button>
+          </>
+        )
+      case "views":
+        return (
+          <ToolbarViews
+            views={(viewCount === 2 ? twoViews : fourViews).map((v) => ({ ...v }))}
+            value={view}
+            onValueChange={setView}
+          />
+        )
+      case "search":
+        return <ToolbarSearch placeholder="Search projects" />
+      case "statusTabs":
+        return (
+          <ToolbarTabs
+            stretch={!has("search")}
+            value={tab}
+            onValueChange={setTab}
+            tabs={[
+              { value: "active", label: "Active", count: 128 },
+              { value: "monitor", label: "Monitor", count: 41 },
+              { value: "success", label: "Success", count: 312 },
+              { value: "defaulted", label: "Defaulted", count: 17 },
+            ]}
+          />
+        )
+      case "filterShort":
+        return (
+          <ToolbarFilter
+            multiple
+            label="Status"
+            placeholder="Any"
+            options={statusOptions}
+            values={status}
+            onValuesChange={setStatus}
+          />
+        )
+      case "filterLong":
+        return (
+          <ToolbarFilter
+            multiple
+            label="Owner"
+            placeholder="Anyone"
+            options={manyPeople}
+            values={owners}
+            onValuesChange={setOwners}
+          />
+        )
+      case "filtersDialog":
+        return <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
+      case "dateRange":
+        return <ToolbarDateRange value={range} onValueChange={setRange} />
+      case "count":
+        return <ToolbarCount>{exported ? `Exporting ${exported.toUpperCase()}...` : "1,240 projects"}</ToolbarCount>
+      case "export":
+        return <ToolbarExport onExport={setExported} />
+      case "primary":
+        return (
+          <Button size="lg">
+            <Plus />
+            New project
+          </Button>
+        )
+      case "spacer":
+        return <div aria-hidden="true" className="flex-1" />
+      default:
+        return null
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -219,6 +382,71 @@ function ToolbarBuilder() {
             ))}
           </div>
         ) : null}
+        {placed.length > 1 ? (
+          <div className="space-y-2 pt-2">
+            <div className="flex items-center gap-3">
+              <p className="text-muted-foreground text-xs font-medium">Order on the toolbar</p>
+              <span className="text-muted-foreground text-xs">
+                Drag to rearrange, or focus one and use the arrow keys.
+              </span>
+              <Button
+                type="button"
+                variant="link"
+                size="xs"
+                className="text-muted-foreground ml-auto px-0 font-normal"
+                onClick={() => setOrder(DEFAULT_ORDER)}
+              >
+                Reset order
+              </Button>
+            </div>
+            <ol aria-label="Order of parts on the toolbar" className="m-0 flex list-none flex-wrap gap-2 p-0">
+              {placed.map((k, i) => (
+                <li
+                  key={k}
+                  draggable
+                  tabIndex={0}
+                  aria-label={`${partLabel(k)}, position ${i + 1} of ${placed.length}`}
+                  onDragStart={(e) => {
+                    setDragging(k)
+                    e.dataTransfer.effectAllowed = "move"
+                    e.dataTransfer.setData("text/plain", k)
+                  }}
+                  onDragEnd={() => {
+                    setDragging(null)
+                    setOver(null)
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault()
+                    if (over !== k) setOver(k)
+                  }}
+                  onDragLeave={() => setOver((cur) => (cur === k ? null : cur))}
+                  onDrop={(e) => {
+                    e.preventDefault()
+                    if (dragging) move(dragging, k)
+                    setDragging(null)
+                    setOver(null)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+                      e.preventDefault()
+                      nudge(k, -1)
+                    } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+                      e.preventDefault()
+                      nudge(k, 1)
+                    }
+                  }}
+                  className={`bg-card focus-visible:ring-ring/50 flex h-8 cursor-grab items-center gap-1.5 rounded-lg border pr-3 pl-1.5 text-sm outline-none select-none focus-visible:ring-2 active:cursor-grabbing ${
+                    dragging === k ? "opacity-40" : ""
+                  } ${over === k && dragging && dragging !== k ? "border-foreground/60 bg-muted" : ""}`}
+                >
+                  <GripVertical aria-hidden="true" className="text-muted-foreground size-3.5" />
+                  <span className="text-muted-foreground w-3 text-xs tabular-nums">{i + 1}</span>
+                  {partLabel(k)}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ) : null}
       </div>
 
       <div>
@@ -228,105 +456,10 @@ function ToolbarBuilder() {
           </p>
         ) : (
           <Toolbar>
-            {has("savedViews") ? (
-              <ToolbarSavedViews
-                views={views}
-                activeId={activeView}
-                modified={modified}
-                defaultLabel="All projects"
-                onSelect={(id) => {
-                  setActiveView(id)
-                  apply(views.find((v) => v.id === id)?.snap ?? blank)
-                }}
-                onSave={(name) => {
-                  const id = `v${Date.now()}`
-                  setViews((cur) => [...cur, { id, name, snap: current }])
-                  setActiveView(id)
-                }}
-                onUpdate={(id) => setViews((cur) => cur.map((v) => (v.id === id ? { ...v, snap: current } : v)))}
-                onDelete={(id) => {
-                  setViews((cur) => cur.filter((v) => v.id !== id))
-                  if (activeView === id) setActiveView(null)
-                }}
-              />
-            ) : null}
-            {has("reports") ? (
-              <>
-                <DropdownMenu>
-                  <DropdownMenuTrigger render={<Button variant="outline" size="lg" className="gap-2 font-normal" />}>
-                    Reports
-                    <ChevronDown className="text-muted-foreground" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem>Funded this month</DropdownMenuItem>
-                    <DropdownMenuItem>Defaults by ISO</DropdownMenuItem>
-                    <DropdownMenuItem>Renewals due</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button variant="outline" size="lg" className="font-normal">
-                  Save as report
-                </Button>
-              </>
-            ) : null}
-            {has("views") ? (
-              <ToolbarViews
-                views={(viewCount === 2 ? twoViews : fourViews).map((v) => ({ ...v }))}
-                value={view}
-                onValueChange={setView}
-              />
-            ) : null}
-            {has("search") ? <ToolbarSearch placeholder="Search projects" /> : null}
-            {has("statusTabs") ? (
-              <ToolbarTabs
-                stretch={!has("search")}
-                value={tab}
-                onValueChange={setTab}
-                tabs={[
-                  { value: "active", label: "Active", count: 128 },
-                  { value: "monitor", label: "Monitor", count: 41 },
-                  { value: "success", label: "Success", count: 312 },
-                  { value: "defaulted", label: "Defaulted", count: 17 },
-                ]}
-              />
-            ) : null}
-            {has("filterShort") ? (
-              <ToolbarFilter
-                multiple
-                label="Status"
-                placeholder="Any"
-                options={statusOptions}
-                values={status}
-                onValuesChange={setStatus}
-              />
-            ) : null}
-            {has("filterLong") ? (
-              <ToolbarFilter
-                multiple
-                label="Owner"
-                placeholder="Anyone"
-                options={manyPeople}
-                values={owners}
-                onValuesChange={setOwners}
-              />
-            ) : null}
-            {has("filtersDialog") ? (
-              <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
-            ) : null}
-            {has("dateRange") ? <ToolbarDateRange value={range} onValueChange={setRange} /> : null}
-            {has("count") ? (
-              <ToolbarCount>{exported ? `Exporting ${exported.toUpperCase()}...` : "1,240 projects"}</ToolbarCount>
-            ) : null}
-            {has("export") || has("primary") ? (
-              <ToolbarActions>
-                {has("export") ? <ToolbarExport onExport={setExported} /> : null}
-                {has("primary") ? (
-                  <Button size="lg">
-                    <Plus />
-                    New project
-                  </Button>
-                ) : null}
-              </ToolbarActions>
-            ) : null}
+            {placed.map((k) => {
+              const node = renderPart(k)
+              return node ? <Fragment key={k}>{node}</Fragment> : null
+            })}
           </Toolbar>
         )}
         {has("chips") ? (

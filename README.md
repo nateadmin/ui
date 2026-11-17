@@ -71,7 +71,7 @@ Toolbar parts:
 
 All dropdown triggers on the toolbar follow one width rule: as wide as their longest possible text so they never jump on select, capped at 15rem with "…" for longer text.
 
-In the catalog, the Toolbar page is a builder: switch parts on and off and they drop into place in the toolbar's fixed order.
+In the catalog, the Toolbar page is a builder: switch parts on and off, then drag them (or focus one and use the arrow keys) to set their order. "Push right" is a spacer: parts after it sit at the right edge. Every toolbar dropdown opens left-aligned under its button.
 
 Rule of thumb: a filter is multi-select whenever picking two values makes sense (people, statuses, services, priorities). Single-select is only for choices that exclude each other (views, status tabs, sort order).
 

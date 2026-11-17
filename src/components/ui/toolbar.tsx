@@ -954,7 +954,7 @@ function ToolbarExport({
         {label}
         <ChevronDownIcon aria-hidden="true" className="opacity-70" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-60">
+      <DropdownMenuContent align="start" className="w-auto">
         {formats.map((f) => (
           <DropdownMenuItem key={f.value} onClick={() => onExport(f.value)} className="items-start py-1.5">
             {f.value === "pdf" ? <FileTextIcon className="mt-0.5" /> : <FileSpreadsheetIcon className="mt-0.5" />}
