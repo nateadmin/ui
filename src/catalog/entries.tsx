@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/toolbar"
 
 import { SimplyFundingList } from "./list-sample"
+import { ListBuilder } from "./list-builder"
 
 export type CatalogExample = { name: string; render: () => ReactNode; minHeight?: number }
 export type CatalogEntry = { id: string; name: string; examples: CatalogExample[] }
@@ -481,6 +482,7 @@ export const catalog: CatalogEntry[] = [
     id: "list",
     name: "List",
     examples: [
+      { name: "Build a list: turn columns and parts on and off", render: () => <ListBuilder />, minHeight: 980 },
       {
         name: "Applications list, current layout (placeholder data)",
         // The list fills the height it is given; here a 640px box stands in for the page.
