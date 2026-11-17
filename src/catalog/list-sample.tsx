@@ -1,4 +1,4 @@
-import { useRef, useState, type MouseEvent } from "react"
+import { useEffect, useRef, useState, type MouseEvent } from "react"
 import {
   Check as CheckIcon,
   CheckCircle2,
@@ -50,7 +50,7 @@ type Row = {
   received: string
 }
 
-const rows: Row[] = [
+const baseRows: Row[] = [
   {
     id: "1",
     from: "intake@northbrokers.example",
@@ -185,7 +185,28 @@ const rows: Row[] = [
   },
 ]
 
-const TOTAL = 1240
+/* 2,000 placeholder rows built from the ones above, so the sample shows how
+   the list behaves with a big page. Each copy gets its own id and a received
+   time 9 minutes earlier than the one before. */
+const SAMPLE_SIZE = 2000
+
+function stampText(ms: number): string {
+  const d = new Date(ms)
+  const h = d.getUTCHours()
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}/${String(d.getUTCFullYear()).slice(2)}, ${h % 12 || 12}:${pad(d.getUTCMinutes())} ${h < 12 ? "AM" : "PM"}`
+}
+
+const rows: Row[] = Array.from({ length: SAMPLE_SIZE }, (_, i) => {
+  const base = baseRows[i % baseRows.length]!
+  const received = Date.UTC(2026, 10, 17, 18, 0) - i * 9 * 60_000
+  return {
+    ...base,
+    id: String(i + 1),
+    received: stampText(received),
+    onyx: base.onyx ? stampText(received + 3 * 60_000) : null,
+  }
+})
 
 const decisionLabel = { APPROVE: "Approve", DECLINE: "Decline", REVIEW: "Review" }
 const decisionClass = {
@@ -440,6 +461,20 @@ export function SimplyFundingList() {
         return sort.dir === "asc" ? cmp : -cmp
       })
 
+  // Only the current page is drawn. The page is clamped when rows are deleted or the page size grows.
+  const total = shown.length
+  const pageCount = Math.max(1, Math.ceil(total / pageSize))
+  const current = Math.min(page, pageCount)
+  const pageRows = shown.slice((current - 1) * pageSize, current * pageSize)
+
+  // A new page starts at the top of the list window.
+  const desktopScroll = useRef<HTMLDivElement>(null)
+  const mobileScroll = useRef<HTMLUListElement>(null)
+  useEffect(() => {
+    desktopScroll.current?.scrollTo({ top: 0 })
+    mobileScroll.current?.scrollTo({ top: 0 })
+  }, [current, pageSize, sort])
+
   const sortBy = (key: SortKey) =>
     setSort((cur) => {
       if (cur?.key !== key) return { key, dir: "asc" }
@@ -450,7 +485,7 @@ export function SimplyFundingList() {
      the last clicked row and this one. */
   const toggle = (id: string, event: MouseEvent) => {
     const turnOn = !selected.includes(id)
-    const ids = shown.map((r) => r.id)
+    const ids = pageRows.map((r) => r.id)
     const from = anchor.current ? ids.indexOf(anchor.current) : -1
     const to = ids.indexOf(id)
     const range = event.shiftKey && from !== -1 ? ids.slice(Math.min(from, to), Math.max(from, to) + 1) : [id]
@@ -458,22 +493,28 @@ export function SimplyFundingList() {
     anchor.current = id
   }
 
-  const shownIds = shown.map((r) => r.id)
+  const shownIds = pageRows.map((r) => r.id)
   const pickedShown = shownIds.filter((id) => selected.includes(id)).length
-  const allPicked = shown.length > 0 && pickedShown === shown.length
+  const allPicked = pageRows.length > 0 && pickedShown === pageRows.length
   const toggleAll = () =>
     setSelected((cur) => (allPicked ? cur.filter((id) => !shownIds.includes(id)) : [...new Set([...cur, ...shownIds])]))
 
   return (
-    <div className="space-y-3">
+    /* The list fills the height its parent gives it. Rows scroll inside their own
+       window (no visible scrollbar) with the column titles pinned on top, so the
+       page itself doesn't scroll and the footer always stays in view. */
+    <div className="flex h-full min-h-0 flex-col gap-3">
       {shown.length === 0 ? (
         <div className="bg-card rounded-lg border border-border/40 p-12 text-center">
           <p className="text-muted-foreground text-[13px]">No applications to show.</p>
         </div>
       ) : (
         <>
-          <ul className="m-0 grid list-none gap-2 p-0 lg:hidden">
-            {shown.map((r) => (
+          <ul
+            ref={mobileScroll}
+            className="m-0 grid min-h-0 flex-1 list-none content-start gap-2 overflow-y-auto overscroll-contain p-0 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden"
+          >
+            {pageRows.map((r) => (
               <li key={r.id}>
                 <div
                   role="button"
@@ -538,7 +579,10 @@ export function SimplyFundingList() {
           <ContextMenu>
             <ContextMenuTrigger
               render={
-                <div className="bg-card hidden overflow-hidden rounded-lg border border-border/40 select-auto lg:block" />
+                <div
+                  ref={desktopScroll}
+                  className="bg-card hidden min-h-0 flex-1 overflow-y-auto overscroll-contain rounded-lg border border-border/40 select-auto [scrollbar-width:none] lg:block [&::-webkit-scrollbar]:hidden"
+                />
               }
             >
               {/* A CSS grid, not a <table>: every column sizes to its widest value and
@@ -552,7 +596,7 @@ export function SimplyFundingList() {
               >
                 <div
                   role="row"
-                  className="border-border/40 col-span-full grid h-8 grid-cols-subgrid items-center border-b px-3"
+                  className="bg-card border-border/40 sticky top-0 z-10 col-span-full grid h-8 grid-cols-subgrid items-center border-b px-3"
                 >
                   <div role="columnheader">
                     <SelectCircle
@@ -575,7 +619,7 @@ export function SimplyFundingList() {
                     <span className="sr-only">Actions</span>
                   </div>
                 </div>
-                {shown.map((r) => (
+                {pageRows.map((r) => (
                   <div
                     key={r.id}
                     role="row"
@@ -667,9 +711,9 @@ export function SimplyFundingList() {
           </ContextMenu>
 
           <ListPagination
-            page={page}
+            page={current}
             pageSize={pageSize}
-            total={TOTAL}
+            total={total}
             onPageChange={setPage}
             onPageSizeChange={setPageSize}
             status={

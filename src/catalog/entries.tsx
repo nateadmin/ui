@@ -483,7 +483,12 @@ export const catalog: CatalogEntry[] = [
     examples: [
       {
         name: "Applications list, current layout (placeholder data)",
-        render: () => <SimplyFundingList />,
+        // The list fills the height it is given; here a 640px box stands in for the page.
+        render: () => (
+          <div className="h-[640px]">
+            <SimplyFundingList />
+          </div>
+        ),
         minHeight: 640,
       },
     ],

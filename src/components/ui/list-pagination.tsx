@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 /*
- * The footer under a list: page size on the left, "Showing x–y of total" in the
+ * The footer under a list: page size on the left, "Showing x-y of total" in the
  * middle, and page controls on the right. The page number is a field: type any
  * page and press Enter (or leave the field) to jump there; the buttons still work.
  *
@@ -179,7 +179,7 @@ function ListPagination({
       </div>
       <p className="text-muted-foreground text-center text-[11px] tabular-nums" aria-live="polite">
         {status}
-        Showing {fmt(first)}–{fmt(last)} of {fmt(total)}
+        Showing {fmt(first)}-{fmt(last)} of {fmt(total)}
       </p>
       <nav aria-label="Pages" className="flex items-center gap-2 sm:justify-self-end">
         <Button
