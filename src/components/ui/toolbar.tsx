@@ -896,7 +896,7 @@ function ToolbarSavedViews({
               e.preventDefault()
               save()
             }}
-            className="space-y-1.5"
+            className="flex flex-col gap-2"
           >
             <label htmlFor="toolbar-view-name" className="text-sm font-medium">
               Name
