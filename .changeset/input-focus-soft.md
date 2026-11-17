@@ -2,4 +2,4 @@
 "@nateadmin/ui": patch
 ---
 
-Input: softer focus outline. The halo drops from 3px at 50% strength to 2px at 20%, and the border darkens less.
+Input: focus no longer changes the border color. Focus shows only a soft glow in the text color (dark in light mode, light in dark mode) instead of shadcn's thick gray ring.
