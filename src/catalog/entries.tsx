@@ -330,7 +330,7 @@ function ToolbarBuilder() {
           </Button>
         )
       case "spacer":
-        return <div aria-hidden="true" className="flex-1" />
+        return <div aria-hidden="true" className="-mr-2 ml-auto" />
       default:
         return null
     }

@@ -836,13 +836,20 @@ function ToolbarSavedViews({
           }
         >
           <BookmarkIcon aria-hidden="true" />
-          <StableLabel
-            active={activeId ?? "__default"}
-            items={[
-              { key: "__default", node: withLabel("View", defaultLabel) },
-              ...views.map((v) => ({ key: v.id, node: withLabel("View", v.name) })),
-            ]}
-          />
+          {/* Saved view names are typed by people and can be any length, so the
+              trigger is sized to the default name only; longer names are cut
+              with "..." and shown in full on hover. */}
+          <span
+            className="relative flex min-w-0 text-left"
+            title={activeId ? views.find((v) => v.id === activeId)?.name : undefined}
+          >
+            <span aria-hidden="true" className="invisible flex">
+              {withLabel("View", defaultLabel)}
+            </span>
+            <span className="absolute inset-0 flex min-w-0 overflow-hidden">
+              {withLabel("View", (activeId && views.find((v) => v.id === activeId)?.name) || defaultLabel)}
+            </span>
+          </span>
           <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-w-72">
