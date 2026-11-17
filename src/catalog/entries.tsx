@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react"
-import { CalendarDays, ChevronDown, ChevronsUpDown, Download, GanttChart, LayoutGrid, List, Plus } from "lucide-react"
+import { CalendarDays, Check, ChevronDown, GanttChart, LayoutGrid, List, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -74,50 +74,6 @@ const filterGroups: ToolbarFilterGroup[] = [
   },
 ]
 
-const statusWords = [
-  "New",
-  "Contacted",
-  "Qualified",
-  "Docs requested",
-  "Docs received",
-  "In review",
-  "Underwriting",
-  "Approved",
-  "Offer sent",
-  "Offer accepted",
-  "Contracts out",
-  "Contracts in",
-  "Funded",
-  "Active",
-  "Monitor",
-  "Late",
-  "Bounced",
-  "Promise to pay",
-  "Payment plan",
-  "Settled",
-  "Paid off",
-  "Renewal",
-  "Declined",
-  "Withdrawn",
-  "Duplicate",
-  "On hold",
-  "Escalated",
-  "Legal",
-  "Defaulted",
-  "Closed",
-]
-const palette = ["#22c55e", "#f59e0b", "#3b82f6", "#a855f7", "#ef4444", "#14b8a6"]
-const manyStatuses: ToolbarFilterOption[] = statusWords.map((label, i) => ({
-  value: label.toLowerCase().replace(/\s+/g, "-"),
-  label,
-  color: palette[i % palette.length],
-}))
-const bigGroups: ToolbarFilterGroup[] = [
-  { id: "status", label: "Status", options: manyStatuses },
-  { id: "owner", label: "Owner", options: manyPeople },
-  filterGroups[2]!,
-]
-
 const twoViews = [
   { value: "board", label: "Board", icon: <LayoutGrid /> },
   { value: "list", label: "List", icon: <List /> },
@@ -139,334 +95,252 @@ function chipsFor(label: string, options: ToolbarFilterOption[], values: string[
   }))
 }
 
-function NewProject() {
-  return (
-    <ToolbarActions>
-      <Button size="lg">
-        <Plus />
-        New project
-      </Button>
-    </ToolbarActions>
-  )
-}
+/* ---------- Toolbar builder ---------- */
 
-/* ---------- Toolbar examples ---------- */
+/* One toolbar. Switch parts on and off and they drop into place, in the
+   order the toolbar always uses, so the toolbar reads as one component. */
 
-function BoardToolbar() {
+type PartKey =
+  | "savedViews"
+  | "views"
+  | "search"
+  | "statusTabs"
+  | "filterShort"
+  | "filterLong"
+  | "filtersDialog"
+  | "dateRange"
+  | "count"
+  | "reports"
+  | "export"
+  | "primary"
+  | "chips"
+
+const PARTS: Array<{ key: PartKey; label: string }> = [
+  { key: "savedViews", label: "Saved views" },
+  { key: "views", label: "Views" },
+  { key: "search", label: "Search" },
+  { key: "statusTabs", label: "Status tabs" },
+  { key: "filterShort", label: "Filter (short list)" },
+  { key: "filterLong", label: "Filter (long list)" },
+  { key: "filtersDialog", label: "Filters dialog" },
+  { key: "dateRange", label: "Date range" },
+  { key: "count", label: "Count" },
+  { key: "reports", label: "Report actions" },
+  { key: "export", label: "Export" },
+  { key: "primary", label: "Primary button" },
+  { key: "chips", label: "Applied filter chips" },
+]
+
+const DEFAULT_PARTS: PartKey[] = ["savedViews", "views", "search", "filterShort", "filtersDialog", "primary", "chips"]
+
+function ToolbarBuilder() {
+  const [on, setOn] = useState<PartKey[]>(DEFAULT_PARTS)
+  const [viewCount, setViewCount] = useState<2 | 4>(2)
+  const has = (k: PartKey) => on.includes(k)
+  const flip = (k: PartKey) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
+
   const [view, setView] = useState("board")
-  const [owners, setOwners] = useState<string[]>([])
-  const [status, setStatus] = useState<string[]>(["active"])
-  const [filters, setFilters] = useState<ToolbarFilterValues>({ due: ["week"] })
-
-  // Saved views. In an app these live on the user's profile.
-  type Snapshot = { owners: string[]; status: string[]; filters: ToolbarFilterValues }
-  const [views, setViews] = useState<Array<{ id: string; name: string; snap: Snapshot }>>([
-    { id: "v1", name: "My active projects", snap: { owners: ["me"], status: ["active"], filters: {} } },
-    { id: "v2", name: "At risk this week", snap: { owners: [], status: ["at-risk"], filters: { due: ["week"] } } },
-  ])
-  const [activeView, setActiveView] = useState<string | null>(null)
-  const current: Snapshot = { owners, status, filters }
-  const apply = (snap: Snapshot) => {
-    setOwners(snap.owners)
-    setStatus(snap.status)
-    setFilters(snap.filters)
-  }
-  const blank: Snapshot = { owners: [], status: [], filters: {} }
-  const base = views.find((v) => v.id === activeView)?.snap ?? blank
-  const modified = JSON.stringify(base) !== JSON.stringify(current)
-
-  return (
-    <div>
-      <Toolbar>
-        <ToolbarSavedViews
-          views={views}
-          activeId={activeView}
-          modified={modified}
-          defaultLabel="All projects"
-          onSelect={(id) => {
-            setActiveView(id)
-            apply(views.find((v) => v.id === id)?.snap ?? blank)
-          }}
-          onSave={(name) => {
-            const id = `v${Date.now()}`
-            setViews((cur) => [...cur, { id, name, snap: current }])
-            setActiveView(id)
-          }}
-          onUpdate={(id) => setViews((cur) => cur.map((v) => (v.id === id ? { ...v, snap: current } : v)))}
-          onDelete={(id) => {
-            setViews((cur) => cur.filter((v) => v.id !== id))
-            if (activeView === id) setActiveView(null)
-          }}
-        />
-        <ToolbarViews views={twoViews} value={view} onValueChange={setView} />
-        <ToolbarSearch placeholder="Search projects" />
-        <ToolbarFilter multiple placeholder="Anyone" options={people} values={owners} onValuesChange={setOwners} />
-        <ToolbarFilter
-          multiple
-          placeholder="All statuses"
-          options={statusOptions}
-          values={status}
-          onValuesChange={setStatus}
-        />
-        <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
-        <NewProject />
-      </Toolbar>
-      <ToolbarActiveFilters
-        items={[
-          ...chipsFor("Assigned to", people, owners, setOwners),
-          ...chipsFor("Status", statusOptions, status, setStatus),
-          ...activeFilterItems(filterGroups, filters, setFilters),
-        ]}
-        onClearAll={() => {
-          setOwners([])
-          setStatus([])
-          setFilters({})
-        }}
-      />
-    </div>
-  )
-}
-
-function ManyViewsToolbar() {
-  const [view, setView] = useState("board")
-  const views = fourViews.map((v, i) => ({ ...v, count: [42, 42, 18, 7][i] }))
-  return (
-    <Toolbar>
-      <ToolbarViews views={views} value={view} onValueChange={setView} />
-      <ToolbarSearch placeholder="Search projects" />
-      <NewProject />
-    </Toolbar>
-  )
-}
-
-function ListToolbar() {
-  const services = [
-    { value: "1040", label: "1040" },
-    { value: "1065", label: "1065" },
-    { value: "1120", label: "1120" },
-    { value: "1120s", label: "1120-S" },
-  ]
-  const statuses = [
-    { value: "active", label: "Active" },
-    { value: "paused", label: "Paused" },
-    { value: "ended", label: "Ended" },
-  ]
-  const [service, setService] = useState<string[]>([])
-  const [rep, setRep] = useState<string[]>([])
-  const [status, setStatus] = useState<string[]>(["active"])
-  return (
-    <div>
-      <Toolbar>
-        <ToolbarSearch placeholder="Search clients or companies" />
-        <ToolbarFilter
-          multiple
-          label="Service"
-          placeholder="All services"
-          options={services}
-          values={service}
-          onValuesChange={setService}
-        />
-        <ToolbarFilter
-          multiple
-          label="Rep"
-          placeholder="Anyone"
-          options={people}
-          values={rep}
-          onValuesChange={setRep}
-        />
-        <ToolbarFilter
-          multiple
-          label="Status"
-          placeholder="Any"
-          options={statuses}
-          values={status}
-          onValuesChange={setStatus}
-        />
-        <ToolbarCount>2,237 services</ToolbarCount>
-      </Toolbar>
-      <ToolbarActiveFilters
-        items={[
-          ...chipsFor("Service", services, service, setService),
-          ...chipsFor("Rep", people, rep, setRep),
-          ...chipsFor("Status", statuses, status, setStatus),
-        ]}
-        onClearAll={() => {
-          setService([])
-          setRep([])
-          setStatus([])
-        }}
-      />
-    </div>
-  )
-}
-
-function LargeListsToolbar() {
-  const [owners, setOwners] = useState<string[]>([])
-  const [status, setStatus] = useState<string[]>([])
-  const [filters, setFilters] = useState<ToolbarFilterValues>({})
-  return (
-    <div>
-      <Toolbar>
-        <ToolbarSearch placeholder="Search deals" />
-        <ToolbarFilter
-          multiple
-          label="Owner"
-          placeholder="Anyone"
-          options={manyPeople}
-          values={owners}
-          onValuesChange={setOwners}
-        />
-        <ToolbarFilter
-          multiple
-          label="Status"
-          placeholder="Any"
-          options={manyStatuses}
-          values={status}
-          onValuesChange={setStatus}
-        />
-        <ToolbarFilterDialog filters={bigGroups} values={filters} onValuesChange={setFilters} />
-      </Toolbar>
-      <ToolbarActiveFilters
-        items={[
-          ...chipsFor("Owner", manyPeople, owners, setOwners),
-          ...chipsFor("Status", manyStatuses, status, setStatus),
-          ...activeFilterItems(bigGroups, filters, setFilters),
-        ]}
-        onClearAll={() => {
-          setOwners([])
-          setStatus([])
-          setFilters({})
-        }}
-      />
-    </div>
-  )
-}
-
-function FiltersOnlyToolbar() {
-  const [owners, setOwners] = useState<string[]>([])
-  const [status, setStatus] = useState<string[]>([])
-  const [filters, setFilters] = useState<ToolbarFilterValues>({ priority: ["high"] })
-  return (
-    <div>
-      <Toolbar>
-        <ToolbarFilter
-          multiple
-          label="Owner"
-          placeholder="Anyone"
-          options={people}
-          values={owners}
-          onValuesChange={setOwners}
-        />
-        <ToolbarFilter
-          multiple
-          label="Status"
-          placeholder="All"
-          options={statusOptions}
-          values={status}
-          onValuesChange={setStatus}
-        />
-        <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
-      </Toolbar>
-      <ToolbarActiveFilters
-        items={[
-          ...chipsFor("Owner", people, owners, setOwners),
-          ...chipsFor("Status", statusOptions, status, setStatus),
-          ...activeFilterItems(filterGroups, filters, setFilters),
-        ]}
-        onClearAll={() => {
-          setOwners([])
-          setStatus([])
-          setFilters({})
-        }}
-      />
-    </div>
-  )
-}
-
-function SearchOnlyToolbar() {
-  return (
-    <Toolbar>
-      <ToolbarSearch placeholder="Search" />
-    </Toolbar>
-  )
-}
-
-function SearchCountActionToolbar() {
-  return (
-    <Toolbar>
-      <ToolbarSearch placeholder="Search email or name" />
-      <ToolbarCount>49 users</ToolbarCount>
-      <ToolbarActions>
-        <Button size="lg">
-          <Plus />
-          Add user
-        </Button>
-      </ToolbarActions>
-    </Toolbar>
-  )
-}
-
-function ReportsMenuToolbar() {
-  const [exported, setExported] = useState("")
-  return (
-    <Toolbar>
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="ghost" size="lg" />}>
-          Reports
-          <ChevronDown />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
-          <DropdownMenuItem>Funded this month</DropdownMenuItem>
-          <DropdownMenuItem>Defaults by ISO</DropdownMenuItem>
-          <DropdownMenuItem>Renewals due</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      <Button variant="outline" size="lg">
-        Save as report
-      </Button>
-      <ToolbarSearch placeholder="Filter rows" />
-      <ToolbarCount>{exported ? `Exporting ${exported.toUpperCase()}…` : "6,113 rows total"}</ToolbarCount>
-      <ToolbarActions>
-        <ToolbarExport onExport={setExported} />
-      </ToolbarActions>
-    </Toolbar>
-  )
-}
-
-function StatusTabsToolbar() {
   const [tab, setTab] = useState("active")
-  return (
-    <Toolbar>
-      <ToolbarSearch placeholder="Search merchant, funding ID, phone" className="flex-[1_1_14rem]" />
-      <ToolbarTabs
-        stretch
-        value={tab}
-        onValueChange={setTab}
-        tabs={[
-          { value: "active", label: "Active", count: 128 },
-          { value: "monitor", label: "Monitor", count: 41 },
-          { value: "no-action", label: "No action", count: 9 },
-          { value: "success", label: "Success", count: 312 },
-          { value: "defaulted", label: "Defaulted", count: 17 },
-        ]}
-      />
-      <Button variant="outline" size="icon-lg" aria-label="Expand all">
-        <ChevronsUpDown />
-      </Button>
-    </Toolbar>
-  )
-}
-
-function DateRangeToolbar() {
+  const [status, setStatus] = useState<string[]>(["active"])
+  const [owners, setOwners] = useState<string[]>([])
+  const [filters, setFilters] = useState<ToolbarFilterValues>({})
+  const [exported, setExported] = useState("")
   const thirty = defaultDatePresets.find((p) => p.id === "30-days")!
   const t = new Date()
   const [range, setRange] = useState<ToolbarDateRangeValue>(
     thirty.range(new Date(t.getFullYear(), t.getMonth(), t.getDate())),
   )
+
+  // Saved views. In an app these live on the user's profile.
+  type Snapshot = { status: string[]; owners: string[]; filters: ToolbarFilterValues }
+  const blank: Snapshot = { status: [], owners: [], filters: {} }
+  const [views, setViews] = useState<Array<{ id: string; name: string; snap: Snapshot }>>([
+    { id: "v1", name: "My active projects", snap: { status: ["active"], owners: ["avi-adler"], filters: {} } },
+    { id: "v2", name: "At risk this week", snap: { status: ["at-risk"], owners: [], filters: { due: ["week"] } } },
+  ])
+  const [activeView, setActiveView] = useState<string | null>(null)
+  const current: Snapshot = { status, owners, filters }
+  const apply = (snap: Snapshot) => {
+    setStatus(snap.status)
+    setOwners(snap.owners)
+    setFilters(snap.filters)
+  }
+  const base = views.find((v) => v.id === activeView)?.snap ?? blank
+  const modified = JSON.stringify(base) !== JSON.stringify(current)
+
+  const chips = [
+    ...(has("filterShort") ? chipsFor("Status", statusOptions, status, setStatus) : []),
+    ...(has("filterLong") ? chipsFor("Owner", manyPeople, owners, setOwners) : []),
+    ...(has("filtersDialog") ? activeFilterItems(filterGroups, filters, setFilters) : []),
+  ]
+
   return (
-    <Toolbar>
-      <ToolbarDateRange value={range} onValueChange={setRange} />
-    </Toolbar>
+    <div className="space-y-5">
+      <div className="space-y-2">
+        <p className="text-muted-foreground text-xs font-medium">Parts on the toolbar</p>
+        <div className="flex flex-wrap gap-2">
+          {PARTS.map((part) => (
+            <Button
+              key={part.key}
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-pressed={has(part.key)}
+              onClick={() => flip(part.key)}
+              className="aria-pressed:border-foreground/40 aria-pressed:bg-muted gap-1.5 rounded-full font-normal"
+            >
+              <span
+                aria-hidden="true"
+                className={`flex size-3.5 items-center justify-center rounded-full border ${
+                  has(part.key) ? "bg-foreground border-foreground text-background" : "border-foreground/30"
+                }`}
+              >
+                {has(part.key) ? <Check className="size-2.5" strokeWidth={3} /> : null}
+              </span>
+              {part.label}
+            </Button>
+          ))}
+        </div>
+        {has("views") ? (
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-muted-foreground text-xs">Number of views</span>
+            {[2, 4].map((n) => (
+              <Button
+                key={n}
+                type="button"
+                variant="outline"
+                size="xs"
+                aria-pressed={viewCount === n}
+                onClick={() => setViewCount(n as 2 | 4)}
+                className="aria-pressed:border-foreground/40 aria-pressed:bg-muted rounded-full font-normal"
+              >
+                {n === 2 ? "2 (tabs)" : "4 (dropdown)"}
+              </Button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      <div>
+        {on.filter((k) => k !== "chips").length === 0 ? (
+          <p className="text-muted-foreground rounded-xl border border-dashed p-6 text-center text-sm">
+            Turn on a part above to build the toolbar.
+          </p>
+        ) : (
+          <Toolbar>
+            {has("savedViews") ? (
+              <ToolbarSavedViews
+                views={views}
+                activeId={activeView}
+                modified={modified}
+                defaultLabel="All projects"
+                onSelect={(id) => {
+                  setActiveView(id)
+                  apply(views.find((v) => v.id === id)?.snap ?? blank)
+                }}
+                onSave={(name) => {
+                  const id = `v${Date.now()}`
+                  setViews((cur) => [...cur, { id, name, snap: current }])
+                  setActiveView(id)
+                }}
+                onUpdate={(id) => setViews((cur) => cur.map((v) => (v.id === id ? { ...v, snap: current } : v)))}
+                onDelete={(id) => {
+                  setViews((cur) => cur.filter((v) => v.id !== id))
+                  if (activeView === id) setActiveView(null)
+                }}
+              />
+            ) : null}
+            {has("reports") ? (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger render={<Button variant="outline" size="lg" className="gap-2 font-normal" />}>
+                    Reports
+                    <ChevronDown className="text-muted-foreground" />
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem>Funded this month</DropdownMenuItem>
+                    <DropdownMenuItem>Defaults by ISO</DropdownMenuItem>
+                    <DropdownMenuItem>Renewals due</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button variant="outline" size="lg" className="font-normal">
+                  Save as report
+                </Button>
+              </>
+            ) : null}
+            {has("views") ? (
+              <ToolbarViews
+                views={(viewCount === 2 ? twoViews : fourViews).map((v) => ({ ...v }))}
+                value={view}
+                onValueChange={setView}
+              />
+            ) : null}
+            {has("search") ? <ToolbarSearch placeholder="Search projects" /> : null}
+            {has("statusTabs") ? (
+              <ToolbarTabs
+                stretch={!has("search")}
+                value={tab}
+                onValueChange={setTab}
+                tabs={[
+                  { value: "active", label: "Active", count: 128 },
+                  { value: "monitor", label: "Monitor", count: 41 },
+                  { value: "success", label: "Success", count: 312 },
+                  { value: "defaulted", label: "Defaulted", count: 17 },
+                ]}
+              />
+            ) : null}
+            {has("filterShort") ? (
+              <ToolbarFilter
+                multiple
+                label="Status"
+                placeholder="Any"
+                options={statusOptions}
+                values={status}
+                onValuesChange={setStatus}
+              />
+            ) : null}
+            {has("filterLong") ? (
+              <ToolbarFilter
+                multiple
+                label="Owner"
+                placeholder="Anyone"
+                options={manyPeople}
+                values={owners}
+                onValuesChange={setOwners}
+              />
+            ) : null}
+            {has("filtersDialog") ? (
+              <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
+            ) : null}
+            {has("dateRange") ? <ToolbarDateRange value={range} onValueChange={setRange} /> : null}
+            {has("count") ? (
+              <ToolbarCount>{exported ? `Exporting ${exported.toUpperCase()}...` : "1,240 projects"}</ToolbarCount>
+            ) : null}
+            {has("export") || has("primary") ? (
+              <ToolbarActions>
+                {has("export") ? <ToolbarExport onExport={setExported} /> : null}
+                {has("primary") ? (
+                  <Button size="lg">
+                    <Plus />
+                    New project
+                  </Button>
+                ) : null}
+              </ToolbarActions>
+            ) : null}
+          </Toolbar>
+        )}
+        {has("chips") ? (
+          <ToolbarActiveFilters
+            items={chips}
+            onClearAll={() => {
+              setStatus([])
+              setOwners([])
+              setFilters({})
+            }}
+          />
+        ) : null}
+      </div>
+    </div>
   )
 }
 
@@ -485,21 +359,6 @@ export const catalog: CatalogEntry[] = [
   {
     id: "toolbar",
     name: "Toolbar",
-    examples: [
-      { name: "Views, search, filters, Filters dialog, and an action", render: () => <BoardToolbar />, minHeight: 600 },
-      {
-        name: "Long lists: 100 people and 30 statuses (searchable dropdowns)",
-        render: () => <LargeListsToolbar />,
-        minHeight: 600,
-      },
-      { name: "Four or more views become a dropdown, with counts", render: () => <ManyViewsToolbar />, minHeight: 300 },
-      { name: "Search, three labeled filters, and a count", render: () => <ListToolbar />, minHeight: 260 },
-      { name: "Status tabs with counts", render: () => <StatusTabsToolbar /> },
-      { name: "Date range with a presets dropdown", render: () => <DateRangeToolbar />, minHeight: 460 },
-      { name: "Action menu, buttons, search, count, and export", render: () => <ReportsMenuToolbar />, minHeight: 220 },
-      { name: "Search, count, and an action", render: () => <SearchCountActionToolbar /> },
-      { name: "Filters only, no search", render: () => <FiltersOnlyToolbar />, minHeight: 600 },
-      { name: "Search only", render: () => <SearchOnlyToolbar /> },
-    ],
+    examples: [{ name: "Build a toolbar: turn parts on and off", render: () => <ToolbarBuilder />, minHeight: 720 }],
   },
 ]

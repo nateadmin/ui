@@ -82,12 +82,15 @@ function Toolbar({ className, ...props }: React.ComponentProps<"div">) {
    so the box is always as wide as the longest text. */
 function StableLabel({ items, active }: { items: Array<{ key: string; node: React.ReactNode }>; active: string }) {
   return (
-    <span className="grid text-left">
+    <span className="grid min-w-0 text-left">
       {items.map((item) => (
         <span
           key={item.key}
           aria-hidden={item.key === active ? undefined : true}
-          className={cn("col-start-1 row-start-1 flex items-center gap-2", item.key !== active && "invisible")}
+          className={cn(
+            "col-start-1 row-start-1 flex min-w-0 items-center gap-2 overflow-hidden",
+            item.key !== active && "invisible",
+          )}
         >
           {item.node}
         </span>
@@ -101,7 +104,10 @@ function Dot({ color }: { color?: string }) {
   return <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: color }} />
 }
 
-const triggerClass = "shrink-0 gap-2 font-normal"
+/* Every dropdown trigger on the toolbar follows one rule: same height, sized to
+   its longest possible text so it never jumps when the selection changes, and
+   never wider than 15rem. Longer text is cut with "…". */
+const triggerClass = "min-w-0 max-w-60 shrink-0 gap-2 font-normal"
 
 /* ---------- Views ---------- */
 
@@ -457,7 +463,7 @@ type ToolbarFilterProps = SingleFilterProps | MultiFilterProps
 
 function withLabel(label: string | undefined, text: React.ReactNode) {
   return (
-    <span>
+    <span className="truncate">
       {label ? <span className="text-muted-foreground">{label}: </span> : null}
       {text}
     </span>
@@ -825,7 +831,7 @@ function ToolbarSavedViews({
               variant="outline"
               size="lg"
               data-slot="toolbar-saved-views"
-              className={cn(triggerClass, "max-w-56", className)}
+              className={cn(triggerClass, className)}
             />
           }
         >

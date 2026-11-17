@@ -69,6 +69,10 @@ Toolbar parts:
 | `ToolbarActions` | Buttons pinned to the right edge. |
 | `ToolbarActiveFilters` | Applied filters as removable chips under the bar, with Clear all. Hidden when nothing is applied. |
 
+All dropdown triggers on the toolbar follow one width rule: as wide as their longest possible text so they never jump on select, capped at 15rem with "…" for longer text.
+
+In the catalog, the Toolbar page is a builder: switch parts on and off and they drop into place in the toolbar's fixed order.
+
 Rule of thumb: a filter is multi-select whenever picking two values makes sense (people, statuses, services, priorities). Single-select is only for choices that exclude each other (views, status tabs, sort order).
 
 ### Toolbar
