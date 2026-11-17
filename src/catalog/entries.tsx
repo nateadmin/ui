@@ -233,7 +233,6 @@ function ToolbarBuilder() {
             views={views}
             activeId={activeView}
             modified={modified}
-            defaultLabel="All projects"
             onSelect={(id) => {
               setActiveView(id)
               apply(views.find((v) => v.id === id)?.snap ?? blank)

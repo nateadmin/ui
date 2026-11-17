@@ -790,7 +790,7 @@ function ToolbarSavedViews({
   views,
   activeId,
   modified = false,
-  defaultLabel = "All items",
+  defaultLabel = "Default",
   onSelect,
   onSave,
   onUpdate,
@@ -836,13 +836,16 @@ function ToolbarSavedViews({
           }
         >
           <BookmarkIcon aria-hidden="true" />
-          <span className="truncate">{active ? active.name : defaultLabel}</span>
-          {modified ? (
-            <span className="bg-primary size-1.5 shrink-0 rounded-full" aria-label="Unsaved changes" />
-          ) : null}
+          <StableLabel
+            active={activeId ?? "__default"}
+            items={[
+              { key: "__default", node: withLabel("View", defaultLabel) },
+              ...views.map((v) => ({ key: v.id, node: withLabel("View", v.name) })),
+            ]}
+          />
           <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64">
+        <DropdownMenuContent align="start" className="max-w-72">
           <DropdownMenuRadioGroup
             value={activeId ?? "__default"}
             onValueChange={(v: unknown) => onSelect(v === "__default" ? null : String(v))}
