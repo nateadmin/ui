@@ -6,6 +6,7 @@ import { catalog } from "@/catalog/entries"
 import pkg from "../package.json"
 import { Changelog } from "./Changelog"
 import { Preview } from "./Preview"
+import { UpdateBar } from "./UpdateBar"
 import { applyTheme, type Device, type Mode } from "./state"
 
 type Props = { initialComponent: string; initialDevice: Device; initialTheme: Mode }
@@ -27,6 +28,7 @@ export function Catalog({ initialComponent, initialDevice, initialTheme }: Props
 
   return (
     <div className="bg-background text-foreground flex h-screen flex-col">
+      <UpdateBar />
       <header className="flex h-14 shrink-0 items-center gap-4 border-b px-4">
         <button type="button" onClick={() => setComponent("")} className="flex items-center gap-2 font-semibold">
           @nateadmin/ui

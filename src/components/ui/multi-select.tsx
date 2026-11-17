@@ -84,7 +84,7 @@ function MultiSelect({
         {trigger ?? <span className="truncate">{summary}</span>}
         <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent align={align} className="w-(--anchor-width) min-w-72 gap-0 p-0">
+      <PopoverContent align={align} className="w-(--anchor-width) min-w-48 max-w-80 gap-0 p-0">
         <div className="relative border-b">
           <SearchIcon
             aria-hidden="true"
