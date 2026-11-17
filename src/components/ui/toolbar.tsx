@@ -656,7 +656,8 @@ function ToolbarFilterDialog({
         <div className="-mx-4 max-h-[60vh] flex flex-col gap-5 overflow-y-auto px-4 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {filters.map((group) => (
             <fieldset key={group.id} className="flex flex-col gap-2">
-              <legend className="text-sm font-medium">{group.label}</legend>
+              {/* A legend is not a flex item, so the gap above does not reach it; it gets its own margin. */}
+              <legend className="mb-2 text-sm font-medium">{group.label}</legend>
               {group.multiple !== false && group.options.length > pillLimit ? (
                 <MultiSelect
                   options={group.options}
@@ -665,7 +666,7 @@ function ToolbarFilterDialog({
                   placeholder={`Any ${group.label.toLowerCase()}`}
                   searchPlaceholder={`Search ${group.label.toLowerCase()}`}
                   aria-label={group.label}
-                  className="w-full"
+                  className="w-64 max-w-full"
                 />
               ) : (
                 <div className="flex flex-wrap gap-2">
