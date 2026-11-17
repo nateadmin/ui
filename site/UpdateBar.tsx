@@ -1,20 +1,22 @@
 import { useEffect, useState } from "react"
 import { RefreshCw } from "lucide-react"
+import { loadedBundle } from "./state"
 
 /*
  * Shows a bar at the top of the catalog when a newer version has been
  * deployed. It compares the hashed script the page loaded with the one the
  * server's index.html points to now, checking every minute and whenever the
- * tab comes back into focus. Reload fetches a fresh index.html, bypassing the
- * browser cache, then reloads the page.
+ * tab comes back into focus.
+ *
+ * Reload is a hard refresh. The host lets browsers cache pages for 10 minutes,
+ * so a plain reload can show the old version again, and the example frames can
+ * too. Reload opens the page at a new URL (a one-time "_r" value) that no cache
+ * holds; the new page then carries the new build id in every frame's URL.
+ * main.tsx removes "_r" from the address bar after loading.
  */
 
 const CHECK_EVERY_MS = 60_000
 
-function loadedBundle(): string | null {
-  const el = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/index-"]')
-  return el ? new URL(el.src).pathname : null
-}
 
 async function latestBundle(): Promise<string | null> {
   const res = await fetch(`${location.pathname}?v=${Date.now()}`, { cache: "no-store" })
@@ -54,13 +56,10 @@ export function UpdateBar() {
 
   if (!ready) return null
 
-  const reload = async () => {
-    try {
-      // Refresh the cached page itself so the reload picks up the new version.
-      await fetch(location.href, { cache: "reload" })
-    } finally {
-      location.reload()
-    }
+  const reload = () => {
+    const url = new URL(location.href)
+    url.searchParams.set("_r", String(Date.now()))
+    location.replace(url.toString())
   }
 
   return (
@@ -71,7 +70,7 @@ export function UpdateBar() {
       <span>A new version of the catalog is ready.</span>
       <button
         type="button"
-        onClick={() => void reload()}
+        onClick={reload}
         className="focus-visible:ring-primary-foreground/50 inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-medium underline underline-offset-2 outline-none hover:no-underline focus-visible:ring-2"
       >
         <RefreshCw aria-hidden="true" className="size-3.5" />

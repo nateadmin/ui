@@ -1,6 +1,15 @@
 export type Device = "desktop" | "tablet" | "mobile"
 export type Mode = "light" | "dark"
 
+/** The hashed script this page loaded, such as "/assets/index-AbC123.js". Null on the dev server. */
+export function loadedBundle(): string | null {
+  const el = document.querySelector<HTMLScriptElement>('script[type="module"][src*="/assets/index-"]')
+  return el ? new URL(el.src).pathname : null
+}
+
+/** A short build id taken from the bundle name. Example frames add it to their URL, so a new deploy never shows a cached old frame. */
+export const buildId = loadedBundle()?.match(/index-([^.]+)\.js/)?.[1] ?? "dev"
+
 export const deviceWidth: Record<Device, string> = { desktop: "100%", tablet: "768px", mobile: "390px" }
 
 export function readParams() {

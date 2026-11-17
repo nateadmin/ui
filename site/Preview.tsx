@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react"
 import { catalog } from "@/catalog/entries"
-import { deviceWidth, type Device, type Mode } from "./state"
+import { buildId, deviceWidth, type Device, type Mode } from "./state"
 
 type Props = { component: string; example: number; device: Device; theme: Mode }
 
 export function Preview({ component, example, device, theme }: Props) {
   const minHeight = catalog.find((c) => c.id === component)?.examples.at(example)?.minHeight ?? 96
   const [height, setHeight] = useState(minHeight)
-  const src = `?frame=1&c=${component}&e=${example}&theme=${theme}`
+  const src = `?frame=1&c=${component}&e=${example}&theme=${theme}&v=${buildId}`
 
   useEffect(() => {
     const onMessage = (ev: MessageEvent) => {
