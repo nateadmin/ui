@@ -61,7 +61,7 @@ Toolbar parts:
 | `ToolbarSearch` | Search box that fills the free space. |
 | `ToolbarFilter` | One filter. Use `multiple` unless the choices exclude each other. Over 10 options it becomes a searchable dropdown. The button keeps one width whatever is picked. |
 | `ToolbarFilterDialog` | "Filters" button with a count, opening every filter group in a dialog. Groups up to 8 options show as pills, longer ones as a searchable dropdown (`pillLimit`). |
-| `ToolbarDateRange` | From and To pickers plus presets (Today, Yesterday, This week, Last week, 7 days, This month, Last month, 30 days). "Today" follows `timeZone`, America/New_York by default. Weeks start Sunday. |
+| `ToolbarDateRange` | A presets dropdown (Today, Yesterday, This week, Last week, 7 days, This month, Last month, 30 days) plus From and To pickers. Presets never show as a row of chips. "Today" follows `timeZone`, America/New_York by default. Weeks start Sunday. |
 | `ToolbarCount` | Result count text ("6,113 rows"). |
 | `ToolbarActions` | Buttons pinned to the right edge. |
 | `ToolbarActiveFilters` | Applied filters as removable chips under the bar, with Clear all. Hidden when nothing is applied. |

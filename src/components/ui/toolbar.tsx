@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDownIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "lucide-react"
+import { CalendarRangeIcon, ChevronDownIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -218,7 +218,11 @@ function ToolbarTabs({
   return (
     <div
       data-slot="toolbar-tabs"
-      className={cn("max-w-full min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", stretch ? "flex-[999_1_24rem]" : "shrink-0", className)}
+      className={cn(
+        "max-w-full min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        stretch ? "flex-[999_1_24rem]" : "shrink-0",
+        className,
+      )}
     >
       <ToggleGroup
         value={[value]}
@@ -339,6 +343,43 @@ function ToolbarDateRange({
   })
   return (
     <div data-slot="toolbar-date-range" className={cn("flex flex-wrap items-center gap-2", className)}>
+      {presets.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="outline"
+                size="lg"
+                aria-label="Date range presets"
+                data-slot="toolbar-date-presets"
+                className={triggerClass}
+              />
+            }
+          >
+            <CalendarRangeIcon aria-hidden="true" />
+            <StableLabel
+              active={active ? active.id : "__custom"}
+              items={[...presets.map((p) => ({ key: p.id, node: p.label })), { key: "__custom", node: "Custom range" }]}
+            />
+            <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuRadioGroup
+              value={active ? active.id : ""}
+              onValueChange={(v: unknown) => {
+                const preset = presets.find((p) => p.id === v)
+                if (preset) onValueChange(preset.range(today))
+              }}
+            >
+              {presets.map((p) => (
+                <DropdownMenuRadioItem key={p.id} value={p.id} closeOnClick>
+                  {p.label}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
       <DatePicker
         label="From"
         placeholder="Any"
@@ -357,29 +398,6 @@ function ToolbarDateRange({
         min={value.from}
         onChange={(to) => onValueChange({ ...value, to })}
       />
-      {presets.length > 0 ? (
-        <ToggleGroup
-          value={active ? [active.id] : []}
-          onValueChange={(next: unknown[]) => {
-            const preset = presets.find((p) => p.id === next.at(-1))
-            if (preset) onValueChange(preset.range(today))
-          }}
-          spacing={1}
-          aria-label="Date presets"
-          className="flex-wrap"
-        >
-          {presets.map((p) => (
-            <ToggleGroupItem
-              key={p.id}
-              value={p.id}
-              variant="outline"
-              className="aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:border-primary aria-pressed:hover:bg-primary h-8 px-2.5"
-            >
-              {p.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      ) : null}
     </div>
   )
 }
