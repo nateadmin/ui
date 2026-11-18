@@ -12,7 +12,8 @@ import { formatDate } from "@/components/ui/date-picker"
  * One field for a start and end date that opens two months side by side,
  * like picking flights. The first click sets the start, the second sets the
  * end; while choosing the end, hovering previews the range. The header shows
- * both dates and highlights the one being picked next.
+ * both dates and highlights the one being picked; after the end is picked it
+ * stays on End.
  */
 
 type DateRange = { from?: Date; to?: Date }
@@ -94,15 +95,24 @@ function DateRangePicker({
     }
   }
 
+  /* Picking the start moves on to the end. Once the end is picked it stays the
+     active box: another click changes the end (a day before the start begins
+     a new range). Click the Start box to change the start instead. */
   const pick = (day: Date) => {
-    if (picking === "from" || !draft.from || day < draft.from) {
-      setDraft({ from: day, to: undefined })
+    if (picking === "from") {
+      const keepEnd = draft.to && day <= draft.to ? draft.to : undefined
+      const next = { from: day, to: keepEnd }
+      setDraft(next)
       setPicking("to")
+      if (keepEnd) onChange(next)
+      return
+    }
+    if (!draft.from || day < draft.from) {
+      setDraft({ from: day, to: undefined })
       return
     }
     const range = { from: draft.from, to: day }
     setDraft(range)
-    setPicking("from")
     setHover(undefined)
     onChange(range)
   }
