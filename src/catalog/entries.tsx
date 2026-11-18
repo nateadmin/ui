@@ -26,6 +26,7 @@ import {
 
 import { CustomizeMenu, CustomizeOption, CustomizeSwitch } from "@/components/ui/customize-menu"
 import { SimplyFundingList } from "./list-sample"
+import { SimplyFundingReport } from "./report-sample"
 import { ListBuilder } from "./list-builder"
 
 export type CatalogExample = { name: string; render: () => ReactNode; minHeight?: number }
@@ -383,6 +384,17 @@ export const catalog: CatalogEntry[] = [
           </div>
         ),
         minHeight: 640,
+      },
+    ],
+  },
+  {
+    id: "report",
+    name: "Report",
+    examples: [
+      {
+        name: "Report and Data page, as it looks in the Data app today (placeholder data)",
+        render: () => <SimplyFundingReport />,
+        minHeight: 880,
       },
     ],
   },
