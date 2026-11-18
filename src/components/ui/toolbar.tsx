@@ -74,6 +74,20 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
  * When the parts wrap onto more than one row, every part on every row
  * stretches so each row fills the full width.
  */
+/* Below 640px. */
+function usePhone() {
+  const query = "(max-width: 639px)"
+  const [phone, setPhone] = React.useState(() => typeof window !== "undefined" && window.matchMedia(query).matches)
+  React.useEffect(() => {
+    const mq = window.matchMedia(query)
+    const on = () => setPhone(mq.matches)
+    on()
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  return phone
+}
+
 function Toolbar({
   className,
   labels = "show",
@@ -81,6 +95,8 @@ function Toolbar({
 }: React.ComponentProps<"div"> & { labels?: "show" | "icons" | "icons-on-phones" }) {
   const ref = React.useRef<HTMLDivElement>(null)
   const [wrapped, setWrapped] = React.useState(false)
+  const phone = usePhone()
+  const icons = labels === "icons" || (labels === "icons-on-phones" && phone)
 
   // Wrapped when the visible parts don't all sit on the same line.
   const measure = React.useCallback(() => {
@@ -89,11 +105,12 @@ function Toolbar({
     const tops = new Set<number>()
     for (const child of Array.from(el.children) as HTMLElement[]) {
       if (child.offsetWidth === 0 && child.offsetHeight === 0) continue
-      tops.add(Math.round(child.offsetTop / 4))
+      tops.add(Math.round((child.offsetTop + child.offsetHeight / 2) / 8))
     }
     setWrapped(tops.size > 1)
   }, [])
   React.useLayoutEffect(measure)
+  React.useLayoutEffect(measure, [icons])
   React.useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -108,14 +125,24 @@ function Toolbar({
       role="toolbar"
       data-slot="toolbar"
       data-labels={labels}
+      data-icons={icons ? "true" : undefined}
       data-wrapped={wrapped ? "true" : undefined}
       className={cn(
         "bg-card text-card-foreground flex w-full flex-wrap items-center gap-2 rounded-xl border p-2",
         // Wrapped: every part grows so each row is full. Spacers (aria-hidden) stay put.
-        "data-wrapped:[&>*:not([aria-hidden=true])]:grow",
+        "[&[data-wrapped]:not([data-icons])>*:not([aria-hidden=true])]:grow",
         // Icons only: hide text and dropdown arrows, show the stand-in icons.
-        "data-[labels=icons]:[&_[data-toolbar-label]]:sr-only data-[labels=icons]:[&_[data-toolbar-chevron]]:hidden data-[labels=icons]:[&_[data-toolbar-icon]]:block",
-        "max-sm:data-[labels=icons-on-phones]:[&_[data-toolbar-label]]:sr-only max-sm:data-[labels=icons-on-phones]:[&_[data-toolbar-chevron]]:hidden max-sm:data-[labels=icons-on-phones]:[&_[data-toolbar-icon]]:block",
+        "[&[data-icons]_[data-toolbar-label]]:sr-only [&[data-icons]_[data-toolbar-chevron]]:hidden [&[data-icons]_[data-toolbar-icon]]:block",
+        // Icons only: every button with a label becomes a 36px square that never stretches.
+        "[&[data-icons]_button:has([data-toolbar-label])]:relative [&[data-icons]_button:has([data-toolbar-label])]:size-9! [&[data-icons]_button:has([data-toolbar-label])]:min-w-0! [&[data-icons]_button:has([data-toolbar-label])]:max-w-none! [&[data-icons]_button:has([data-toolbar-label])]:grow-0! [&[data-icons]_button:has([data-toolbar-label])]:shrink-0 [&[data-icons]_button:has([data-toolbar-label])]:justify-center! [&[data-icons]_button:has([data-toolbar-label])]:gap-0! [&[data-icons]_button:has([data-toolbar-label])]:p-0!",
+        "[&[data-icons]_[data-slot=toolbar-views]_button]:size-8!",
+        // Icons only: search asks for less room before it wraps, so it can share a row with the icons.
+        "[&[data-icons]>[data-slot=toolbar-search]]:basis-48",
+        // Icons only: the Filters count sits on the icon's corner.
+        "[&[data-icons]_[data-toolbar-badge]]:absolute [&[data-icons]_[data-toolbar-badge]]:-top-1.5 [&[data-icons]_[data-toolbar-badge]]:-right-1.5 [&[data-icons]_[data-toolbar-badge]]:h-4 [&[data-icons]_[data-toolbar-badge]]:min-w-4 [&[data-icons]_[data-toolbar-badge]]:text-[10px]",
+        // Icons only and wrapped: fields (search, tabs) take the free room; a row of
+        // icons alone spreads across the full width.
+        "[&[data-icons][data-wrapped]>[data-toolbar-fill]]:grow [&[data-icons][data-wrapped]]:justify-between",
         className,
       )}
       {...props}
@@ -309,6 +336,7 @@ function ToolbarTabs({
   return (
     <div
       data-slot="toolbar-tabs"
+      data-toolbar-fill=""
       className={cn(
         "max-w-full min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
         stretch ? "flex-[999_1_24rem]" : "shrink-0",
@@ -489,7 +517,11 @@ function ToolbarSearch({
   ...props
 }: React.ComponentProps<"input">) {
   return (
-    <div data-slot="toolbar-search" className={cn("relative min-w-48 flex-[1_1_16rem]", className)}>
+    <div
+      data-slot="toolbar-search"
+      data-toolbar-fill=""
+      className={cn("relative min-w-48 flex-[1_1_16rem]", className)}
+    >
       <SearchIcon
         aria-hidden="true"
         className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
@@ -724,6 +756,7 @@ function ToolbarFilterDialog({
         {/* Always takes its space, so the button keeps one width with or without a count. */}
         <span
           aria-hidden={count === 0 ? true : undefined}
+          data-toolbar-badge=""
           className={cn(
             "bg-primary text-primary-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-medium tabular-nums",
             count === 0 && "invisible",
