@@ -230,7 +230,7 @@ const COLUMNS: Array<{ key: ColKey; label: string }> = [
   { key: "compare", label: "Comparison" },
   { key: "date", label: "Date" },
   { key: "dateSub", label: "Date with second line" },
-  { key: "note", label: "Long text (wraps)" },
+  { key: "note", label: "Long text" },
   { key: "files", label: "Files" },
   { key: "apiKey", label: "Secret (masked)" },
   { key: "inlineSelect", label: "Inline dropdown" },
@@ -458,7 +458,9 @@ export function ListBuilder() {
     name: {
       id: "name",
       header: "Name",
-      width: "fit-content(20rem)",
+      width: "fit",
+      minWidth: "8rem",
+      maxWidth: "20rem",
       primary: true,
       sortValue: (r) => r.name.toLowerCase(),
       cell: (r) => (
@@ -478,7 +480,9 @@ export function ListBuilder() {
     titleDesc: {
       id: "titleDesc",
       header: "Finding",
-      width: "fit-content(28rem)",
+      width: "fit",
+      minWidth: "10rem",
+      maxWidth: "28rem",
       sortValue: (r) => r.summary,
       cell: (r) => <ListTitle description={r.summary}>{`${r.name}: ${r.pace}% on pace`}</ListTitle>,
     },
@@ -499,6 +503,7 @@ export function ListBuilder() {
     person: {
       id: "person",
       header: "Owner",
+      width: "fit",
       sortValue: (r) => r.person,
       cell: (r) => r.person,
     },
@@ -624,9 +629,10 @@ export function ListBuilder() {
     note: {
       id: "note",
       header: "Note",
-      width: "minmax(12rem,22rem)",
-      wrap: true,
-      cell: (r) => r.note,
+      width: "fit",
+      minWidth: "8rem",
+      maxWidth: "24rem",
+      cell: (r) => <span title={r.note}>{r.note}</span>,
     },
     files: {
       id: "files",

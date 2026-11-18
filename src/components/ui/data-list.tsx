@@ -22,12 +22,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/compon
  *   />
  *
  * Columns line up with a CSS grid: every column sizes to its widest value and
- * the gap between columns is the same 24px everywhere. Columns never squeeze
- * below their content: when they don't all fit, the window scrolls sideways
- * (trackpad, or Shift and the mouse wheel). The list fills the
+ * the gap between columns is the same 24px everywhere. Text never wraps, so
+ * every row keeps one height, and the list never scrolls sideways: when room
+ * runs short, text columns squeeze and cut their text with "...", and once
+ * they can't squeeze any further every row becomes a card. The list fills the
  * height its parent gives it; rows scroll inside their own window (no visible
  * scrollbar) with the column titles pinned on top, so the footer always stays
- * in view. Below 1024px each row becomes a card with label and value pairs.
+ * in view.
  *
  * Optional parts, each one prop: bulk select (round checkboxes, Shift+click
  * for a range), sortable column titles, a three-dot menu or a chevron at the
@@ -46,14 +47,20 @@ type DataListColumn<T> = {
   header: React.ReactNode
   cell: (row: T) => React.ReactNode
   /**
-   * "auto" sizes to the widest value (default). "fit" does the same but stops
-   * at 14rem and cuts longer text with "...". "grow" takes the free room. Any
-   * other string is used as the CSS grid track, for example "fit-content(20rem)".
+   * "auto" (default): as wide as its widest value and never squeezed. Use it
+   * for badges, numbers, dates, buttons and inline controls.
+   * "fit": text. As wide as its widest value up to maxWidth (14rem by default);
+   * when the list runs short of room it squeezes down to minWidth (6rem by
+   * default) and cuts the text with "...".
+   * "grow": text that takes the free room, and squeezes like "fit".
+   * Text never wraps, so every row keeps one height.
    */
-  width?: "auto" | "fit" | "grow" | (string & {})
+  width?: "auto" | "fit" | "grow"
+  /** Narrowest a "fit" or "grow" column gets before the list turns into cards. */
+  minWidth?: string
+  /** Widest a "fit" column gets. */
+  maxWidth?: string
   align?: "start" | "end" | "center"
-  /** Let the text wrap onto more lines instead of cutting it (notes). */
-  wrap?: boolean
   /** Clicks inside this cell don't open the row (inputs, dropdowns, buttons). */
   interactive?: boolean
   /** The column title sorts the list. Pair with sortValue for sortRows(). */
@@ -109,25 +116,13 @@ type DataListProps<T> = {
 
 const hideScrollbar = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 
-/* Rows on wide screens, cards below 1024px. Only one of the two is drawn. */
-const WIDE = "(min-width: 1024px)"
-function useWide() {
-  const [wide, setWide] = React.useState(() => typeof window === "undefined" || window.matchMedia(WIDE).matches)
-  React.useEffect(() => {
-    const mq = window.matchMedia(WIDE)
-    const on = () => setWide(mq.matches)
-    on()
-    mq.addEventListener("change", on)
-    return () => mq.removeEventListener("change", on)
-  }, [])
-  return wide
-}
+const squeezes = (c: DataListColumn<never>) => c.width === "fit" || c.width === "grow"
 
-function track(width: DataListColumn<unknown>["width"]) {
-  if (!width || width === "auto") return "auto"
-  if (width === "fit") return "fit-content(14rem)"
-  if (width === "grow") return "minmax(0,1fr)"
-  return width
+function track(c: DataListColumn<never>) {
+  const min = c.minWidth ?? "6rem"
+  if (c.width === "fit") return `minmax(${min},max-content)`
+  if (c.width === "grow") return `minmax(${min},1fr)`
+  return "max-content"
 }
 
 /** Sorts rows with the sorted column's sortValue. Returns the rows as they are when nothing is sorted. */
@@ -297,7 +292,6 @@ function DataList<T>({
   scrollKey,
   className,
 }: DataListProps<T>) {
-  const wide = useWide()
   const selectable = !!onSelectedChange
   const picked = selected ?? []
   const anchor = React.useRef<string | null>(null)
@@ -342,13 +336,57 @@ function DataList<T>({
   const showEnd = rowEnd === "menu" ? !!rowMenu : rowEnd === "chevron"
   const grows = columns.some((c) => c.width === "grow")
   const template = [
-    ...(renderExpanded ? ["auto"] : []),
-    ...(selectable ? ["auto"] : []),
-    ...columns.map((c) => track(c.width)),
+    ...(renderExpanded ? ["max-content"] : []),
+    ...(selectable ? ["max-content"] : []),
+    ...columns.map((c) => track(c as DataListColumn<never>)),
     // Nothing grows: an empty track takes the free room so the row end sits at the right edge.
     ...(grows ? [] : ["minmax(0,1fr)"]),
-    ...(showEnd ? ["auto"] : []),
+    ...(showEnd ? ["max-content"] : []),
   ].join(" ")
+
+  /* The list never scrolls sideways. As its box narrows: "fit" and "grow"
+     columns squeeze down to their minWidth, then the gap between columns
+     tightens from 24px to 12px, then every row turns into a card. Each step
+     remembers how wide the rows needed to be, so the list steps back up when
+     its box grows past that again. */
+  const root = React.useRef<HTMLDivElement>(null)
+  const table = React.useRef<HTMLDivElement>(null)
+  const [fit, setFit] = React.useState<"rows" | "tight" | "cards">("rows")
+  const fitRef = React.useRef(fit)
+  fitRef.current = fit
+  const need = React.useRef({ rows: 0, tight: 0 })
+  const stepDown = React.useCallback(() => {
+    const el = table.current
+    if (!el || el.scrollWidth <= el.clientWidth + 1) return false
+    if (fitRef.current === "rows") {
+      need.current.rows = el.scrollWidth
+      setFit("tight")
+    } else if (fitRef.current === "tight") {
+      need.current.tight = el.scrollWidth
+      setFit("cards")
+    }
+    return true
+  }, [])
+  const shape = `${columns.map((c) => c.id).join(",")}|${selectable}|${showEnd}|${!!renderExpanded}|${layout}|${density}`
+  React.useLayoutEffect(() => {
+    setFit("rows")
+  }, [shape])
+  React.useLayoutEffect(() => {
+    stepDown()
+  })
+  React.useEffect(() => {
+    const box = root.current
+    if (!box) return
+    const ro = new ResizeObserver(() => {
+      if (stepDown()) return
+      const width = box.clientWidth
+      if (fitRef.current === "cards" && width >= need.current.tight) setFit("tight")
+      else if (fitRef.current === "tight" && width >= need.current.rows) setFit("rows")
+    })
+    ro.observe(box)
+    return () => ro.disconnect()
+  }, [stepDown])
+  const fits = fit !== "cards"
 
   const cards = layout === "cards"
   const caps = headerStyle === "caps"
@@ -397,7 +435,7 @@ function DataList<T>({
               aria-sort={
                 c.sortable ? (dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none") : undefined
               }
-              className={cn("flex min-w-0 whitespace-nowrap select-none", alignClass(c.align))}
+              className={cn("flex min-w-0 overflow-hidden whitespace-nowrap select-none", alignClass(c.align))}
             >
               {c.sortable && onSortChange ? (
                 <button
@@ -489,14 +527,21 @@ function DataList<T>({
             role="cell"
             onClick={c.interactive ? (e) => e.stopPropagation() : undefined}
             onKeyDown={c.interactive ? (e) => e.stopPropagation() : undefined}
+            style={
+              squeezes(c as DataListColumn<never>)
+                ? { maxWidth: c.width === "fit" ? (c.maxWidth ?? "14rem") : undefined }
+                : undefined
+            }
             className={cn(
-              "flex min-w-0 items-center gap-1.5",
-              c.wrap ? "break-words whitespace-normal" : "whitespace-nowrap",
-              alignClass(c.align),
+              "min-w-0 whitespace-nowrap",
+              // Text columns cut what doesn't fit with "...". Other columns line their parts up in a row.
+              squeezes(c as DataListColumn<never>) ? "truncate" : "flex items-center gap-1.5",
+              squeezes(c as DataListColumn<never>) && c.align === "end" && "text-right",
+              !squeezes(c as DataListColumn<never>) && alignClass(c.align),
               muted && !c.interactive && "opacity-50",
             )}
           >
-            {c.wrap ? <div className="min-w-0">{c.cell(row)}</div> : c.cell(row)}
+            {c.cell(row)}
           </div>
         ))}
         {grows ? null : <div aria-hidden="true" />}
@@ -528,7 +573,8 @@ function DataList<T>({
     <div
       role="table"
       aria-label={ariaLabel}
-      className={cn("grid w-max min-w-full gap-x-6", cards && "gap-y-2")}
+      ref={table}
+      className={cn("grid w-full", fit === "tight" ? "gap-x-3" : "gap-x-6", cards && "gap-y-2")}
       style={{ gridTemplateColumns: template }}
     >
       {header}
@@ -537,7 +583,7 @@ function DataList<T>({
   )
 
   const windowClass = cn(
-    "hidden min-h-0 flex-1 overflow-auto overscroll-contain select-auto lg:block",
+    "min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain select-auto",
     hideScrollbar,
     cards ? "" : "bg-card border-border/40 rounded-lg border",
   )
@@ -546,20 +592,20 @@ function DataList<T>({
   const rest = columns.filter((c) => c !== primary && !c.hideOnMobile)
 
   return (
-    <div data-slot="data-list" className={cn("flex h-full min-h-0 flex-col gap-3", className)}>
+    <div ref={root} data-slot="data-list" className={cn("flex h-full min-h-0 flex-col gap-3", className)}>
       {rows.length === 0 ? (
         <div className="bg-card text-muted-foreground border-border/40 rounded-lg border p-12 text-center text-[13px]">
           {empty}
         </div>
       ) : (
         <>
-          {/* Phones and tablets: one card per row. */}
-          {wide ? null : (
+          {/* Not enough room for the columns: one card per row. */}
+          {fits ? null : (
             <ul
               ref={mobile}
               aria-label={ariaLabel}
               className={cn(
-                "m-0 grid min-h-0 flex-1 list-none content-start gap-2 overflow-y-auto overscroll-contain p-0 lg:hidden",
+                "m-0 grid min-h-0 flex-1 list-none content-start gap-2 overflow-y-auto overscroll-contain p-0",
                 hideScrollbar,
               )}
             >
@@ -604,7 +650,7 @@ function DataList<T>({
                         {rest.map((c) => (
                           <div
                             key={c.id}
-                            className={cn("min-w-0", c.wrap && "basis-full")}
+                            className="min-w-0 max-w-full"
                             onClick={c.interactive ? (e) => e.stopPropagation() : undefined}
                           >
                             <dt className="text-muted-foreground text-[11px]">{c.header}</dt>
@@ -622,7 +668,7 @@ function DataList<T>({
             </ul>
           )}
 
-          {!wide ? null : bulkMenu ? (
+          {!fits ? null : bulkMenu ? (
             <ContextMenu>
               <ContextMenuTrigger render={<div ref={desktop} className={windowClass} />}>{grid}</ContextMenuTrigger>
               <ContextMenuContent className="w-56">{bulkMenu(picked)}</ContextMenuContent>
