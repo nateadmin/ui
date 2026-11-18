@@ -118,8 +118,10 @@ const hideScrollbar = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 
 const squeezes = (c: DataListColumn<never>) => c.width === "fit" || c.width === "grow"
 
-function track(c: DataListColumn<never>) {
-  const min = c.minWidth ?? "6rem"
+/* lead: extra width in front of the column (the select circle and expand
+   arrow live inside the first column so they stay tight to it). */
+function track(c: DataListColumn<never>, lead = "0px") {
+  const min = `calc(${c.minWidth ?? "6rem"} + ${lead})`
   if (c.width === "fit") return `minmax(${min},max-content)`
   if (c.width === "grow") return `minmax(${min},1fr)`
   return "max-content"
@@ -254,9 +256,7 @@ function RowMenu({ label, children }: { label: string; children: React.ReactNode
       >
         <MoreVerticalIcon />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {children}
-      </DropdownMenuContent>
+      <DropdownMenuContent align="end">{children}</DropdownMenuContent>
     </DropdownMenu>
   )
 }
@@ -334,13 +334,14 @@ function DataList<T>({
   }
 
   const showEnd = rowEnd === "menu" ? !!rowMenu : rowEnd === "chevron"
-  const grows = columns.some((c) => c.width === "grow")
+  /* The expand arrow and select circle sit inside the first column, a fixed
+     gap before its content. Free room is shared out evenly between the
+     columns (justify-content: space-between), so the first column stays at
+     the left edge, the row end stays at the right edge, and every gap in
+     between is the same. */
+  const leadCount = (renderExpanded ? 1 : 0) + (selectable ? 1 : 0)
   const template = [
-    ...(renderExpanded ? ["max-content"] : []),
-    ...(selectable ? ["max-content"] : []),
-    ...columns.map((c) => track(c as DataListColumn<never>)),
-    // Nothing grows: an empty track takes the free room so the row end sits at the right edge.
-    ...(grows ? [] : ["minmax(0,1fr)"]),
+    ...columns.map((c, i) => track(c as DataListColumn<never>, i === 0 && leadCount ? "var(--lead)" : "0px")),
     ...(showEnd ? ["max-content"] : []),
   ].join(" ")
 
@@ -410,22 +411,7 @@ function DataList<T>({
           caps ? "text-[11px] font-semibold tracking-wide uppercase" : "text-[11px] font-medium",
         )}
       >
-        {renderExpanded ? (
-          <div role="columnheader">
-            <span className="sr-only">Expand</span>
-          </div>
-        ) : null}
-        {selectable ? (
-          <div role="columnheader" className="flex">
-            <ListCheckbox
-              checked={allPicked}
-              indeterminate={pickedHere > 0 && !allPicked}
-              onToggle={toggleAll}
-              label="Select all"
-            />
-          </div>
-        ) : null}
-        {columns.map((c) => {
+        {columns.map((c, i) => {
           const active = sort?.column === c.id
           const dir = active ? sort.dir : null
           return (
@@ -435,8 +421,20 @@ function DataList<T>({
               aria-sort={
                 c.sortable ? (dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none") : undefined
               }
-              className={cn("flex min-w-0 overflow-hidden whitespace-nowrap select-none", alignClass(c.align))}
+              className={cn(
+                "flex min-w-0 items-center overflow-hidden whitespace-nowrap select-none",
+                i === 0 && leadCount ? "gap-(--gap)" : alignClass(c.align),
+              )}
             >
+              {i === 0 && renderExpanded ? <span aria-hidden="true" className="w-4 shrink-0" /> : null}
+              {i === 0 && selectable ? (
+                <ListCheckbox
+                  checked={allPicked}
+                  indeterminate={pickedHere > 0 && !allPicked}
+                  onToggle={toggleAll}
+                  label="Select all"
+                />
+              ) : null}
               {c.sortable && onSortChange ? (
                 <button
                   type="button"
@@ -457,7 +455,6 @@ function DataList<T>({
             </div>
           )
         })}
-        {grows ? null : <div aria-hidden="true" />}
         {showEnd ? (
           <div role="columnheader">
             <span className="sr-only">Actions</span>
@@ -500,51 +497,56 @@ function DataList<T>({
           clickable && "cursor-pointer",
         )}
       >
-        {renderExpanded ? (
-          <div role="cell" className="flex">
-            <button
-              type="button"
-              aria-label={open ? "Collapse row" : "Expand row"}
-              aria-expanded={open}
-              onClick={(e) => {
-                e.stopPropagation()
-                toggleExpanded(id)
-              }}
-              className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -m-1 flex size-6 cursor-pointer items-center justify-center rounded outline-none focus-visible:ring-2"
+        {columns.map((c, i) => {
+          const text = squeezes(c as DataListColumn<never>)
+          const lead = i === 0 && leadCount > 0
+          const content = (
+            <div
+              role={lead ? undefined : "cell"}
+              onClick={c.interactive ? (e) => e.stopPropagation() : undefined}
+              onKeyDown={c.interactive ? (e) => e.stopPropagation() : undefined}
+              style={text && c.width === "fit" ? { maxWidth: c.maxWidth ?? "14rem" } : undefined}
+              className={cn(
+                "min-w-0 whitespace-nowrap",
+                // Text columns cut what doesn't fit with "...". Other columns line their parts up in a row.
+                text ? "truncate" : "flex items-center gap-1.5",
+                text && c.align === "end" && "text-right",
+                !text && alignClass(c.align),
+                lead && "flex-1",
+                muted && !c.interactive && "opacity-50",
+              )}
             >
-              <ChevronRightIcon className={cn("size-4 transition-transform", open && "rotate-90")} />
-            </button>
-          </div>
-        ) : null}
-        {selectable ? (
-          <div role="cell" className="flex">
-            <ListCheckbox checked={on} onToggle={(e) => toggle(id, e)} label="Select row" />
-          </div>
-        ) : null}
-        {columns.map((c) => (
-          <div
-            key={c.id}
-            role="cell"
-            onClick={c.interactive ? (e) => e.stopPropagation() : undefined}
-            onKeyDown={c.interactive ? (e) => e.stopPropagation() : undefined}
-            style={
-              squeezes(c as DataListColumn<never>)
-                ? { maxWidth: c.width === "fit" ? (c.maxWidth ?? "14rem") : undefined }
-                : undefined
-            }
-            className={cn(
-              "min-w-0 whitespace-nowrap",
-              // Text columns cut what doesn't fit with "...". Other columns line their parts up in a row.
-              squeezes(c as DataListColumn<never>) ? "truncate" : "flex items-center gap-1.5",
-              squeezes(c as DataListColumn<never>) && c.align === "end" && "text-right",
-              !squeezes(c as DataListColumn<never>) && alignClass(c.align),
-              muted && !c.interactive && "opacity-50",
-            )}
-          >
-            {c.cell(row)}
-          </div>
-        ))}
-        {grows ? null : <div aria-hidden="true" />}
+              {c.cell(row)}
+            </div>
+          )
+          if (!lead) return <React.Fragment key={c.id}>{content}</React.Fragment>
+          return (
+            <div key={c.id} role="cell" className="flex min-w-0 items-center gap-(--gap)">
+              {renderExpanded ? (
+                <div className="flex shrink-0">
+                  <button
+                    type="button"
+                    aria-label={open ? "Collapse row" : "Expand row"}
+                    aria-expanded={open}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleExpanded(id)
+                    }}
+                    className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -m-1 flex size-6 cursor-pointer items-center justify-center rounded outline-none focus-visible:ring-2"
+                  >
+                    <ChevronRightIcon className={cn("size-4 transition-transform", open && "rotate-90")} />
+                  </button>
+                </div>
+              ) : null}
+              {selectable ? (
+                <div className="flex shrink-0">
+                  <ListCheckbox checked={on} onToggle={(e) => toggle(id, e)} label="Select row" />
+                </div>
+              ) : null}
+              {content}
+            </div>
+          )
+        })}
         {showEnd ? (
           <div role="cell" className="flex justify-end">
             {rowEnd === "menu" && rowMenu ? (
@@ -574,8 +576,15 @@ function DataList<T>({
       role="table"
       aria-label={ariaLabel}
       ref={table}
-      className={cn("grid w-full", fit === "tight" ? "gap-x-3" : "gap-x-6", cards && "gap-y-2")}
-      style={{ gridTemplateColumns: template }}
+      className={cn("grid w-full justify-between gap-x-(--gap)", cards && "gap-y-2")}
+      style={
+        {
+          gridTemplateColumns: template,
+          "--gap": fit === "tight" ? "0.75rem" : "1.5rem",
+          // Width of the select circle and expand arrow, each 1rem plus a gap.
+          "--lead": `calc(${leadCount} * (1rem + var(--gap)))`,
+        } as React.CSSProperties
+      }
     >
       {header}
       {body}
