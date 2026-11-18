@@ -276,9 +276,24 @@ function ToolbarBuilder() {
       case "dateRange":
         return <ToolbarDateRange value={range} onValueChange={setRange} />
       case "count":
-        return <ToolbarCount>{exported ? `Exporting ${exported.toUpperCase()}...` : "1,240 projects"}</ToolbarCount>
+        return <ToolbarCount>{exported || "1,240 projects"}</ToolbarCount>
       case "export":
-        return <ToolbarExport onExport={setExported} />
+        return (
+          <ToolbarExport
+            onExport={(format) => setExported(`Exporting ${format.toUpperCase()}...`)}
+            // The catalog has no mail server: this waits a moment, then reports what would be sent.
+            onEmail={({ to, format }) =>
+              new Promise<void>((done) =>
+                setTimeout(() => {
+                  setExported(
+                    `Emailed ${format.toUpperCase()} to ${to.length} ${to.length === 1 ? "person" : "people"}`,
+                  )
+                  done()
+                }, 600),
+              )
+            }
+          />
+        )
       case "primary":
         return (
           <Button size="lg">

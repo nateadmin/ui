@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   DownloadIcon,
   ListFilterIcon,
+  MailIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
   SaveIcon,
@@ -38,6 +39,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { EmailInput, isEmail } from "@/components/ui/email-input"
 import { Input } from "@/components/ui/input"
 import { MultiSelect } from "@/components/ui/multi-select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -1064,39 +1066,182 @@ const DEFAULT_EXPORT_FORMATS: ToolbarExportFormat[] = [
   { value: "pdf", label: "PDF", description: "Printable document" },
 ]
 
-/** Export button that asks which format before exporting. */
+type ToolbarExportEmail = { to: string[]; format: string; message: string }
+
+/**
+ * Export button that asks which format before exporting. With onEmail, the menu
+ * also has Email: it opens a dialog to send the file to one or more people.
+ */
 function ToolbarExport({
   onExport,
+  onEmail,
   formats = DEFAULT_EXPORT_FORMATS,
   label = "Export",
   className,
 }: {
   onExport: (format: string) => void
+  /** Sends the export by email. Return a promise to show "Sending..." until it settles. */
+  onEmail?: (email: ToolbarExportEmail) => void | Promise<void>
   formats?: ToolbarExportFormat[]
   label?: string
   className?: string
 }) {
+  const [emailOpen, setEmailOpen] = React.useState(false)
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={<Button size="lg" data-slot="toolbar-export" className={cn("shrink-0 gap-2", className)} />}
-      >
-        <DownloadIcon aria-hidden="true" />
-        <ToolbarLabel>{label}</ToolbarLabel>
-        <ChevronDownIcon aria-hidden="true" data-toolbar-chevron="" className="ml-auto opacity-70" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-auto">
-        {formats.map((f) => (
-          <DropdownMenuItem key={f.value} onClick={() => onExport(f.value)} className="items-start py-1.5">
-            {f.value === "pdf" ? <FileTextIcon className="mt-0.5" /> : <FileSpreadsheetIcon className="mt-0.5" />}
-            <span className="flex flex-col">
-              <span className="font-medium">{f.label}</span>
-              {f.description ? <span className="text-muted-foreground text-xs">{f.description}</span> : null}
-            </span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button size="lg" data-slot="toolbar-export" className={cn("shrink-0 gap-2", className)} />}
+        >
+          <DownloadIcon aria-hidden="true" />
+          <ToolbarLabel>{label}</ToolbarLabel>
+          <ChevronDownIcon aria-hidden="true" data-toolbar-chevron="" className="ml-auto opacity-70" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-auto">
+          {formats.map((f) => (
+            <DropdownMenuItem key={f.value} onClick={() => onExport(f.value)} className="items-start py-1.5">
+              {f.value === "pdf" ? <FileTextIcon className="mt-0.5" /> : <FileSpreadsheetIcon className="mt-0.5" />}
+              <span className="flex flex-col">
+                <span className="font-medium">{f.label}</span>
+                {f.description ? <span className="text-muted-foreground text-xs">{f.description}</span> : null}
+              </span>
+            </DropdownMenuItem>
+          ))}
+          {onEmail ? (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setEmailOpen(true)} className="items-start py-1.5">
+                <MailIcon className="mt-0.5" />
+                <span className="flex flex-col">
+                  <span className="font-medium">Email</span>
+                  <span className="text-muted-foreground text-xs">Send the file to people</span>
+                </span>
+              </DropdownMenuItem>
+            </>
+          ) : null}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {onEmail ? (
+        <ExportEmailDialog open={emailOpen} onOpenChange={setEmailOpen} formats={formats} onSend={onEmail} />
+      ) : null}
+    </>
+  )
+}
+
+function ExportEmailDialog({
+  open,
+  onOpenChange,
+  formats,
+  onSend,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  formats: ToolbarExportFormat[]
+  onSend: (email: ToolbarExportEmail) => void | Promise<void>
+}) {
+  const [to, setTo] = React.useState<string[]>([])
+  const [format, setFormat] = React.useState(formats[0]?.value ?? "")
+  const [message, setMessage] = React.useState("")
+  const [sending, setSending] = React.useState(false)
+  const [error, setError] = React.useState("")
+  const ids = React.useId()
+
+  // Start fresh each time the dialog opens.
+  React.useEffect(() => {
+    if (open) {
+      setTo([])
+      setFormat(formats[0]?.value ?? "")
+      setMessage("")
+      setError("")
+      setSending(false)
+    }
+  }, [open, formats])
+
+  const bad = to.filter((e) => !isEmail(e))
+  const canSend = to.length > 0 && bad.length === 0 && !sending
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!canSend) return
+    setSending(true)
+    setError("")
+    try {
+      await onSend({ to, format, message: message.trim() })
+      onOpenChange(false)
+    } catch {
+      setError("Couldn't send the email. Try again.")
+      setSending(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <form onSubmit={submit} className="flex flex-col gap-5">
+          <DialogHeader>
+            <DialogTitle>Email this export</DialogTitle>
+            <DialogDescription>Send the file to one or more people.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <label htmlFor={`${ids}-to`} className="text-sm font-medium">
+              To
+            </label>
+            <EmailInput id={`${ids}-to`} value={to} onValueChange={setTo} aria-describedby={`${ids}-to-help`} />
+            <p
+              id={`${ids}-to-help`}
+              className={cn("text-xs", bad.length ? "text-destructive" : "text-muted-foreground")}
+            >
+              {bad.length
+                ? `Fix or remove ${bad.length === 1 ? "the address" : "the addresses"} in red.`
+                : "Separate addresses with Enter, a comma or a space."}
+            </p>
+          </div>
+          {formats.length > 1 ? (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 text-sm font-medium">Format</legend>
+              <div role="radiogroup" aria-label="Format" className="bg-muted flex w-fit rounded-md p-0.5">
+                {formats.map((f) => (
+                  <button
+                    key={f.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={format === f.value}
+                    onClick={() => setFormat(f.value)}
+                    className="text-muted-foreground aria-checked:bg-background aria-checked:text-foreground focus-visible:ring-ring/50 h-7 cursor-pointer rounded px-3 text-sm outline-none focus-visible:ring-2 aria-checked:shadow-sm"
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+          <div className="flex flex-col gap-2">
+            <label htmlFor={`${ids}-msg`} className="text-sm font-medium">
+              Message <span className="text-muted-foreground font-normal">(optional)</span>
+            </label>
+            <textarea
+              id={`${ids}-msg`}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={3}
+              className="border-input dark:bg-input/30 placeholder:text-muted-foreground min-h-20 w-full resize-y rounded-lg border bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:shadow-[0_0_0_2px_color-mix(in_oklch,var(--foreground)_8%,transparent),0_0_5px_color-mix(in_oklch,var(--foreground)_12%,transparent)]"
+            />
+          </div>
+          {error ? (
+            <p role="alert" className="text-destructive text-sm">
+              {error}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <DialogClose render={<Button type="button" variant="ghost" />}>Cancel</DialogClose>
+            <Button type="submit" disabled={!canSend}>
+              <MailIcon aria-hidden="true" />
+              {sending ? "Sending..." : to.length > 1 ? `Send to ${to.length} people` : "Send"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -1134,6 +1279,7 @@ export type {
   ToolbarSavedView,
   ToolbarExportFormat,
   ToolbarDatePreset,
+  ToolbarExportEmail,
   ToolbarDateRangeValue,
   ToolbarTab,
   ToolbarFilterGroup,

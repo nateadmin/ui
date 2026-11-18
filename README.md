@@ -48,7 +48,8 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | Table | Table primitives: header, body, row, head, cell, footer, caption |
 | ListPagination | Footer under a list: rows-per-page dropdown (50 to 2,000), "Showing x-y of total", Previous / Next and a page field you can type into. Controlled: the app saves page size to the user's profile (never the browser) and passes it back. |
 | DataList | The list itself, built from columns. Sizes each column to its content with equal 24px gaps and scrolls rows in their own window with pinned titles, so the footer stays in view. Never scrolls sideways and text never wraps: as room runs short, text columns squeeze and cut with "...", the gaps tighten to 12px, then every row becomes a card. Optional: bulk select (Shift range), sortable titles, three-dot menu or chevron per row, expandable rows, dimmed rows, right-click bulk menu, three row heights, CAPS or hidden titles, cards layout. Cell parts: ListTitle, ListBadge, ListNumber, ListDate, ListMono, ListMuted, ListNone. sortRows() sorts by a column. |
-| CustomizeMenu | One dropdown to choose which parts or columns show and in what order: tick to show or hide, drag (or Alt and the up or down arrow) to reorder, search long lists, Show all, Reset. Extra settings go inside as CustomizeOption (a row of choices) and CustomizeSwitch (on/off). The value is the ordered list of shown keys; save it to the user's profile. |
+| CustomizeMenu | One dropdown to choose which parts or columns show and in what order: tick to show or hide, drag (or Alt and the up or down arrow) to reorder, search long lists, Show all, Reset. The list sits on the left and extra settings on the right, so the menu stays short; on a phone they stack. Extra settings go inside as CustomizeOption (a row of choices) and CustomizeSwitch (on/off). The value is the ordered list of shown keys; save it to the user's profile. |
+| EmailInput | Field for several email addresses: Enter, comma, semicolon, space, leaving the field or pasting a list turns them into chips; Backspace removes the last; invalid addresses show in red. `isEmail()` checks one address. |
 | DropdownMenu | Items, checkbox items, radio items, submenus |
 | ContextMenu | Right-click menu: items, labels, separators, submenus |
 | Dialog | Modal with header, footer, and close button |
@@ -92,6 +93,8 @@ Rule of thumb: a filter is multi-select whenever picking two values makes sense 
 </Toolbar>
 <ToolbarActiveFilters items={activeFilterItems(filterGroups, filters, setFilters)} onClearAll={() => setFilters({})} />
 ```
+
+`ToolbarExport` takes `onEmail` to add Email to its menu: a dialog with several addresses, the format and an optional message, which calls `onEmail({ to, format, message })`. Return a promise to show "Sending..." until it settles.
 
 When the parts wrap onto more rows (tablet, phone), every part stretches so each row fills the full width. `labels` is `"show"` (default), `"icons"` (icons only, fewer rows; text stays readable by screen readers) or `"icons-on-phones"` (icons only below 640px). Wrap your own button text in `ToolbarLabel` so it hides too.
 

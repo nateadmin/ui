@@ -104,128 +104,140 @@ function CustomizeMenu<K extends string>({
         </span>
         <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
       </PopoverTrigger>
-      <PopoverContent align={align} className="w-max max-w-[min(22rem,calc(100vw-2rem))] gap-0 p-0">
-        {items.length > 10 ? (
-          <div className="relative border-b">
-            <SearchIcon
-              aria-hidden="true"
-              className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={searchPlaceholder}
-              aria-label={searchPlaceholder}
-              aria-controls={listId}
-              className="placeholder:text-muted-foreground h-10 w-full bg-transparent pr-3 pl-9 text-sm outline-none"
-            />
+      <PopoverContent
+        align={align}
+        className={cn("w-max max-w-[calc(100vw-2rem)] gap-0 p-0", !children && "max-w-[min(22rem,calc(100vw-2rem))]")}
+      >
+        {/* Two columns side by side, the list on the left and the settings on the
+            right, so the menu stays short. On a phone they stack. */}
+        <div className="flex max-h-[min(30rem,calc(var(--available-height)-3rem))] flex-col sm:flex-row">
+          <div className="flex min-h-40 min-w-56 flex-1 flex-col sm:min-h-0">
+            {items.length > 10 ? (
+              <div className="relative border-b">
+                <SearchIcon
+                  aria-hidden="true"
+                  className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2"
+                />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={searchPlaceholder}
+                  aria-label={searchPlaceholder}
+                  aria-controls={listId}
+                  className="placeholder:text-muted-foreground h-10 w-full bg-transparent pr-3 pl-9 text-sm outline-none"
+                />
+              </div>
+            ) : null}
+
+            <div className="flex items-center justify-between gap-4 px-3 pt-2.5 pb-1">
+              <span className="text-muted-foreground text-xs font-medium">{itemsLabel}</span>
+              <span className="text-muted-foreground text-[11px]">
+                {searching ? "Clear search to reorder" : "Drag to reorder"}
+              </span>
+            </div>
+
+            <ul
+              ref={listRef}
+              id={listId}
+              aria-label={itemsLabel}
+              className="m-0 min-h-0 flex-1 list-none overflow-y-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {rows.length === 0 ? (
+                <li className="text-muted-foreground px-2 py-6 text-center text-sm">No matches</li>
+              ) : null}
+              {rows.map((k, i) => {
+                const on = shown.includes(k)
+                const canMove = on && !searching
+                // A thin line between the shown and hidden groups.
+                const firstHidden = !on && i > 0 && shown.includes(rows[i - 1]!)
+                return (
+                  <li
+                    key={k}
+                    data-key={k}
+                    tabIndex={0}
+                    role="checkbox"
+                    aria-checked={on}
+                    aria-label={
+                      on
+                        ? `${labelOf(k)}, shown, position ${shown.indexOf(k) + 1} of ${shown.length}`
+                        : `${labelOf(k)}, hidden`
+                    }
+                    draggable={canMove}
+                    onClick={() => toggle(k)}
+                    onKeyDown={(e) => {
+                      if (e.key === " " || e.key === "Enter") {
+                        e.preventDefault()
+                        toggle(k)
+                      } else if (canMove && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+                        e.preventDefault()
+                        nudge(k, e.key === "ArrowUp" ? -1 : 1)
+                      } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                        e.preventDefault()
+                        const sib =
+                          e.key === "ArrowDown"
+                            ? e.currentTarget.nextElementSibling
+                            : e.currentTarget.previousElementSibling
+                        ;(sib as HTMLElement | null)?.focus()
+                      }
+                    }}
+                    onDragStart={(e) => {
+                      setDragging(k)
+                      e.dataTransfer.effectAllowed = "move"
+                      e.dataTransfer.setData("text/plain", k)
+                    }}
+                    onDragEnd={() => {
+                      setDragging(null)
+                      setOver(null)
+                    }}
+                    onDragOver={(e) => {
+                      if (!dragging || !on) return
+                      e.preventDefault()
+                      if (over !== k) setOver(k)
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault()
+                      if (dragging && on) moveTo(dragging, k)
+                      setDragging(null)
+                      setOver(null)
+                    }}
+                    className={cn(
+                      "hover:bg-muted focus-visible:bg-muted flex h-8 cursor-pointer items-center gap-2 rounded-md pr-2 pl-1 text-sm outline-none select-none",
+                      firstHidden && "border-border/60 mt-1 rounded-t-none border-t pt-0",
+                      dragging === k && "opacity-40",
+                      over === k && dragging && dragging !== k && "bg-muted ring-foreground/30 ring-1",
+                    )}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "flex size-5 shrink-0 items-center justify-center",
+                        canMove ? "text-muted-foreground cursor-grab active:cursor-grabbing" : "invisible",
+                      )}
+                    >
+                      <GripVerticalIcon className="size-3.5" />
+                    </span>
+                    <span className={cn("flex-1 truncate", !on && "text-muted-foreground")}>{labelOf(k)}</span>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "ml-3 flex size-4 shrink-0 items-center justify-center rounded border",
+                        on ? "bg-primary border-primary text-primary-foreground" : "border-input",
+                      )}
+                    >
+                      {on ? <CheckIcon className="size-3" /> : null}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
-        ) : null}
-
-        <div className="flex items-center justify-between gap-4 px-3 pt-2.5 pb-1">
-          <span className="text-muted-foreground text-xs font-medium">{itemsLabel}</span>
-          <span className="text-muted-foreground text-[11px]">
-            {searching ? "Clear search to reorder" : "Drag to reorder"}
-          </span>
-        </div>
-
-        <ul
-          ref={listRef}
-          id={listId}
-          aria-label={itemsLabel}
-          className="m-0 max-h-80 list-none overflow-y-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {rows.length === 0 ? (
-            <li className="text-muted-foreground px-2 py-6 text-center text-sm">No matches</li>
+          {children ? (
+            <div className="flex shrink-0 flex-col gap-2.5 overflow-y-auto border-t px-3 py-3 [scrollbar-width:none] sm:border-t-0 sm:border-l [&::-webkit-scrollbar]:hidden">
+              {children}
+            </div>
           ) : null}
-          {rows.map((k, i) => {
-            const on = shown.includes(k)
-            const canMove = on && !searching
-            // A thin line between the shown and hidden groups.
-            const firstHidden = !on && i > 0 && shown.includes(rows[i - 1]!)
-            return (
-              <li
-                key={k}
-                data-key={k}
-                tabIndex={0}
-                role="checkbox"
-                aria-checked={on}
-                aria-label={
-                  on
-                    ? `${labelOf(k)}, shown, position ${shown.indexOf(k) + 1} of ${shown.length}`
-                    : `${labelOf(k)}, hidden`
-                }
-                draggable={canMove}
-                onClick={() => toggle(k)}
-                onKeyDown={(e) => {
-                  if (e.key === " " || e.key === "Enter") {
-                    e.preventDefault()
-                    toggle(k)
-                  } else if (canMove && e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-                    e.preventDefault()
-                    nudge(k, e.key === "ArrowUp" ? -1 : 1)
-                  } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
-                    e.preventDefault()
-                    const sib =
-                      e.key === "ArrowDown"
-                        ? e.currentTarget.nextElementSibling
-                        : e.currentTarget.previousElementSibling
-                    ;(sib as HTMLElement | null)?.focus()
-                  }
-                }}
-                onDragStart={(e) => {
-                  setDragging(k)
-                  e.dataTransfer.effectAllowed = "move"
-                  e.dataTransfer.setData("text/plain", k)
-                }}
-                onDragEnd={() => {
-                  setDragging(null)
-                  setOver(null)
-                }}
-                onDragOver={(e) => {
-                  if (!dragging || !on) return
-                  e.preventDefault()
-                  if (over !== k) setOver(k)
-                }}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  if (dragging && on) moveTo(dragging, k)
-                  setDragging(null)
-                  setOver(null)
-                }}
-                className={cn(
-                  "hover:bg-muted focus-visible:bg-muted flex h-8 cursor-pointer items-center gap-2 rounded-md pr-2 pl-1 text-sm outline-none select-none",
-                  firstHidden && "border-border/60 mt-1 rounded-t-none border-t pt-0",
-                  dragging === k && "opacity-40",
-                  over === k && dragging && dragging !== k && "bg-muted ring-foreground/30 ring-1",
-                )}
-              >
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "flex size-5 shrink-0 items-center justify-center",
-                    canMove ? "text-muted-foreground cursor-grab active:cursor-grabbing" : "invisible",
-                  )}
-                >
-                  <GripVerticalIcon className="size-3.5" />
-                </span>
-                <span className={cn("flex-1 truncate", !on && "text-muted-foreground")}>{labelOf(k)}</span>
-                <span
-                  aria-hidden="true"
-                  className={cn(
-                    "ml-3 flex size-4 shrink-0 items-center justify-center rounded border",
-                    on ? "bg-primary border-primary text-primary-foreground" : "border-input",
-                  )}
-                >
-                  {on ? <CheckIcon className="size-3" /> : null}
-                </span>
-              </li>
-            )
-          })}
-        </ul>
-
-        {children ? <div className="flex flex-col gap-2.5 border-t px-3 py-3">{children}</div> : null}
+        </div>
 
         <div className="text-muted-foreground flex items-center justify-between gap-4 border-t px-3 py-2 text-xs">
           <span className="tabular-nums">
