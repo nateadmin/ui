@@ -1,11 +1,9 @@
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 import {
   Bookmark,
-  Check,
   Clock,
   Download,
   ExternalLink,
-  GripVertical,
   MessageSquare,
   Paperclip,
   Pencil,
@@ -25,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
+import { CustomizeMenu, CustomizeOption, CustomizeSwitch } from "@/components/ui/customize-menu"
 import { ListPagination } from "@/components/ui/list-pagination"
 import {
   DataList,
@@ -241,9 +240,6 @@ const COLUMNS: Array<{ key: ColKey; label: string }> = [
   { key: "source", label: "Muted label" },
 ]
 
-const colLabel = (k: ColKey) => COLUMNS.find((c) => c.key === k)?.label ?? k
-
-const DEFAULT_ORDER: ColKey[] = COLUMNS.map((c) => c.key)
 const DEFAULT_ON: ColKey[] = ["name", "email", "person", "status", "amount", "pace", "date"]
 
 const statusBadge: Record<Status, { label: string; tone: "green" | "neutral" | "amber" | "red" }> = {
@@ -262,127 +258,6 @@ const decisionTone = {
   review: "amber",
   decline: "red",
 } as const
-
-/* ---------- Builder controls ---------- */
-
-function Toggle({ on, onClick, children }: { on: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      aria-pressed={on}
-      onClick={onClick}
-      className="aria-pressed:border-foreground/40 aria-pressed:bg-muted gap-1.5 rounded-full font-normal"
-    >
-      <span
-        aria-hidden="true"
-        className={`flex size-3.5 items-center justify-center rounded-full border ${
-          on ? "bg-foreground border-foreground text-background" : "border-foreground/30"
-        }`}
-      >
-        {on ? <Check className="size-2.5" strokeWidth={3} /> : null}
-      </span>
-      {children}
-    </Button>
-  )
-}
-
-function Choice<V extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
-  label: string
-  value: V
-  options: Array<{ value: V; label: string }>
-  onChange: (v: V) => void
-}) {
-  return (
-    <div role="radiogroup" aria-label={label} className="flex flex-wrap items-center gap-1.5">
-      <span className="text-muted-foreground w-20 shrink-0 text-xs">{label}</span>
-      {options.map((o) => (
-        <Button
-          key={o.value}
-          type="button"
-          role="radio"
-          aria-checked={value === o.value}
-          variant="outline"
-          size="xs"
-          onClick={() => onChange(o.value)}
-          className="aria-checked:border-foreground/40 aria-checked:bg-muted rounded-full font-normal"
-        >
-          {o.label}
-        </Button>
-      ))}
-    </div>
-  )
-}
-
-/** Chips in order. Drag one onto another, or focus one and use the arrow keys. */
-function OrderChips<K extends string>({
-  items,
-  label,
-  onMove,
-  onNudge,
-}: {
-  items: K[]
-  label: (k: K) => string
-  onMove: (from: K, to: K) => void
-  onNudge: (k: K, by: -1 | 1) => void
-}) {
-  const [dragging, setDragging] = useState<K | null>(null)
-  const [over, setOver] = useState<K | null>(null)
-  return (
-    <ol aria-label="Order of columns" className="m-0 flex list-none flex-wrap gap-2 p-0">
-      {items.map((k, i) => (
-        <li
-          key={k}
-          draggable
-          tabIndex={0}
-          aria-label={`${label(k)}, position ${i + 1} of ${items.length}`}
-          onDragStart={(e) => {
-            setDragging(k)
-            e.dataTransfer.effectAllowed = "move"
-            e.dataTransfer.setData("text/plain", k)
-          }}
-          onDragEnd={() => {
-            setDragging(null)
-            setOver(null)
-          }}
-          onDragOver={(e) => {
-            e.preventDefault()
-            if (over !== k) setOver(k)
-          }}
-          onDragLeave={() => setOver((cur) => (cur === k ? null : cur))}
-          onDrop={(e) => {
-            e.preventDefault()
-            if (dragging) onMove(dragging, k)
-            setDragging(null)
-            setOver(null)
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-              e.preventDefault()
-              onNudge(k, -1)
-            } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-              e.preventDefault()
-              onNudge(k, 1)
-            }
-          }}
-          className={`bg-card focus-visible:ring-ring/50 flex h-8 cursor-grab items-center gap-1.5 rounded-lg border pr-3 pl-1.5 text-sm outline-none select-none focus-visible:ring-2 active:cursor-grabbing ${
-            dragging === k ? "opacity-40" : ""
-          } ${over === k && dragging && dragging !== k ? "border-foreground/60 bg-muted" : ""}`}
-        >
-          <GripVertical aria-hidden="true" className="text-muted-foreground size-3.5" />
-          <span className="text-muted-foreground w-4 text-xs tabular-nums">{i + 1}</span>
-          {label(k)}
-        </li>
-      ))}
-    </ol>
-  )
-}
 
 /* ---------- Builder ---------- */
 
@@ -413,29 +288,10 @@ const DEFAULT_OPTS: Opts = {
 }
 
 export function ListBuilder() {
-  const [on, setOn] = useState<ColKey[]>(DEFAULT_ON)
-  const [order, setOrder] = useState<ColKey[]>(DEFAULT_ORDER)
+  // Shown columns, in order, and the list options. In an app these are saved to the user's profile.
+  const [placed, setPlaced] = useState<ColKey[]>(DEFAULT_ON)
   const [opts, setOpts] = useState<Opts>(DEFAULT_OPTS)
   const set = <K extends keyof Opts>(k: K, v: Opts[K]) => setOpts((o) => ({ ...o, [k]: v }))
-  const has = (k: ColKey) => on.includes(k)
-  const flip = (k: ColKey) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
-  const placed = order.filter(has)
-
-  const move = (from: ColKey, to: ColKey) =>
-    setOrder((cur) => {
-      if (from === to) return cur
-      const next = cur.filter((x) => x !== from)
-      const at = next.indexOf(to)
-      const fromIdx = cur.indexOf(from)
-      const toIdx = cur.indexOf(to)
-      next.splice(fromIdx < toIdx ? at + 1 : at, 0, from)
-      return next
-    })
-  const nudge = (k: ColKey, by: -1 | 1) => {
-    const i = placed.indexOf(k)
-    const target = placed[i + by]
-    if (target) move(k, target)
-  }
 
   // List state. In an app, page size and column choices are saved to the user's profile.
   const [data, setData] = useState(rows)
@@ -783,116 +639,80 @@ export function ListBuilder() {
   const pageRows = sorted.slice((current - 1) * size, current * size)
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-3">
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs font-medium">Columns</p>
-          <div className="flex flex-wrap gap-2">
-            {COLUMNS.map((c) => (
-              <Toggle key={c.key} on={has(c.key)} onClick={() => flip(c.key)}>
-                {c.label}
-              </Toggle>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-2">
-          <p className="text-muted-foreground text-xs font-medium">Row parts</p>
-          <div className="flex flex-wrap gap-2">
-            <Toggle on={opts.select} onClick={() => set("select", !opts.select)}>
-              Bulk select
-            </Toggle>
-            <Toggle on={opts.sortable} onClick={() => set("sortable", !opts.sortable)}>
-              Sortable titles
-            </Toggle>
-            <Toggle on={opts.expand} onClick={() => set("expand", !opts.expand)}>
-              Expandable rows
-            </Toggle>
-            <Toggle on={opts.dimInactive} onClick={() => set("dimInactive", !opts.dimInactive)}>
-              Dim inactive rows
-            </Toggle>
-            <Toggle on={opts.bulkMenu} onClick={() => set("bulkMenu", !opts.bulkMenu)}>
-              Right-click bulk menu
-            </Toggle>
-            <Toggle on={opts.pagination} onClick={() => set("pagination", !opts.pagination)}>
-              Pagination footer
-            </Toggle>
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
-          <Choice
-            label="Row end"
-            value={opts.rowEnd}
-            onChange={(v) => set("rowEnd", v)}
-            options={[
-              { value: "menu", label: "Three dots" },
-              { value: "chevron", label: "Chevron (row opens)" },
-              { value: "none", label: "Nothing" },
-            ]}
-          />
-          <Choice
-            label="Row height"
-            value={opts.density}
-            onChange={(v) => set("density", v)}
-            options={[
-              { value: "compact", label: "Compact" },
-              { value: "default", label: "Default" },
-              { value: "comfortable", label: "Comfortable" },
-            ]}
-          />
-          <Choice
-            label="Titles"
-            value={opts.headerStyle}
-            onChange={(v) => set("headerStyle", v)}
-            options={[
-              { value: "default", label: "Normal" },
-              { value: "caps", label: "CAPS" },
-              { value: "hidden", label: "Hidden" },
-            ]}
-          />
-          <Choice
-            label="Layout"
-            value={opts.layout}
-            onChange={(v) => set("layout", v)}
-            options={[
-              { value: "rows", label: "Rows" },
-              { value: "cards", label: "Cards" },
-            ]}
-          />
-        </div>
-
-        {placed.length > 1 ? (
-          <div className="space-y-2 pt-1">
-            <div className="flex items-center gap-3">
-              <p className="text-muted-foreground text-xs font-medium">Column order</p>
-              <span className="text-muted-foreground text-xs">
-                Drag to rearrange, or focus one and use the arrow keys.
-              </span>
-              <Button
-                type="button"
-                variant="link"
-                size="xs"
-                className="text-muted-foreground ml-auto px-0 font-normal"
-                onClick={() => {
-                  setOn(DEFAULT_ON)
-                  setOrder(DEFAULT_ORDER)
-                  setOpts(DEFAULT_OPTS)
-                }}
-              >
-                Reset all
-              </Button>
-            </div>
-            <OrderChips items={placed} label={colLabel} onMove={move} onNudge={nudge} />
-          </div>
-        ) : null}
-      </div>
+    <div className="space-y-4">
+      <CustomizeMenu
+        label="Customize list"
+        itemsLabel="Columns"
+        searchPlaceholder="Search columns"
+        items={COLUMNS}
+        value={placed}
+        onValueChange={setPlaced}
+        defaultValue={DEFAULT_ON}
+      >
+        <CustomizeOption
+          label="Row end"
+          value={opts.rowEnd}
+          onValueChange={(v) => set("rowEnd", v)}
+          options={[
+            { value: "menu", label: "Dots" },
+            { value: "chevron", label: "Chevron" },
+            { value: "none", label: "None" },
+          ]}
+        />
+        <CustomizeOption
+          label="Row height"
+          value={opts.density}
+          onValueChange={(v) => set("density", v)}
+          options={[
+            { value: "compact", label: "Compact" },
+            { value: "default", label: "Default" },
+            { value: "comfortable", label: "Roomy" },
+          ]}
+        />
+        <CustomizeOption
+          label="Titles"
+          value={opts.headerStyle}
+          onValueChange={(v) => set("headerStyle", v)}
+          options={[
+            { value: "default", label: "Normal" },
+            { value: "caps", label: "CAPS" },
+            { value: "hidden", label: "Hidden" },
+          ]}
+        />
+        <CustomizeOption
+          label="Layout"
+          value={opts.layout}
+          onValueChange={(v) => set("layout", v)}
+          options={[
+            { value: "rows", label: "Rows" },
+            { value: "cards", label: "Cards" },
+          ]}
+        />
+        <CustomizeSwitch label="Bulk select" checked={opts.select} onCheckedChange={(v) => set("select", v)} />
+        <CustomizeSwitch label="Sortable titles" checked={opts.sortable} onCheckedChange={(v) => set("sortable", v)} />
+        <CustomizeSwitch label="Expandable rows" checked={opts.expand} onCheckedChange={(v) => set("expand", v)} />
+        <CustomizeSwitch
+          label="Dim inactive rows"
+          checked={opts.dimInactive}
+          onCheckedChange={(v) => set("dimInactive", v)}
+        />
+        <CustomizeSwitch
+          label="Right-click bulk menu"
+          checked={opts.bulkMenu}
+          onCheckedChange={(v) => set("bulkMenu", v)}
+        />
+        <CustomizeSwitch
+          label="Pagination footer"
+          checked={opts.pagination}
+          onCheckedChange={(v) => set("pagination", v)}
+        />
+      </CustomizeMenu>
 
       {/* The list fills the height it is given; here a 600px box stands in for the page. */}
       <div className="h-[600px]">
         {placed.length === 0 ? (
           <p className="text-muted-foreground rounded-xl border border-dashed p-6 text-center text-sm">
-            Turn on a column above to build the list.
+            Turn on a column in Customize list to build it.
           </p>
         ) : (
           <DataList

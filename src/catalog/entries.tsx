@@ -1,16 +1,5 @@
 import { Fragment, useState, type ReactNode } from "react"
-import {
-  CalendarDays,
-  Check,
-  ChevronDown,
-  FileBarChart,
-  GanttChart,
-  GripVertical,
-  LayoutGrid,
-  List,
-  Plus,
-  Save,
-} from "lucide-react"
+import { CalendarDays, ChevronDown, FileBarChart, GanttChart, LayoutGrid, List, Plus, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -35,6 +24,7 @@ import {
   type ToolbarFilterValues,
 } from "@/components/ui/toolbar"
 
+import { CustomizeMenu, CustomizeOption, CustomizeSwitch } from "@/components/ui/customize-menu"
 import { SimplyFundingList } from "./list-sample"
 import { ListBuilder } from "./list-builder"
 
@@ -142,67 +132,18 @@ const PARTS: Array<{ key: PartKey; label: string }> = [
   { key: "export", label: "Export" },
   { key: "primary", label: "Primary button" },
   { key: "spacer", label: "Push right" },
-  { key: "chips", label: "Applied filter chips" },
 ]
 
-const partLabel = (k: PartKey) => PARTS.find((p) => p.key === k)?.label ?? k
-
-/* Default order. "Push right" is a spacer: parts after it sit at the right edge. */
-const DEFAULT_ORDER: PartKey[] = [
-  "savedViews",
-  "reports",
-  "views",
-  "search",
-  "statusTabs",
-  "filterShort",
-  "filterLong",
-  "filtersDialog",
-  "dateRange",
-  "count",
-  "spacer",
-  "export",
-  "primary",
-]
-
-const DEFAULT_PARTS: PartKey[] = [
-  "savedViews",
-  "views",
-  "search",
-  "filterShort",
-  "filtersDialog",
-  "spacer",
-  "primary",
-  "chips",
-]
+/* Shown parts, in order. "Push right" is a spacer: parts after it sit at the right edge. */
+const DEFAULT_PARTS: PartKey[] = ["savedViews", "views", "search", "filterShort", "filtersDialog", "spacer", "primary"]
 
 function ToolbarBuilder() {
-  const [on, setOn] = useState<PartKey[]>(DEFAULT_PARTS)
-  const [viewCount, setViewCount] = useState<2 | 4>(2)
+  // Shown parts, in order. In an app this is saved to the user's profile.
+  const [placed, setPlaced] = useState<PartKey[]>(DEFAULT_PARTS)
+  const [showChips, setShowChips] = useState(true)
+  const [viewCount, setViewCount] = useState<"2" | "4">("2")
   const [labels, setLabels] = useState<"show" | "icons" | "icons-on-phones">("show")
-  const has = (k: PartKey) => on.includes(k)
-  const flip = (k: PartKey) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
-
-  // Order of the parts on the bar. Drag a chip onto another to move it there.
-  const [order, setOrder] = useState<PartKey[]>(DEFAULT_ORDER)
-  const [dragging, setDragging] = useState<PartKey | null>(null)
-  const [over, setOver] = useState<PartKey | null>(null)
-  const placed = order.filter(has)
-  const move = (from: PartKey, to: PartKey) => {
-    if (from === to) return
-    setOrder((cur) => {
-      const next = cur.filter((k) => k !== from)
-      const at = next.indexOf(to)
-      const fromIdx = cur.indexOf(from)
-      const toIdx = cur.indexOf(to)
-      next.splice(fromIdx < toIdx ? at + 1 : at, 0, from)
-      return next
-    })
-  }
-  const nudge = (k: PartKey, dir: -1 | 1) => {
-    const i = placed.indexOf(k)
-    const target = placed[i + dir]
-    if (target) move(k, target)
-  }
+  const has = (k: PartKey | "chips") => (k === "chips" ? showChips : placed.includes(k))
 
   const [view, setView] = useState("board")
   const [tab, setTab] = useState("active")
@@ -287,7 +228,7 @@ function ToolbarBuilder() {
       case "views":
         return (
           <ToolbarViews
-            views={(viewCount === 2 ? twoViews : fourViews).map((v) => ({ ...v }))}
+            views={(viewCount === "2" ? twoViews : fourViews).map((v) => ({ ...v }))}
             value={view}
             onValueChange={setView}
           />
@@ -353,144 +294,41 @@ function ToolbarBuilder() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-2">
-        <p className="text-muted-foreground text-xs font-medium">Parts on the toolbar</p>
-        <div className="flex flex-wrap gap-2">
-          {PARTS.map((part) => (
-            <Button
-              key={part.key}
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-pressed={has(part.key)}
-              onClick={() => flip(part.key)}
-              className="aria-pressed:border-foreground/40 aria-pressed:bg-muted gap-1.5 rounded-full font-normal"
-            >
-              <span
-                aria-hidden="true"
-                className={`flex size-3.5 items-center justify-center rounded-full border ${
-                  has(part.key) ? "bg-foreground border-foreground text-background" : "border-foreground/30"
-                }`}
-              >
-                {has(part.key) ? <Check className="size-2.5" strokeWidth={3} /> : null}
-              </span>
-              {part.label}
-            </Button>
-          ))}
-        </div>
-        {has("views") ? (
-          <div className="flex items-center gap-2 pt-1">
-            <span className="text-muted-foreground text-xs">Number of views</span>
-            {[2, 4].map((n) => (
-              <Button
-                key={n}
-                type="button"
-                variant="outline"
-                size="xs"
-                aria-pressed={viewCount === n}
-                onClick={() => setViewCount(n as 2 | 4)}
-                className="aria-pressed:border-foreground/40 aria-pressed:bg-muted rounded-full font-normal"
-              >
-                {n === 2 ? "2 (tabs)" : "4 (dropdown)"}
-              </Button>
-            ))}
-          </div>
-        ) : null}
-        <div role="radiogroup" aria-label="Labels" className="flex flex-wrap items-center gap-2 pt-1">
-          <span className="text-muted-foreground text-xs">Labels</span>
-          {(
-            [
-              ["show", "Show"],
-              ["icons", "Icons only"],
-              ["icons-on-phones", "Icons only on phones"],
-            ] as const
-          ).map(([value, text]) => (
-            <Button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={labels === value}
-              variant="outline"
-              size="xs"
-              onClick={() => setLabels(value)}
-              className="aria-checked:border-foreground/40 aria-checked:bg-muted rounded-full font-normal"
-            >
-              {text}
-            </Button>
-          ))}
-        </div>
-        {placed.length > 1 ? (
-          <div className="space-y-2 pt-2">
-            <div className="flex items-center gap-3">
-              <p className="text-muted-foreground text-xs font-medium">Order on the toolbar</p>
-              <span className="text-muted-foreground text-xs">
-                Drag to rearrange, or focus one and use the arrow keys.
-              </span>
-              <Button
-                type="button"
-                variant="link"
-                size="xs"
-                className="text-muted-foreground ml-auto px-0 font-normal"
-                onClick={() => setOrder(DEFAULT_ORDER)}
-              >
-                Reset order
-              </Button>
-            </div>
-            <ol aria-label="Order of parts on the toolbar" className="m-0 flex list-none flex-wrap gap-2 p-0">
-              {placed.map((k, i) => (
-                <li
-                  key={k}
-                  draggable
-                  tabIndex={0}
-                  aria-label={`${partLabel(k)}, position ${i + 1} of ${placed.length}`}
-                  onDragStart={(e) => {
-                    setDragging(k)
-                    e.dataTransfer.effectAllowed = "move"
-                    e.dataTransfer.setData("text/plain", k)
-                  }}
-                  onDragEnd={() => {
-                    setDragging(null)
-                    setOver(null)
-                  }}
-                  onDragOver={(e) => {
-                    e.preventDefault()
-                    if (over !== k) setOver(k)
-                  }}
-                  onDragLeave={() => setOver((cur) => (cur === k ? null : cur))}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    if (dragging) move(dragging, k)
-                    setDragging(null)
-                    setOver(null)
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
-                      e.preventDefault()
-                      nudge(k, -1)
-                    } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
-                      e.preventDefault()
-                      nudge(k, 1)
-                    }
-                  }}
-                  className={`bg-card focus-visible:ring-ring/50 flex h-8 cursor-grab items-center gap-1.5 rounded-lg border pr-3 pl-1.5 text-sm outline-none select-none focus-visible:ring-2 active:cursor-grabbing ${
-                    dragging === k ? "opacity-40" : ""
-                  } ${over === k && dragging && dragging !== k ? "border-foreground/60 bg-muted" : ""}`}
-                >
-                  <GripVertical aria-hidden="true" className="text-muted-foreground size-3.5" />
-                  <span className="text-muted-foreground w-3 text-xs tabular-nums">{i + 1}</span>
-                  {partLabel(k)}
-                </li>
-              ))}
-            </ol>
-          </div>
-        ) : null}
-      </div>
+    <div className="space-y-4">
+      <CustomizeMenu
+        label="Customize toolbar"
+        itemsLabel="Parts"
+        items={PARTS}
+        value={placed}
+        onValueChange={setPlaced}
+        defaultValue={DEFAULT_PARTS}
+      >
+        <CustomizeOption
+          label="Labels"
+          value={labels}
+          onValueChange={setLabels}
+          options={[
+            { value: "show", label: "Show" },
+            { value: "icons", label: "Icons" },
+            { value: "icons-on-phones", label: "Icons on phones" },
+          ]}
+        />
+        <CustomizeOption
+          label="Views"
+          value={viewCount}
+          onValueChange={setViewCount}
+          options={[
+            { value: "2", label: "2 (tabs)" },
+            { value: "4", label: "4 (dropdown)" },
+          ]}
+        />
+        <CustomizeSwitch label="Applied filter chips" checked={showChips} onCheckedChange={setShowChips} />
+      </CustomizeMenu>
 
       <div>
-        {on.filter((k) => k !== "chips").length === 0 ? (
+        {placed.length === 0 ? (
           <p className="text-muted-foreground rounded-xl border border-dashed p-6 text-center text-sm">
-            Turn on a part above to build the toolbar.
+            Turn on a part in Customize toolbar to build it.
           </p>
         ) : (
           <Toolbar labels={labels}>
