@@ -344,7 +344,7 @@ function RowActions({ row, onDelete }: { row: Row; onDelete: () => void }) {
       >
         <MoreVertical />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end">
         <DropdownMenuItem>
           <ExternalLink />
           Open application
@@ -674,7 +674,7 @@ export function SimplyFundingList() {
                 ))}
               </div>
             </ContextMenuTrigger>
-            <ContextMenuContent className="w-56">
+            <ContextMenuContent>
               {selected.length === 0 ? (
                 <ContextMenuGroup>
                   <ContextMenuLabel>Select rows to see bulk actions</ContextMenuLabel>

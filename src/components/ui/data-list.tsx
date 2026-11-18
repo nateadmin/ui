@@ -254,7 +254,7 @@ function RowMenu({ label, children }: { label: string; children: React.ReactNode
       >
         <MoreVerticalIcon />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end">
         {children}
       </DropdownMenuContent>
     </DropdownMenu>
@@ -671,7 +671,7 @@ function DataList<T>({
           {!fits ? null : bulkMenu ? (
             <ContextMenu>
               <ContextMenuTrigger render={<div ref={desktop} className={windowClass} />}>{grid}</ContextMenuTrigger>
-              <ContextMenuContent className="w-56">{bulkMenu(picked)}</ContextMenuContent>
+              <ContextMenuContent>{bulkMenu(picked)}</ContextMenuContent>
             </ContextMenu>
           ) : (
             <div ref={desktop} className={windowClass}>
