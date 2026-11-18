@@ -79,18 +79,20 @@ Rule of thumb: a filter is multi-select whenever picking two values makes sense 
 ### Toolbar
 
 ```tsx
-<Toolbar>
+<Toolbar labels="icons-on-phones">
   <ToolbarViews views={[{ value: "board", label: "Board" }, { value: "list", label: "List" }]} value={view} onValueChange={setView} />
   <ToolbarSearch placeholder="Search projects" value={q} onChange={(e) => setQ(e.target.value)} />
   <ToolbarFilter label="Owner" options={ownerOptions} value={owner} onValueChange={setOwner} />
   <ToolbarFilter multiple label="Status" placeholder="All" options={statusOptions} values={statuses} onValuesChange={setStatuses} />
   <ToolbarFilterDialog filters={filterGroups} values={filters} onValuesChange={setFilters} />
   <ToolbarActions>
-    <Button size="lg">New project</Button>
+    <Button size="lg"><Plus /><ToolbarLabel>New project</ToolbarLabel></Button>
   </ToolbarActions>
 </Toolbar>
 <ToolbarActiveFilters items={activeFilterItems(filterGroups, filters, setFilters)} onClearAll={() => setFilters({})} />
 ```
+
+When the parts wrap onto more rows (tablet, phone), every part stretches so each row fills the full width. `labels` is `"show"` (default), `"icons"` (icons only, fewer rows; text stays readable by screen readers) or `"icons-on-phones"` (icons only below 640px). Wrap your own button text in `ToolbarLabel` so it hides too.
 
 `activeFilterItems` builds the chips from the same filter groups and values the Filters dialog uses. For inline filters, pass chips yourself: `{ id, label, value, onRemove }`.
 

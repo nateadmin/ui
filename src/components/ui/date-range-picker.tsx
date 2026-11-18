@@ -126,13 +126,15 @@ function DateRangePicker({
       >
         <CalendarIcon aria-hidden="true" />
         {value.from && value.to ? (
-          <span className="inline-flex items-center gap-2">
+          <span data-toolbar-label="" className="inline-flex items-center gap-2">
             {formatDate(value.from)}
             <ArrowRightIcon aria-label="to" className="text-muted-foreground size-3.5" />
             {formatDate(value.to)}
           </span>
         ) : (
-          <span className="text-muted-foreground">{placeholder}</span>
+          <span data-toolbar-label="" className="text-muted-foreground">
+            {placeholder}
+          </span>
         )}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto gap-0 p-0">

@@ -82,7 +82,7 @@ function MultiSelect({
         }
       >
         {trigger ?? <span className="truncate">{summary}</span>}
-        <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+        <ChevronDownIcon aria-hidden="true" data-toolbar-chevron="" className="text-muted-foreground ml-auto" />
       </PopoverTrigger>
       <PopoverContent align={align} className="w-(--anchor-width) min-w-48 max-w-80 gap-0 p-0">
         <div className="relative border-b">

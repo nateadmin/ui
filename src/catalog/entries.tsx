@@ -1,10 +1,22 @@
 import { Fragment, useState, type ReactNode } from "react"
-import { CalendarDays, Check, ChevronDown, GanttChart, GripVertical, LayoutGrid, List, Plus } from "lucide-react"
+import {
+  CalendarDays,
+  Check,
+  ChevronDown,
+  FileBarChart,
+  GanttChart,
+  GripVertical,
+  LayoutGrid,
+  List,
+  Plus,
+  Save,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   Toolbar,
   ToolbarActiveFilters,
+  ToolbarLabel,
   ToolbarCount,
   ToolbarDateRange,
   ToolbarExport,
@@ -166,6 +178,7 @@ const DEFAULT_PARTS: PartKey[] = [
 function ToolbarBuilder() {
   const [on, setOn] = useState<PartKey[]>(DEFAULT_PARTS)
   const [viewCount, setViewCount] = useState<2 | 4>(2)
+  const [labels, setLabels] = useState<"show" | "icons" | "icons-on-phones">("show")
   const has = (k: PartKey) => on.includes(k)
   const flip = (k: PartKey) => setOn((cur) => (cur.includes(k) ? cur.filter((x) => x !== k) : [...cur, k]))
 
@@ -255,8 +268,9 @@ function ToolbarBuilder() {
           <>
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button variant="outline" size="lg" className="gap-2 font-normal" />}>
-                Reports
-                <ChevronDown className="text-muted-foreground" />
+                <FileBarChart aria-hidden="true" />
+                <ToolbarLabel>Reports</ToolbarLabel>
+                <ChevronDown aria-hidden="true" data-toolbar-chevron="" className="text-muted-foreground ml-auto" />
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start">
                 <DropdownMenuItem>Funded this month</DropdownMenuItem>
@@ -265,7 +279,8 @@ function ToolbarBuilder() {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button variant="outline" size="lg" className="font-normal">
-              Save as report
+              <Save aria-hidden="true" />
+              <ToolbarLabel>Save as report</ToolbarLabel>
             </Button>
           </>
         )
@@ -326,8 +341,8 @@ function ToolbarBuilder() {
       case "primary":
         return (
           <Button size="lg">
-            <Plus />
-            New project
+            <Plus aria-hidden="true" />
+            <ToolbarLabel>New project</ToolbarLabel>
           </Button>
         )
       case "spacer":
@@ -382,6 +397,29 @@ function ToolbarBuilder() {
             ))}
           </div>
         ) : null}
+        <div role="radiogroup" aria-label="Labels" className="flex flex-wrap items-center gap-2 pt-1">
+          <span className="text-muted-foreground text-xs">Labels</span>
+          {(
+            [
+              ["show", "Show"],
+              ["icons", "Icons only"],
+              ["icons-on-phones", "Icons only on phones"],
+            ] as const
+          ).map(([value, text]) => (
+            <Button
+              key={value}
+              type="button"
+              role="radio"
+              aria-checked={labels === value}
+              variant="outline"
+              size="xs"
+              onClick={() => setLabels(value)}
+              className="aria-checked:border-foreground/40 aria-checked:bg-muted rounded-full font-normal"
+            >
+              {text}
+            </Button>
+          ))}
+        </div>
         {placed.length > 1 ? (
           <div className="space-y-2 pt-2">
             <div className="flex items-center gap-3">
@@ -455,7 +493,7 @@ function ToolbarBuilder() {
             Turn on a part above to build the toolbar.
           </p>
         ) : (
-          <Toolbar>
+          <Toolbar labels={labels}>
             {placed.map((k) => {
               const node = renderPart(k)
               return node ? <Fragment key={k}>{node}</Fragment> : null

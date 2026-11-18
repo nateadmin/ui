@@ -6,6 +6,7 @@ import {
   CalendarRangeIcon,
   ChevronDownIcon,
   DownloadIcon,
+  ListFilterIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
   SaveIcon,
@@ -64,13 +65,57 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
  * selection changes. On narrow screens the parts wrap onto new rows.
  */
 
-function Toolbar({ className, ...props }: React.ComponentProps<"div">) {
+/*
+ * labels: "show" (default) shows every part's text. "icons" shows icons only,
+ * so the bar takes fewer rows; the text stays readable by screen readers.
+ * "icons-on-phones" does that below 640px only. Wrap your own text in
+ * <ToolbarLabel> (for example a "New project" button) so it follows along.
+ *
+ * When the parts wrap onto more than one row, every part on every row
+ * stretches so each row fills the full width.
+ */
+function Toolbar({
+  className,
+  labels = "show",
+  ...props
+}: React.ComponentProps<"div"> & { labels?: "show" | "icons" | "icons-on-phones" }) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  const [wrapped, setWrapped] = React.useState(false)
+
+  // Wrapped when the visible parts don't all sit on the same line.
+  const measure = React.useCallback(() => {
+    const el = ref.current
+    if (!el) return
+    const tops = new Set<number>()
+    for (const child of Array.from(el.children) as HTMLElement[]) {
+      if (child.offsetWidth === 0 && child.offsetHeight === 0) continue
+      tops.add(Math.round(child.offsetTop / 4))
+    }
+    setWrapped(tops.size > 1)
+  }, [])
+  React.useLayoutEffect(measure)
+  React.useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [measure])
+
   return (
     <div
+      ref={ref}
       role="toolbar"
       data-slot="toolbar"
+      data-labels={labels}
+      data-wrapped={wrapped ? "true" : undefined}
       className={cn(
         "bg-card text-card-foreground flex w-full flex-wrap items-center gap-2 rounded-xl border p-2",
+        // Wrapped: every part grows so each row is full. Spacers (aria-hidden) stay put.
+        "data-wrapped:[&>*:not([aria-hidden=true])]:grow",
+        // Icons only: hide text and dropdown arrows, show the stand-in icons.
+        "data-[labels=icons]:[&_[data-toolbar-label]]:sr-only data-[labels=icons]:[&_[data-toolbar-chevron]]:hidden data-[labels=icons]:[&_[data-toolbar-icon]]:block",
+        "max-sm:data-[labels=icons-on-phones]:[&_[data-toolbar-label]]:sr-only max-sm:data-[labels=icons-on-phones]:[&_[data-toolbar-chevron]]:hidden max-sm:data-[labels=icons-on-phones]:[&_[data-toolbar-icon]]:block",
         className,
       )}
       {...props}
@@ -78,11 +123,30 @@ function Toolbar({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/** Text inside a toolbar part that hides when the toolbar shows icons only. */
+function ToolbarLabel({ className, ...props }: React.ComponentProps<"span">) {
+  return <span data-toolbar-label="" className={cn("truncate", className)} {...props} />
+}
+
+/* Dropdown arrow: hidden in icons-only mode, and pushed to the right edge when the part stretches. */
+function Chevron() {
+  return <ChevronDownIcon aria-hidden="true" data-toolbar-chevron="" className="text-muted-foreground ml-auto" />
+}
+
+/* An icon that only shows in icons-only mode, for parts that have no icon of their own. */
+function StandInIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <span aria-hidden="true" data-toolbar-icon="" className="hidden [&_svg]:size-4">
+      {children}
+    </span>
+  )
+}
+
 /* Lays every possible text in one grid cell and shows only the active one,
    so the box is always as wide as the longest text. */
 function StableLabel({ items, active }: { items: Array<{ key: string; node: React.ReactNode }>; active: string }) {
   return (
-    <span className="grid min-w-0 text-left">
+    <span data-toolbar-label="" className="grid min-w-0 text-left">
       {items.map((item) => (
         <span
           key={item.key}
@@ -106,8 +170,9 @@ function Dot({ color }: { color?: string }) {
 
 /* Every dropdown trigger on the toolbar follows one rule: same height, sized to
    its longest possible text so it never jumps when the selection changes, and
-   never wider than 15rem. Longer text is cut with "…". */
-const triggerClass = "min-w-0 max-w-60 shrink-0 gap-2 font-normal"
+   never wider than 15rem (no cap when the toolbar wraps and each row is
+   stretched to full width). Longer text is cut with "…". */
+const triggerClass = "min-w-0 max-w-60 shrink-0 gap-2 font-normal in-data-wrapped:max-w-none"
 
 /* ---------- Views ---------- */
 
@@ -154,6 +219,7 @@ function ToolbarViews({
             />
           }
         >
+          <StandInIcon>{views.find((v) => v.value === value)?.icon}</StandInIcon>
           <StableLabel
             active={value}
             items={views.map((v) => ({
@@ -167,7 +233,7 @@ function ToolbarViews({
               ),
             }))}
           />
-          <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+          <Chevron />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           <DropdownMenuRadioGroup value={value} onValueChange={(v: unknown) => onValueChange(String(v))}>
@@ -200,11 +266,18 @@ function ToolbarViews({
         <ToggleGroupItem
           key={view.value}
           value={view.value}
-          className="text-muted-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary h-8 px-3"
+          className="text-muted-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary in-data-wrapped:grow h-8 px-3"
         >
           {view.icon}
-          {view.label}
-          <Count value={view.count} />
+          <ToolbarLabel>
+            {view.label}
+            {view.count != null ? (
+              <>
+                {" "}
+                <Count value={view.count} />
+              </>
+            ) : null}
+          </ToolbarLabel>
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -278,6 +351,7 @@ function ToolbarCount({ className, ...props }: React.ComponentProps<"span">) {
     <span
       data-slot="toolbar-count"
       aria-live="polite"
+      data-toolbar-label=""
       className={cn("text-muted-foreground shrink-0 px-1 text-sm whitespace-nowrap tabular-nums", className)}
       {...props}
     />
@@ -360,7 +434,10 @@ function ToolbarDateRange({
     return sameDay(r.from, value.from) && sameDay(r.to, value.to)
   })
   return (
-    <div data-slot="toolbar-date-range" className={cn("flex flex-wrap items-center gap-2", className)}>
+    <div
+      data-slot="toolbar-date-range"
+      className={cn("in-data-wrapped:*:grow flex flex-wrap items-center gap-2", className)}
+    >
       {presets.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger
@@ -379,7 +456,7 @@ function ToolbarDateRange({
               active={active ? active.id : "__custom"}
               items={[...presets.map((p) => ({ key: p.id, node: p.label })), { key: "__custom", node: "Custom range" }]}
             />
-            <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+            <Chevron />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuRadioGroup
@@ -521,7 +598,11 @@ function ToolbarFilter(props: ToolbarFilterProps) {
         className={cn(triggerClass, className)}
         trigger={
           <>
-            {icon}
+            {icon ?? (
+              <StandInIcon>
+                <ListFilterIcon />
+              </StandInIcon>
+            )}
             <StableLabel items={items} active={active} />
           </>
         }
@@ -536,9 +617,13 @@ function ToolbarFilter(props: ToolbarFilterProps) {
           <Button variant="outline" size="lg" data-slot="toolbar-filter" className={cn(triggerClass, className)} />
         }
       >
-        {icon}
+        {icon ?? (
+          <StandInIcon>
+            <ListFilterIcon />
+          </StandInIcon>
+        )}
         <StableLabel items={items} active={active} />
-        <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+        <Chevron />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         {props.multiple ? (
@@ -635,7 +720,7 @@ function ToolbarFilterDialog({
         }
       >
         <SlidersHorizontalIcon aria-hidden="true" />
-        Filters
+        <ToolbarLabel>Filters</ToolbarLabel>
         {/* Always takes its space, so the button keeps one width with or without a count. */}
         <span
           aria-hidden={count === 0 ? true : undefined}
@@ -841,6 +926,7 @@ function ToolbarSavedViews({
               trigger is sized to the default name only; longer names are cut
               with "..." and shown in full on hover. */}
           <span
+            data-toolbar-label=""
             className="relative flex min-w-0 text-left"
             title={activeId ? views.find((v) => v.id === activeId)?.name : undefined}
           >
@@ -851,7 +937,7 @@ function ToolbarSavedViews({
               {withLabel("View", (activeId && views.find((v) => v.id === activeId)?.name) || defaultLabel)}
             </span>
           </span>
-          <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+          <Chevron />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="max-w-72">
           <DropdownMenuRadioGroup
@@ -962,8 +1048,8 @@ function ToolbarExport({
         render={<Button size="lg" data-slot="toolbar-export" className={cn("shrink-0 gap-2", className)} />}
       >
         <DownloadIcon aria-hidden="true" />
-        {label}
-        <ChevronDownIcon aria-hidden="true" className="opacity-70" />
+        <ToolbarLabel>{label}</ToolbarLabel>
+        <ChevronDownIcon aria-hidden="true" data-toolbar-chevron="" className="ml-auto opacity-70" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="w-auto">
         {formats.map((f) => (
@@ -994,6 +1080,7 @@ function ToolbarActions({ className, ...props }: React.ComponentProps<"div">) {
 
 export {
   Toolbar,
+  ToolbarLabel,
   ToolbarActions,
   ToolbarActiveFilters,
   ToolbarCount,
