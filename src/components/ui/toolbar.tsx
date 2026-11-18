@@ -133,16 +133,17 @@ function Toolbar({
         "[&[data-wrapped]:not([data-icons])>*:not([aria-hidden=true])]:grow",
         // Icons only: hide text and dropdown arrows, show the stand-in icons.
         "[&[data-icons]_[data-toolbar-label]]:sr-only [&[data-icons]_[data-toolbar-chevron]]:hidden [&[data-icons]_[data-toolbar-icon]]:block",
-        // Icons only: every button with a label becomes a 36px square that never stretches.
-        "[&[data-icons]_button:has([data-toolbar-label])]:relative [&[data-icons]_button:has([data-toolbar-label])]:size-9! [&[data-icons]_button:has([data-toolbar-label])]:min-w-0! [&[data-icons]_button:has([data-toolbar-label])]:max-w-none! [&[data-icons]_button:has([data-toolbar-label])]:grow-0! [&[data-icons]_button:has([data-toolbar-label])]:shrink-0 [&[data-icons]_button:has([data-toolbar-label])]:justify-center! [&[data-icons]_button:has([data-toolbar-label])]:gap-0! [&[data-icons]_button:has([data-toolbar-label])]:p-0!",
-        "[&[data-icons]_[data-slot=toolbar-views]_button]:size-8!",
+        // Icons only: every button with a label starts as a 36px square.
+        "[&[data-icons]_button:has([data-toolbar-label])]:relative [&[data-icons]_button:has([data-toolbar-label])]:h-9! [&[data-icons]_button:has([data-toolbar-label])]:w-9! [&[data-icons]_button:has([data-toolbar-label])]:min-w-0! [&[data-icons]_button:has([data-toolbar-label])]:max-w-none! [&[data-icons]_button:has([data-toolbar-label])]:shrink-0 [&[data-icons]_button:has([data-toolbar-label])]:justify-center! [&[data-icons]_button:has([data-toolbar-label])]:gap-0! [&[data-icons]_button:has([data-toolbar-label])]:p-0!",
+        "[&[data-icons]_[data-slot=toolbar-views]_button]:h-8! [&[data-icons]_[data-slot=toolbar-views]_button]:w-8! [&[data-icons]_[data-slot=toolbar-views]_button]:grow",
         // Icons only: search asks for less room before it wraps, so it can share a row with the icons.
         "[&[data-icons]>[data-slot=toolbar-search]]:basis-48",
         // Icons only: the Filters count sits on the icon's corner.
         "[&[data-icons]_[data-toolbar-badge]]:absolute [&[data-icons]_[data-toolbar-badge]]:-top-1.5 [&[data-icons]_[data-toolbar-badge]]:-right-1.5 [&[data-icons]_[data-toolbar-badge]]:h-4 [&[data-icons]_[data-toolbar-badge]]:min-w-4 [&[data-icons]_[data-toolbar-badge]]:text-[10px]",
-        // Icons only and wrapped: fields (search, tabs) take the free room; a row of
-        // icons alone spreads across the full width.
-        "[&[data-icons][data-wrapped]>[data-toolbar-fill]]:grow [&[data-icons][data-wrapped]]:justify-between",
+        // Icons only: the bar never leaves empty space. Fields (search, tabs) take
+        // nearly all the free room on their row, so icons beside them stay square;
+        // on a row of icons alone, the icons widen evenly to fill it.
+        "[&[data-icons]>*:not([aria-hidden=true])]:grow [&[data-icons]>[data-toolbar-fill]]:grow-[100000]",
         className,
       )}
       {...props}
