@@ -750,6 +750,21 @@ export function SimplyFundingReport() {
   const [detail, setDetail] = useState<Deal | null>(null)
   const [collapsed, setCollapsed] = useState<string[]>([])
   const dragCol = useRef<ColKey | null>(null)
+  // While a column title is dragged: which column it hovers and which half, so a line shows where it lands.
+  const [dragging, setDragging] = useState<ColKey | null>(null)
+  const [drop, setDrop] = useState<{ key: ColKey; side: "before" | "after" } | null>(null)
+  /* The drop line: a 2px bar down the whole column edge where the dragged column will land. */
+  const dropLine = (k: ColKey) =>
+    cn(
+      drop?.key === k && drop.side === "before" && "shadow-[inset_2px_0_0_0_var(--primary)]",
+      drop?.key === k && drop.side === "after" && "shadow-[inset_-2px_0_0_0_var(--primary)]",
+      dragging === k && "opacity-40",
+    )
+  const endDrag = () => {
+    dragCol.current = null
+    setDragging(null)
+    setDrop(null)
+  }
 
   const columns = cols.map((k) => COLUMNS.find((c) => c.key === k)!)
 
@@ -840,18 +855,42 @@ export function SimplyFundingReport() {
                 setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))
               }
             }}
-            onDragStart={() => (dragCol.current = c.key)}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={() => {
+            onDragStart={(e) => {
+              dragCol.current = c.key
+              setDragging(c.key)
+              e.dataTransfer.effectAllowed = "move"
+              e.dataTransfer.setData("text/plain", c.key)
+            }}
+            onDragOver={(e) => {
               const from = dragCol.current
-              if (!from || from === c.key) return
+              if (!from) return
+              e.preventDefault()
+              e.dataTransfer.dropEffect = "move"
+              const box = e.currentTarget.getBoundingClientRect()
+              const side = e.clientX < box.left + box.width / 2 ? "before" : "after"
+              // No line where the column already sits (on itself, or the edge it already touches).
+              const at = cols.indexOf(c.key) + (side === "after" ? 1 : 0)
+              const fromAt = cols.indexOf(from)
+              const same = at === fromAt || at === fromAt + 1
+              setDrop((cur) => (same ? null : cur?.key === c.key && cur.side === side ? cur : { key: c.key, side }))
+            }}
+            onDrop={(e) => {
+              e.preventDefault()
+              const from = dragCol.current
+              const target = drop
+              endDrag()
+              if (!from || !target || from === target.key) return
               setCols((cur) => {
                 const next = cur.filter((k) => k !== from)
-                next.splice(next.indexOf(c.key) + (cur.indexOf(from) < cur.indexOf(c.key) ? 1 : 0), 0, from)
+                next.splice(next.indexOf(target.key) + (target.side === "after" ? 1 : 0), 0, from)
                 return next
               })
             }}
-            className="bg-muted text-foreground sticky top-0 z-10 h-10 cursor-grab px-2 text-left align-middle text-[10px] font-semibold tracking-wider whitespace-nowrap uppercase select-none active:cursor-grabbing md:text-xs"
+            onDragEnd={endDrag}
+            className={cn(
+              dropLine(c.key),
+              "bg-muted text-foreground sticky top-0 z-10 h-10 cursor-grab px-2 text-left align-middle text-[10px] font-semibold tracking-wider whitespace-nowrap uppercase select-none active:cursor-grabbing md:text-xs",
+            )}
           >
             <span className="inline-flex items-center gap-1">
               {c.label}
@@ -880,7 +919,10 @@ export function SimplyFundingReport() {
   const row = (r: Deal) => (
     <tr key={r.id} className="hover:bg-muted/50 cursor-pointer border-b transition-colors" onClick={() => setDetail(r)}>
       {columns.map((c) => (
-        <td key={c.key} className={cn("p-2 align-middle whitespace-nowrap", isNum(c) && "tabular-nums")}>
+        <td
+          key={c.key}
+          className={cn("p-2 align-middle whitespace-nowrap", isNum(c) && "tabular-nums", dropLine(c.key))}
+        >
           {cell(c, r)}
         </td>
       ))}
@@ -896,6 +938,7 @@ export function SimplyFundingReport() {
             "p-2 align-middle whitespace-nowrap",
             strong ? "font-semibold" : "font-medium",
             isNum(c) && "tabular-nums",
+            dropLine(c.key),
           )}
         >
           {i === 0
@@ -1159,7 +1202,11 @@ export function SimplyFundingReport() {
                       {columns.map((c, i) => (
                         <td
                           key={c.key}
-                          className={cn("p-2 align-middle font-semibold whitespace-nowrap", isNum(c) && "tabular-nums")}
+                          className={cn(
+                            "p-2 align-middle font-semibold whitespace-nowrap",
+                            isNum(c) && "tabular-nums",
+                            dropLine(c.key),
+                          )}
                         >
                           {i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""}
                         </td>
