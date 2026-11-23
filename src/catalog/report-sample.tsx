@@ -1689,25 +1689,41 @@ function CanvasScroll({ children }: { children: ReactNode }) {
     if (!el) return
     let target: { node: HTMLElement; top: number } | null = null
     let settle: ReturnType<typeof setTimeout> | undefined
-    const outer = (): HTMLElement => {
-      for (let n = el.parentElement; n; n = n.parentElement) {
-        const oy = getComputedStyle(n).overflowY
-        if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 1) return n
+    /* The nearest box that can still move that way: a scrolling parent, the page, or (when the report sits
+       in a frame, like the catalog preview) the page around the frame. */
+    const canMove = (n: Element, dy: number) =>
+      dy > 0 ? n.scrollTop < n.scrollHeight - n.clientHeight - 1 : n.scrollTop > 0
+    const outer = (dy: number): HTMLElement | null => {
+      let win: Window = window
+      let n: HTMLElement | null = el.parentElement
+      for (;;) {
+        for (; n; n = n.parentElement) {
+          const oy = win.getComputedStyle(n).overflowY
+          if ((oy === "auto" || oy === "scroll") && canMove(n, dy)) return n
+        }
+        const root = win.document.scrollingElement as HTMLElement | null
+        if (root && canMove(root, dy)) return root
+        let frame: Element | null = null
+        try {
+          frame = win.frameElement
+        } catch {
+          frame = null // a frame from another site: leave it to the browser
+        }
+        if (!frame || !win.parent || win.parent === win) return null
+        win = win.parent
+        n = frame.parentElement
       }
-      return (document.scrollingElement as HTMLElement) ?? document.documentElement
     }
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
       const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * el.clientHeight : e.deltaY
-      const atTop = el.scrollTop <= 0
-      const atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight - 1
-      if (!((dy < 0 && atTop) || (dy > 0 && atBottom))) return
-      const node = outer()
+      if (canMove(el, dy)) return
+      const node = target && canMove(target.node, dy) ? target.node : outer(dy)
+      if (!node) return
+      e.preventDefault()
       const max = node.scrollHeight - node.clientHeight
       const from = target && target.node === node ? target.top : node.scrollTop
       const top = Math.min(max, Math.max(0, from + dy))
-      if (top === node.scrollTop && !target) return
-      e.preventDefault()
       // Mouse wheels step in big notches, so glide; trackpads send small steps, so follow them exactly.
       const glide = Math.abs(dy) >= 40
       target = glide ? { node, top } : null
