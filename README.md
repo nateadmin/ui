@@ -95,7 +95,7 @@ Rule of thumb: a filter is multi-select whenever picking two values makes sense 
 <ToolbarActiveFilters items={activeFilterItems(filterGroups, filters, setFilters)} onClearAll={() => setFilters({})} />
 ```
 
-`ToolbarReportLibrary` is the saved-reports menu for reports pages: categories on the left (add, rename, delete), the category's reports as tiles on the right (open, rename, delete), Save as report with a name and a category, and Update report (with a confirmation) or Save as new once the open report has unsaved changes. A Save or Update button shows on the bar only when there is something to save. The app stores reports and categories; pass `modified` and `canSave` so the right actions show. Leave out a handler to hide that action.
+`ToolbarReportLibrary` is the saved-reports menu for reports pages: categories on the left (add, rename, delete), the category's reports as tiles on the right (open, rename, delete), Save as report with a name and a category, and Update report (with a confirmation) or Save as new once the open report has unsaved changes. The app stores reports and categories; pass `modified` and `canSave` so the right actions show. Leave out a handler to hide that action.
 
 `ToolbarExport` takes `onEmail` to add Email to its menu: a dialog with several addresses, the format and an optional message, which calls `onEmail({ to, format, message })`. Return a promise to show "Sending..." until it settles.
 

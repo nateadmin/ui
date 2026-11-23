@@ -1099,7 +1099,7 @@ const UNCATEGORIZED = "__uncategorized"
  * A reports page's saved reports, grouped in categories: the Reports menu
  * (categories on the left, the category's reports as tiles on the right),
  * Save as report with a name and a category, Update report and Save as new
- * once the open report has unsaved changes, and rename and delete for both
+ * once the open report has unsaved changes (all inside the menu), and rename and delete for both
  * reports and categories. Reports whose category was deleted show under
  * Uncategorized. On phones the two sides of the menu stack.
  *
@@ -1369,29 +1369,6 @@ function ToolbarReportLibrary({
           </div>
         </PopoverContent>
       </Popover>
-
-      {/* Shown on the bar only when there is something to save, so the bar stays short otherwise. */}
-      {active && modified && onUpdate ? (
-        <Button
-          variant="outline"
-          size="lg"
-          className="gap-2 font-normal"
-          onClick={() => ask({ kind: "update", id: active.id })}
-        >
-          <SaveIcon aria-hidden="true" />
-          <ToolbarLabel>Update</ToolbarLabel>
-        </Button>
-      ) : canSave && !active ? (
-        <Button
-          variant="outline"
-          size="lg"
-          className="gap-2 font-normal"
-          onClick={() => ask({ kind: "save", asNew: false })}
-        >
-          <SaveIcon aria-hidden="true" />
-          <ToolbarLabel>Save</ToolbarLabel>
-        </Button>
-      ) : null}
 
       {/* Name dialogs: save, rename, new category, rename category */}
       <Dialog

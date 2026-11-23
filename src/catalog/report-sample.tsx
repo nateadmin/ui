@@ -4,8 +4,6 @@ import {
   CheckIcon,
   ChevronDownIcon,
   EllipsisVerticalIcon,
-  Maximize2Icon,
-  Minimize2Icon,
   PlusIcon,
   SparklesIcon,
   XIcon,
@@ -880,7 +878,6 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
   const [q, setQ] = useState("")
   const [page, setPage] = useState(1)
   const [chatOpen, setChatOpen] = useState(false)
-  const [expanded, setExpanded] = useState(false)
   const [activeReport, setActiveReport] = useState("")
   const [detail, setDetail] = useState<Deal | null>(null)
   const [collapsed, setCollapsed] = useState<string[]>([])
@@ -930,13 +927,6 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
   }
   const openReport = savedReports.find((x) => x.id === activeReport) ?? null
   const sameView = (a: ReportView, b: ReportView) => JSON.stringify(a) === JSON.stringify(b)
-
-  useEffect(() => {
-    if (!expanded) return
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setExpanded(false)
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [expanded])
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
@@ -1147,7 +1137,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
       className={cn(
         "flex min-w-0 flex-col text-[13px] [&_[data-slot=button]]:text-[13px]",
         layout === "toolbar"
-          ? cn("gap-2", expanded ? "bg-background fixed inset-0 z-50 h-auto p-4" : "h-[820px]")
+          ? "h-[820px] gap-2"
           : "h-[820px] gap-4 overflow-x-hidden lg:grid lg:min-h-0 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:gap-y-2 lg:overflow-hidden",
       )}
     >
@@ -1238,16 +1228,6 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
             >
               <SparklesIcon aria-hidden="true" />
               <ToolbarLabel>Chat</ToolbarLabel>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="icon-lg"
-              aria-label={expanded ? "Exit full screen" : "Full screen"}
-              title={expanded ? "Exit full screen (Esc)" : "Full screen"}
-              onClick={() => setExpanded((e) => !e)}
-            >
-              {expanded ? <Minimize2Icon /> : <Maximize2Icon />}
             </Button>
             <ToolbarExport onExport={() => {}} onEmail={() => new Promise<void>((done) => setTimeout(done, 600))} />
           </Toolbar>
@@ -1509,7 +1489,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
                         <td
                           key={c.key}
                           className={cn(
-                            "h-8 px-2 py-0 align-middle font-semibold whitespace-nowrap",
+                            "h-[calc(2rem+var(--hbar,0px))] px-2 pt-0 pb-(--hbar) align-middle font-semibold whitespace-nowrap",
                             isNum(c) && "tabular-nums",
                             dropLine(c.key),
                           )}
@@ -1589,7 +1569,8 @@ function GroupRows({ children }: { children: ReactNode }) {
  *     down; links, buttons and column titles still click as usual, and a drag
  *     never opens a row
  */
-const GUTTER = 10 // the scrollbars' track (ui-scrollbar draws a 6px thumb in it)
+const GUTTER = 10 // the vertical scrollbar's track (ui-scrollbar draws a thin thumb in it)
+const HBAR = 10 // the sideways scrollbar's track
 
 function CanvasScroll({ children }: { children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null)
@@ -1629,7 +1610,46 @@ function CanvasScroll({ children }: { children: ReactNode }) {
   const copyLeft = (from: HTMLElement | null, to: HTMLElement | null) => {
     if (from && to && Math.abs(to.scrollLeft - from.scrollLeft) >= 1) to.scrollLeft = from.scrollLeft
   }
+  /* A bar only moves the grid while the person is using that bar (pressing on it or wheeling over it).
+     Its scroll events that come from following the grid are never sent back, so nothing writes to the
+     grid while it scrolls and the browser's smooth scrolling runs at full speed to the very end. */
+  const usingBar = useRef<"v" | "h" | null>(null)
+  const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const useBar = (which: "v" | "h") => {
+    usingBar.current = which
+    clearTimeout(idle.current)
+  }
+  const leaveBar = () => {
+    clearTimeout(idle.current)
+    idle.current = setTimeout(() => (usingBar.current = null), 200)
+  }
+  const barHandlers = (which: "v" | "h") => ({
+    onPointerDown: () => useBar(which),
+    onPointerUp: leaveBar,
+    onPointerCancel: leaveBar,
+    onWheel: () => {
+      useBar(which)
+      leaveBar()
+    },
+    onKeyDown: () => {
+      useBar(which)
+      leaveBar()
+    },
+  })
+  // Chrome doesn't always send pointerup to a scrollbar, so a release anywhere ends using it.
+  useEffect(() => {
+    const up = () => leaveBar()
+    window.addEventListener("pointerup", up)
+    return () => window.removeEventListener("pointerup", up)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // Any wheel or press on the grid itself hands control back to the grid.
+  const useGrid = () => {
+    clearTimeout(idle.current)
+    usingBar.current = null
+  }
   const onGrid = () => {
+    if (usingBar.current) return
     copyTop(box.current, vbar.current)
     copyLeft(box.current, hbar.current)
   }
@@ -1680,12 +1700,22 @@ function CanvasScroll({ children }: { children: ReactNode }) {
   const wide = dims.sw > dims.cw + 1
   const band = "bg-muted shrink-0"
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
+    // --hbar: how much the Total row grows while the sideways bar shows, so the bar sits under the text and
+    // the gap from the text to the visible bar matches the space above the text. (The thumb is drawn 2px
+    // inside its 10px track, so the row grows a little less than the track.)
+    <div
+      className="relative flex h-full min-h-0 flex-col"
+      style={{ ["--hbar" as string]: wide ? `${HBAR - 3}px` : "0px" }}
+    >
       <div className="flex min-h-0 flex-1">
         <div
           ref={box}
           onScroll={onGrid}
-          onPointerDown={onPointerDown}
+          onWheel={useGrid}
+          onPointerDown={(e) => {
+            useGrid()
+            onPointerDown(e)
+          }}
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
@@ -1699,7 +1729,8 @@ function CanvasScroll({ children }: { children: ReactNode }) {
           <div
             ref={vbar}
             aria-hidden
-            onScroll={() => copyTop(vbar.current, box.current)}
+            onScroll={() => usingBar.current === "v" && copyTop(vbar.current, box.current)}
+            {...barHandlers("v")}
             className="ui-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
           >
             <div style={{ height: dims.vh + Math.max(0, dims.sh - dims.ch) }} />
@@ -1713,9 +1744,10 @@ function CanvasScroll({ children }: { children: ReactNode }) {
         <div
           ref={hbar}
           aria-hidden
-          onScroll={() => copyLeft(hbar.current, box.current)}
+          onScroll={() => usingBar.current === "h" && copyLeft(hbar.current, box.current)}
+          {...barHandlers("h")}
           className="ui-scrollbar absolute bottom-0 left-0 z-30 overflow-x-auto overflow-y-hidden"
-          style={{ right: GUTTER, height: 10 }}
+          style={{ right: GUTTER, height: HBAR }}
         >
           <div className="h-px" style={{ width: dims.sw }} />
         </div>
