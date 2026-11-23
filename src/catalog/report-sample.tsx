@@ -13,18 +13,15 @@ import {
 import { cn } from "@/lib/utils"
 import { SortIcon } from "@/components/ui/data-list"
 import { CustomizeMenu, CustomizeOption } from "@/components/ui/customize-menu"
-import { formatDate } from "@/components/ui/date-picker"
 import { ListPagination } from "@/components/ui/list-pagination"
 import {
   Toolbar,
-  ToolbarActiveFilters,
   ToolbarDateRange,
   ToolbarExport,
   ToolbarFilterDialog,
   ToolbarLabel,
   ToolbarSavedViews,
   ToolbarSearch,
-  activeFilterItems,
   type ToolbarDateRangeValue,
   type ToolbarFilterGroup,
   type ToolbarSavedView,
@@ -344,7 +341,7 @@ const statusColor: Record<string, string> = {
   Renewed: "#a855f7",
 }
 const reportFilters: ToolbarFilterGroup[] = [
-  { id: "source", label: "Data", options: SOURCES.map((x) => ({ value: x.id, label: x.label })) },
+  { id: "source", label: "Data", required: true, options: SOURCES.map((x) => ({ value: x.id, label: x.label })) },
   { id: "status", label: "Status", options: statuses.map((x) => ({ value: x, label: x, color: statusColor[x] })) },
   { id: "lawFirm", label: "Law firm", options: lawFirms.map((x) => ({ value: x, label: x })) },
   { id: "iso", label: "Referring ISO", options: isos.map((x) => ({ value: x, label: x })) },
@@ -1132,32 +1129,6 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
             </Button>
             <ToolbarExport onExport={() => {}} onEmail={() => new Promise<void>((done) => setTimeout(done, 600))} />
           </Toolbar>
-          <ToolbarActiveFilters
-            items={[
-              ...activeFilterItems(
-                reportFilters,
-                { source: sources, status, lawFirm, iso, amount: amountBands },
-                (v) => {
-                  setSources(v.source?.length ? v.source : ["deals"])
-                  setStatus(v.status ?? [])
-                  setLawFirm(v.lawFirm ?? [])
-                  setIso(v.iso ?? [])
-                  setAmountBands(v.amount ?? [])
-                },
-              ),
-              ...(dates.from && dates.to
-                ? [
-                    {
-                      id: "dates",
-                      label: "Funded",
-                      value: `${formatDate(dates.from)} to ${formatDate(dates.to)}`,
-                      onRemove: () => setDates({}),
-                    },
-                  ]
-                : []),
-            ]}
-            onClearAll={reset}
-          />
         </>
       ) : null}
 

@@ -710,6 +710,9 @@ type ToolbarFilterGroup = {
   options: ToolbarFilterOption[]
   /** Allow more than one option. Default true. */
   multiple?: boolean
+  /** Always keeps at least one option, like which data a report reads. No Clear, not counted on the
+      Filters button, left as is by Clear all, and its last selected option can't be turned off. */
+  required?: boolean
 }
 
 type ToolbarFilterValues = Record<string, string[]>
@@ -732,13 +735,14 @@ function ToolbarFilterDialog({
   description?: string
   className?: string
 }) {
-  const count = filters.reduce((n, f) => n + (values[f.id]?.length ?? 0), 0)
+  const count = filters.reduce((n, f) => n + (f.required ? 0 : (values[f.id]?.length ?? 0)), 0)
 
   const toggle = (group: ToolbarFilterGroup, option: string) => {
     const current = values[group.id] ?? []
     const on = current.includes(option)
     const next =
       group.multiple === false ? (on ? [] : [option]) : on ? current.filter((v) => v !== option) : [...current, option]
+    if (group.required && next.length === 0) return
     onValuesChange({ ...values, [group.id]: next })
   }
 
@@ -778,7 +782,20 @@ function ToolbarFilterDialog({
           {filters.map((group) => (
             <fieldset key={group.id} className="flex flex-col gap-2">
               {/* A legend is not a flex item, so the gap above does not reach it; it gets its own margin. */}
-              <legend className="mb-2 text-sm font-medium">{group.label}</legend>
+              <legend className="mb-2 flex w-full items-center justify-between gap-3 text-sm font-medium">
+                <span>{group.label}</span>
+                {/* Clear for this category only; shown while anything in it is selected. */}
+                {!group.required && (values[group.id]?.length ?? 0) > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => onValuesChange({ ...values, [group.id]: [] })}
+                    className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 cursor-pointer rounded px-1 text-xs font-normal outline-none focus-visible:ring-2"
+                    aria-label={`Clear ${group.label}`}
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </legend>
               {group.multiple !== false && group.options.length > pillLimit ? (
                 <MultiSelect
                   options={group.options}
@@ -800,7 +817,7 @@ function ToolbarFilterDialog({
                         variant="outline"
                         aria-pressed={on}
                         onClick={() => toggle(group, o.value)}
-                        className="aria-pressed:border-primary aria-pressed:bg-primary/10 aria-pressed:text-foreground dark:aria-pressed:bg-primary/20 h-8 gap-2 rounded-full px-3 font-normal"
+                        className="aria-pressed:border-foreground aria-pressed:bg-foreground aria-pressed:text-background aria-pressed:hover:bg-foreground/90 aria-pressed:hover:text-background dark:aria-pressed:border-foreground dark:aria-pressed:bg-foreground dark:aria-pressed:hover:bg-foreground/90 h-8 gap-2 rounded-full px-3 font-normal"
                       >
                         <Dot color={o.color} />
                         {o.label}
@@ -813,7 +830,16 @@ function ToolbarFilterDialog({
           ))}
         </div>
         <DialogFooter>
-          <Button variant="ghost" disabled={count === 0} onClick={() => onValuesChange({})}>
+          <Button
+            variant="ghost"
+            disabled={count === 0}
+            onClick={() =>
+              // Clear every category except the required ones, which keep their choice.
+              onValuesChange(
+                Object.fromEntries(filters.filter((f) => f.required).map((f) => [f.id, values[f.id] ?? []])),
+              )
+            }
+          >
             Clear all
           </Button>
           <DialogClose render={<Button />}>Done</DialogClose>
