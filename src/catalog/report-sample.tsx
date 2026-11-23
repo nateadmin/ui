@@ -1133,29 +1133,34 @@ export function SimplyFundingReport() {
         ) : null}
         <Card
           className={cn(
-            "relative gap-0 pt-1",
+            // No padding: the title and Total bands reach the card's edges, and the card's rounded corners clip them.
+            "relative gap-0 overflow-hidden py-0",
             expanded ? "fixed inset-4 z-50 h-[calc(100dvh-2rem)] max-h-none" : "h-full min-h-0 flex-1",
           )}
         >
           <h2 className="sr-only">Report</h2>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            className="absolute top-1 right-1 z-20 size-7"
-            aria-label={expanded ? "Collapse" : "Expand"}
-            onClick={() => setExpanded((e) => !e)}
-          >
-            {expanded ? <Minimize2Icon /> : <Maximize2Icon />}
-          </Button>
-          <div className="min-h-0 flex-1 overflow-hidden px-(--card-spacing)">
+          <div className="min-h-0 flex-1 overflow-hidden">
             {filtered.length === 0 ? (
               <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
                 No rows match these filters.
               </div>
             ) : (
-              <CanvasScroll>
-                <table className="w-max min-w-full caption-bottom text-sm">
+              <CanvasScroll
+                corner={
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    className="size-7"
+                    aria-label={expanded ? "Collapse" : "Expand"}
+                    onClick={() => setExpanded((e) => !e)}
+                  >
+                    {expanded ? <Minimize2Icon /> : <Maximize2Icon />}
+                  </Button>
+                }
+              >
+                {/* 16px before the first column, so the text lines up with the band edges. */}
+                <table className="w-max min-w-full caption-bottom text-sm [&_tr>*:first-child]:pl-4">
                   <thead>{head}</thead>
                   <tbody>
                     {groups
@@ -1260,7 +1265,9 @@ function GroupRows({ children }: { children: ReactNode }) {
 }
 
 /*
- * The grid scrolls like a canvas, the way the Data app's table does:
+ * The grid scrolls like a canvas, the way the Data app's table does. The
+ * column-title band and the Total band run edge to edge across the card as
+ * fixed anchors; only the rows between them scroll.
  *   - the table's own scrollbars are hidden; a separate vertical bar runs only
  *     beside the rows (below the column titles, above the Total row), so it
  *     never sits under the expand icon, and a horizontal bar sits at the bottom
@@ -1269,9 +1276,10 @@ function GroupRows({ children }: { children: ReactNode }) {
  *     down; links, buttons and column titles still click as usual, and a drag
  *     never opens a row
  */
-const GUTTER = 16
+const GUTTER = 16 // the vertical scrollbar's track
+const EDGE = 32 // right-edge column: the expand icon above, a 16px gap plus the scrollbar below
 
-function CanvasScroll({ children }: { children: ReactNode }) {
+function CanvasScroll({ children, corner }: { children: ReactNode; corner?: ReactNode }) {
   const box = useRef<HTMLDivElement>(null)
   const vbar = useRef<HTMLDivElement>(null)
   const hbar = useRef<HTMLDivElement>(null)
@@ -1355,8 +1363,9 @@ function CanvasScroll({ children }: { children: ReactNode }) {
   }
 
   const wide = dims.sw > dims.cw + 1
+  const band = "bg-muted shrink-0"
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="relative flex h-full min-h-0 flex-col">
       <div className="flex min-h-0 flex-1">
         <div
           ref={box}
@@ -1369,25 +1378,38 @@ function CanvasScroll({ children }: { children: ReactNode }) {
         >
           {children}
         </div>
-        <div
-          ref={vbar}
-          aria-hidden
-          onScroll={() => follow(vbar.current, () => (box.current!.scrollTop = vbar.current!.scrollTop))}
-          className="shrink-0 overflow-x-hidden overflow-y-auto"
-          style={{ width: GUTTER, marginTop: dims.head, marginBottom: dims.foot }}
-        >
-          <div style={{ height: Math.max(0, dims.sh - dims.head - dims.foot) }} />
+        {/* Right edge, its own column: the title band (holding the expand icon), then a gap and the
+            vertical scrollbar flush to the edge, then the Total band. The grid never runs under the icon. */}
+        <div className="flex shrink-0 flex-col" style={{ width: EDGE }}>
+          <div className={cn(band, "flex items-center justify-center border-b")} style={{ height: dims.head }}>
+            {corner}
+          </div>
+          <div className="flex min-h-0 flex-1 justify-end">
+            <div
+              ref={vbar}
+              aria-hidden
+              onScroll={() => follow(vbar.current, () => (box.current!.scrollTop = vbar.current!.scrollTop))}
+              className="min-h-0 overflow-x-hidden overflow-y-auto"
+              style={{ width: GUTTER }}
+            >
+              <div style={{ height: Math.max(0, dims.sh - dims.head - dims.foot) }} />
+            </div>
+          </div>
+          <div className={cn(band, "border-t")} style={{ height: dims.foot }} />
         </div>
       </div>
       {wide ? (
-        <div
-          ref={hbar}
-          aria-hidden
-          onScroll={() => follow(hbar.current, () => (box.current!.scrollLeft = hbar.current!.scrollLeft))}
-          className="shrink-0 overflow-x-auto overflow-y-hidden"
-          style={{ marginRight: GUTTER }}
-        >
-          <div className="h-px" style={{ width: dims.sw }} />
+        // The sideways scrollbar sits in the Total band, along the bottom edge.
+        <div className={cn(band, "flex")}>
+          <div
+            ref={hbar}
+            aria-hidden
+            onScroll={() => follow(hbar.current, () => (box.current!.scrollLeft = hbar.current!.scrollLeft))}
+            className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+          >
+            <div className="h-px" style={{ width: dims.sw }} />
+          </div>
+          <div className="shrink-0" style={{ width: EDGE }} />
         </div>
       ) : null}
     </div>
