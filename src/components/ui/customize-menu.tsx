@@ -54,7 +54,8 @@ function CustomizeMenu<K extends string>({
 }) {
   const [query, setQuery] = React.useState("")
   const [dragging, setDragging] = React.useState<K | null>(null)
-  const [over, setOver] = React.useState<K | null>(null)
+  // Where a dragged row would land: before or after the row under the pointer. A line shows there.
+  const [over, setOver] = React.useState<{ key: K; side: "before" | "after" } | null>(null)
   const listRef = React.useRef<HTMLUListElement>(null)
   const listId = React.useId()
 
@@ -74,6 +75,21 @@ function CustomizeMenu<K extends string>({
     const at = next.indexOf(to)
     next.splice(shown.indexOf(from) < shown.indexOf(to) ? at + 1 : at, 0, from)
     onValueChange(next)
+  }
+  const dropAt = (from: K, to: K, side: "before" | "after") => {
+    if (from === to) return
+    const next = shown.filter((x) => x !== from)
+    next.splice(next.indexOf(to) + (side === "after" ? 1 : 0), 0, from)
+    if (next.every((x, i) => x === shown[i])) return
+    onValueChange(next)
+  }
+  // No line where the drop would leave the order as it is (on itself, or right beside itself).
+  const lineAt = (k: K) => {
+    if (!dragging || !over || over.key !== k || dragging === k) return null
+    const i = shown.indexOf(k)
+    if (over.side === "after" && shown[i + 1] === dragging) return null
+    if (over.side === "before" && shown[i - 1] === dragging) return null
+    return over.side
   }
   const nudge = (k: K, by: -1 | 1) => {
     const target = shown[shown.indexOf(k) + by]
@@ -193,19 +209,25 @@ function CustomizeMenu<K extends string>({
                     onDragOver={(e) => {
                       if (!dragging || !on) return
                       e.preventDefault()
-                      if (over !== k) setOver(k)
+                      const r = e.currentTarget.getBoundingClientRect()
+                      const side = e.clientY < r.top + r.height / 2 ? "before" : "after"
+                      if (over?.key !== k || over.side !== side) setOver({ key: k, side })
                     }}
                     onDrop={(e) => {
                       e.preventDefault()
-                      if (dragging && on) moveTo(dragging, k)
+                      if (dragging && on && over) dropAt(dragging, over.key, over.side)
                       setDragging(null)
                       setOver(null)
                     }}
                     className={cn(
-                      "hover:bg-muted focus-visible:bg-muted flex h-8 cursor-pointer items-center gap-2 rounded-md pr-2 pl-1 text-sm outline-none select-none",
+                      "hover:bg-muted focus-visible:bg-muted relative flex h-8 cursor-pointer items-center gap-2 rounded-md pr-2 pl-1 text-sm outline-none select-none",
                       firstHidden && "border-border/60 mt-1 rounded-t-none border-t pt-0",
                       dragging === k && "opacity-40",
-                      over === k && dragging && dragging !== k && "bg-muted ring-foreground/30 ring-1",
+                      // The drop line: 2px in the accent color, between this row and its neighbor.
+                      lineAt(k) &&
+                        "before:bg-primary before:pointer-events-none before:absolute before:inset-x-1 before:h-0.5 before:rounded-full",
+                      lineAt(k) === "before" && "before:-top-px",
+                      lineAt(k) === "after" && "before:-bottom-px",
                     )}
                   >
                     <span
