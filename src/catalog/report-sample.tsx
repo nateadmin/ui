@@ -260,6 +260,7 @@ type Deal = {
   iso: string
   status: "Active" | "Paid off" | "Defaulted" | "Renewed"
   fundedAt: string // mm/dd/yyyy
+  lastPaidAt: string // mm/dd/yyyy
   amount: number
   balance: number
   factor: number
@@ -299,13 +300,27 @@ const deals: Deal[] = Array.from({ length: 6145 }, (_, i) => {
     iso: isos[i % isos.length]!,
     status: statuses[i % 7 === 0 ? 0 : (i % 3) + 1]!,
     fundedAt: `${pad(d.getUTCMonth() + 1)}/${pad(d.getUTCDate())}/${d.getUTCFullYear()}`,
+    lastPaidAt: (() => {
+      const paid = new Date(Math.min(d.getTime() + (((i * 37) % 120) + 5) * 86400000, Date.UTC(2026, 10, 25)))
+      return `${pad(paid.getUTCMonth() + 1)}/${pad(paid.getUTCDate())}/${paid.getUTCFullYear()}`
+    })(),
     amount,
     balance: Math.round(amount * (0.2 + ((i * 31) % 100) / 125) * 100) / 100,
     factor: 1.3 + ((i * 13) % 20) / 100,
   }
 })
 
-type ColKey = "id" | "name" | "lawFirm" | "fundedAt" | "amount" | "iso" | "status" | "balance" | "factor"
+type ColKey =
+  | "id"
+  | "name"
+  | "lawFirm"
+  | "fundedAt"
+  | "lastPaidAt"
+  | "amount"
+  | "iso"
+  | "status"
+  | "balance"
+  | "factor"
 type Col = { key: ColKey; label: string; kind: "id" | "text" | "date" | "money" | "number" }
 
 const COLUMNS: Col[] = [
@@ -313,6 +328,7 @@ const COLUMNS: Col[] = [
   { key: "name", label: "Name", kind: "text" },
   { key: "lawFirm", label: "Law Firm", kind: "text" },
   { key: "fundedAt", label: "Funding Date (Parsed)", kind: "date" },
+  { key: "lastPaidAt", label: "Last Payment Date", kind: "date" },
   { key: "amount", label: "Funded Amount", kind: "money" },
   { key: "iso", label: "Referring ISO", kind: "text" },
   { key: "status", label: "Status", kind: "text" },
@@ -342,6 +358,8 @@ type ReportView = {
   groupBy: string
   sort: { key: ColKey; dir: "asc" | "desc" } | null
   conditions: ToolbarColumnConditions
+  /** The date column the date range filters. */
+  dateField?: ColKey
 }
 type SavedReport = ToolbarReport & { view: ReportView }
 
@@ -427,6 +445,12 @@ const reportFilters: ToolbarFilterGroup[] = [
   { id: "iso", label: "Referring ISO", display: "dropdown", options: isos.map((x) => ({ value: x, label: x })) },
   { id: "amount", label: "Funded amount", options: AMOUNT_BANDS },
 ]
+/* The date columns the toolbar's date range can filter (a real deals report has many). */
+const DATE_FIELDS = [
+  { id: "fundedAt", label: "Funding date" },
+  { id: "lastPaidAt", label: "Last payment date" },
+]
+
 /* Every column but the ID can be filtered by a condition in the Filters dialog. */
 const FILTER_COLUMNS: ToolbarColumnFilter[] = COLUMNS.filter((c) => c.kind !== "id").map((c) => ({
   id: c.key,
@@ -887,6 +911,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
     setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null))
   const [pageSize, setPageSize] = useState("50")
   const [dates, setDates] = useState<ToolbarDateRangeValue>({})
+  const [dateField, setDateField] = useState<ColKey>("fundedAt")
   const [amountBands, setAmountBands] = useState<string[]>([])
   const [conditions, setConditions] = useState<ToolbarColumnConditions>({})
   // Saved reports (toolbar layout). In an app these live on the server; each keeps the whole view.
@@ -930,6 +955,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
     groupBy,
     sort,
     conditions,
+    ...(dateField !== "fundedAt" ? { dateField } : {}),
   }
   const applyView = (v: ReportView) => {
     setSources(v.sources)
@@ -943,40 +969,64 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
     setGroupBy(v.groupBy)
     setSort(v.sort)
     setConditions(v.conditions ?? {})
+    setDateField(v.dateField ?? "fundedAt")
   }
   const openReport = savedReports.find((x) => x.id === activeReport) ?? null
   const sameView = (a: ReportView, b: ReportView) => JSON.stringify(a) === JSON.stringify(b)
 
-  const filtered = useMemo(() => {
+  // Every filter but the date range: the date range's gray hint shows the first and last date in these rows.
+  const base = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    let rows = deals.filter(
+    return deals.filter(
       (d) =>
         (!status.length || status.includes(d.status)) &&
         (!lawFirm.length || lawFirm.includes(d.lawFirm)) &&
         (!iso.length || iso.includes(d.iso)) &&
         (!needle || d.name.toLowerCase().includes(needle) || String(d.id).includes(needle)) &&
         (!amountBands.length || amountBands.includes(amountBand(d.amount))) &&
-        (!dates.from || !dates.to || inRange(d.fundedAt, dates.from, dates.to)) &&
         FILTER_COLUMNS.every((c) =>
           matchesCondition(
             conditions[c.id],
             c.kind ?? "text",
-            c.id === "fundedAt" ? mdyDate(d.fundedAt) : d[c.id as ColKey],
+            c.kind === "date" ? mdyDate(d[c.id as "fundedAt"]) : d[c.id as ColKey],
           ),
         ),
     )
+  }, [q, status, lawFirm, iso, amountBands, conditions])
+
+  const dataRange = useMemo(() => {
+    let lo = "",
+      hi = ""
+    for (const d of base) {
+      const k = dateKey(d[dateField as "fundedAt"])
+      if (!lo || k < lo) lo = k
+      if (!hi || k > hi) hi = k
+    }
+    const toDate = (k: string) => new Date(Number(k.slice(0, 4)), Number(k.slice(4, 6)) - 1, Number(k.slice(6, 8)))
+    return lo ? { from: toDate(lo), to: toDate(hi) } : {}
+  }, [base, dateField])
+
+  const filtered = useMemo(() => {
+    let rows =
+      dates.from && dates.to
+        ? base.filter((d) => inRange(d[dateField as "fundedAt"], dates.from!, dates.to!))
+        : base
     if (!sort) return rows
     const k = sort.key
+    const isDate = COLUMNS.find((c) => c.key === k)?.kind === "date"
     rows = [...rows].sort((a, b) => {
-      const va = k === "fundedAt" ? dateKey(a.fundedAt) : a[k]
-      const vb = k === "fundedAt" ? dateKey(b.fundedAt) : b[k]
+      const va = isDate ? dateKey(a[k] as string) : a[k]
+      const vb = isDate ? dateKey(b[k] as string) : b[k]
       const cmp = typeof va === "number" && typeof vb === "number" ? va - vb : String(va).localeCompare(String(vb))
       return sort.dir === "asc" ? cmp : -cmp
     })
     return rows
-  }, [q, status, lawFirm, iso, sort, amountBands, dates, conditions])
+  }, [base, sort, dates, dateField])
 
-  useEffect(() => setPage(1), [q, status, lawFirm, iso, sort, pageSize, groupBy, amountBands, dates, conditions])
+  useEffect(
+    () => setPage(1),
+    [q, status, lawFirm, iso, sort, pageSize, groupBy, amountBands, dates, conditions, dateField],
+  )
 
   const size = Number(pageSize)
   const pageCount = Math.max(1, Math.ceil(filtered.length / size))
@@ -1206,7 +1256,14 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
-            <ToolbarDateRange value={dates} onValueChange={setDates} />
+            <ToolbarDateRange
+              value={dates}
+              onValueChange={setDates}
+              dataRange={dataRange}
+              fields={DATE_FIELDS}
+              field={dateField}
+              onFieldChange={(f) => setDateField(f as ColKey)}
+            />
             <ToolbarFilterDialog
               filters={reportFilters}
               values={{ source: sources, status, lawFirm, iso, amount: amountBands }}

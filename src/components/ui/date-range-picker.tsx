@@ -39,8 +39,6 @@ type DateRangePreset = {
   range: (today: Date) => { from: Date; to: Date }
   /** Heading the period sits under in the Period menu, such as "Days". */
   group?: string
-  /** Which column of the Period menu its group goes in, from 1. */
-  column?: number
 }
 
 const presetLabel = (p: DateRangePreset, today: Date) => (typeof p.label === "function" ? p.label(today) : p.label)
@@ -60,8 +58,7 @@ const lastDays = (t: Date, n: number) => ({ from: addDays(t, -(n - 1)), to: t })
 const lastMonths = (t: Date, n: number) => ({ from: addDays(new Date(t.getFullYear(), t.getMonth() - n, t.getDate()), 1), to: t })
 
 /*
- * The standard periods, in three columns: Days | Weeks and Months | Quarters
- * and Years. "N days" and "N weeks" end today, and count today. Weeks start on
+ * The standard periods, in rows: Days, Weeks, Months, Quarters and Years. "N days" and "N weeks" end today, and count today. Weeks start on
  * Sunday. "This ..." runs from the start of the period to today.
  */
 const defaultDatePresets: DateRangePreset[] = [
@@ -75,7 +72,7 @@ const defaultDatePresets: DateRangePreset[] = [
       label: `${n} days`,
       range: (t: Date) => lastDays(t, n),
     })),
-  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Days", column: 1 })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Days" })),
   // Weeks
   ...([
     { id: "this-week", label: "This week", range: (t: Date) => ({ from: startOfWeek(t), to: t }) },
@@ -89,7 +86,7 @@ const defaultDatePresets: DateRangePreset[] = [
       label: n === 1 ? "1 week" : `${n} weeks`,
       range: (t: Date) => lastDays(t, n * 7),
     })),
-  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Weeks", column: 2 })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Weeks" })),
   // Months
   ...([
     {
@@ -106,7 +103,7 @@ const defaultDatePresets: DateRangePreset[] = [
       }),
     },
     ...[3, 6, 12].map((n) => ({ id: `${n}-months`, label: `${n} months`, range: (t: Date) => lastMonths(t, n) })),
-  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Months", column: 2 })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Months" })),
   // Quarters
   ...([
     { id: "this-quarter", label: "This quarter", range: (t: Date) => ({ from: quarterOf(t, 0).from, to: t }) },
@@ -119,7 +116,7 @@ const defaultDatePresets: DateRangePreset[] = [
       },
       range: (t: Date) => quarterOf(t, n),
     })),
-  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Quarters", column: 3 })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Quarters" })),
   // Years
   ...([
     { id: "this-year", label: "This year", range: (t: Date) => ({ from: new Date(t.getFullYear(), 0, 1), to: t }) },
@@ -133,7 +130,7 @@ const defaultDatePresets: DateRangePreset[] = [
       label: (t: Date) => String(t.getFullYear() - n),
       range: (t: Date) => ({ from: new Date(t.getFullYear() - n, 0, 1), to: new Date(t.getFullYear() - n, 11, 31) }),
     })),
-  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Years", column: 3 })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Years" })),
 ]
 
 /** Today's calendar date in an IANA time zone, as a local-midnight Date. */
@@ -148,19 +145,16 @@ function todayIn(timeZone: string): Date {
   return new Date(get("year"), get("month") - 1, get("day"))
 }
 
-/** Lays the presets out as columns of groups, keeping their order. */
-function periodColumns(presets: DateRangePreset[]) {
-  const cols: Array<Array<{ name: string; items: DateRangePreset[] }>> = []
+/** The presets by group, in their order. */
+function periodGroups(presets: DateRangePreset[]) {
+  const groups: Array<{ name: string; items: DateRangePreset[] }> = []
   for (const p of presets) {
-    const ci = Math.max(1, p.column ?? 1) - 1
-    while (cols.length <= ci) cols.push([])
-    const col = cols[ci]!
     const name = p.group ?? ""
-    let g = col.find((x) => x.name === name)
-    if (!g) col.push((g = { name, items: [] }))
+    let g = groups.find((x) => x.name === name)
+    if (!g) groups.push((g = { name, items: [] }))
     g.items.push(p)
   }
-  return cols.filter((c) => c.length > 0)
+  return groups
 }
 
 const DAY = 24 * 60 * 60 * 1000
@@ -191,6 +185,7 @@ function DateSlot({
   inputRef,
   min,
   max,
+  hint,
 }: {
   label: string
   date?: Date
@@ -200,6 +195,8 @@ function DateSlot({
   inputRef: React.Ref<HTMLInputElement>
   min?: Date
   max?: Date
+  /** Gray text while empty, such as the data's first or last date. */
+  hint?: Date
 }) {
   return (
     <label
@@ -217,6 +214,7 @@ function DateSlot({
         max={max}
         onFocus={onActivate}
         onValueChange={onType}
+        placeholder={hint ? formatDate(hint) : undefined}
         className={cn("text-[13px] sm:text-sm", date && "font-medium")}
       />
     </label>
@@ -231,6 +229,10 @@ function DateRangePicker({
   placeholder = "Select dates",
   presets,
   timeZone = "America/New_York",
+  dataRange,
+  fields,
+  field,
+  onFieldChange,
   className,
 }: {
   value: DateRange
@@ -239,17 +241,26 @@ function DateRangePicker({
   min?: Date
   max?: Date
   placeholder?: string
-  /** Quick ranges in a Period dropdown at the top. Leave out to hide it. */
+  /** Quick ranges in a Presets menu at the top. Leave out to hide it. */
   presets?: DateRangePreset[]
   /** Decides what "today" is for the presets. */
   timeZone?: string
+  /** Earliest and latest date in the data now shown. While no range is set, the Start and End fields
+      show these (in gray) and the calendar opens on them. */
+  dataRange?: DateRange
+  /** The date columns the range can apply to, when the data has more than one. The field names the
+      one in use ("Funding date: ...") and the picker has a menu to change it. */
+  fields?: Array<{ id: string; label: string }>
+  /** The date column in use, by id. */
+  field?: string
+  onFieldChange?: (field: string) => void
   className?: string
 }) {
   const [open, setOpen] = React.useState(false)
   const [draft, setDraft] = React.useState<DateRange>(value)
   const [picking, setPicking] = React.useState<"from" | "to">("from")
   const [hover, setHover] = React.useState<Date | undefined>()
-  const [month, setMonth] = React.useState<Date>(value.from ?? new Date())
+  const [month, setMonth] = React.useState<Date>(value.from ?? dataRange?.from ?? new Date())
   const [pickedId, setPickedId] = React.useState<string>()
   const fromRef = React.useRef<HTMLInputElement>(null)
   const toRef = React.useRef<HTMLInputElement>(null)
@@ -261,7 +272,9 @@ function DateRangePicker({
       setDraft(value)
       setPicking("from")
       setHover(undefined)
-      setMonth(value.from ?? new Date())
+      // A set range opens on its start. Otherwise the calendar ends on the data's last date, or today.
+      const end = dataRange?.to ?? new Date()
+      setMonth(value.from ?? new Date(end.getFullYear(), end.getMonth() - (months - 1), 1))
     }
   }
 
@@ -351,24 +364,60 @@ function DateRangePicker({
             variant="outline"
             size="lg"
             data-slot="date-range-trigger"
-            className={cn("justify-start gap-2 font-normal tabular-nums", className)}
+            className={cn("max-w-full shrink-0 justify-start gap-2 font-normal tabular-nums", className)}
           />
         }
       >
         <CalendarIcon aria-hidden="true" />
-        {active ? (
-          <span data-toolbar-label="">{presetLabel(active, today!)}</span>
-        ) : value.from && value.to ? (
-          <span data-toolbar-label="" className="inline-flex items-center gap-2">
-            {formatDate(value.from)}
-            <ArrowRightIcon aria-label="to" className="text-muted-foreground size-3.5" />
-            {formatDate(value.to)}
+        {fields?.length ? (
+          // Which date column the range filters, as "Funding date:". As wide as the longest name.
+          <span data-toolbar-label="" className="text-muted-foreground grid shrink-0 text-left max-sm:hidden">
+            {fields.map((f) => (
+              <span
+                key={f.id}
+                aria-hidden={f.id === field ? undefined : true}
+                className={cn("col-start-1 row-start-1 whitespace-nowrap", f.id !== field && "invisible")}
+              >
+                {f.label}:
+              </span>
+            ))}
           </span>
-        ) : (
-          <span data-toolbar-label="" className="text-muted-foreground">
-            {placeholder}
-          </span>
-        )}
+        ) : null}
+        {/* Every text the field can show sits in one grid cell, so the field is always as wide as the widest
+            (a full date range) and never changes width when dates or a period are picked. */}
+        <span data-toolbar-label="" className="grid min-w-0 text-left">
+          {(() => {
+            const shown = active ? `p:${active.id}` : value.from && value.to ? "dates" : "empty"
+            const layer = (key: string, node: React.ReactNode, extra?: string) => (
+              <span
+                key={key}
+                aria-hidden={key === shown ? undefined : true}
+                className={cn(
+                  "col-start-1 row-start-1 flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap",
+                  key !== shown && "invisible",
+                  extra,
+                )}
+              >
+                {node}
+              </span>
+            )
+            const sample = new Date(2000, 0, 1)
+            const from = value.from && value.to ? value.from : sample
+            const to = value.from && value.to ? value.to : sample
+            return [
+              layer("empty", placeholder, "text-muted-foreground"),
+              layer(
+                "dates",
+                <>
+                  {formatDate(from)}
+                  <ArrowRightIcon aria-label="to" className="text-muted-foreground size-3.5" />
+                  {formatDate(to)}
+                </>,
+              ),
+              ...(today ? (presets ?? []).map((p) => layer(`p:${p.id}`, presetLabel(p, today))) : []),
+            ]
+          })()}
+        </span>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto gap-0 p-0" initialFocus={fromRef}>
         {/* One row: start, end, then the Period menu. On a phone the date fields narrow to fit; on the
@@ -383,6 +432,7 @@ function DateRangePicker({
             inputRef={fromRef}
             min={min}
             max={max}
+            hint={dataRange?.from}
           />
           <ArrowRightIcon aria-hidden="true" className="text-muted-foreground size-3.5 shrink-0" />
           <DateSlot
@@ -394,6 +444,7 @@ function DateRangePicker({
             inputRef={toRef}
             min={min}
             max={max}
+            hint={dataRange?.to}
           />
           {presets?.length && today ? (
             <div className="ml-auto shrink-0 sm:pl-2">
@@ -409,42 +460,53 @@ function DateRangePicker({
                     />
                   }
                 >
-                  {draftPeriod ? presetLabel(draftPeriod, today) : "Custom"}
+                  {draftPeriod ? presetLabel(draftPeriod, today) : "Presets"}
                   <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="max-h-[min(30rem,var(--available-height))]">
-                  <DropdownMenuRadioGroup
-                    value={draftPeriod ? draftPeriod.id : ""}
-                    onValueChange={(v: unknown) => {
-                      const preset = presets.find((p) => p.id === v)
-                      if (!preset) return
-                      const range = preset.range(today)
-                      setPickedId(preset.id)
-                      setDraft(range)
-                      setPicking("to")
-                      onChange(range)
-                      setOpen(false)
-                    }}
-                  >
-                    {/* Columns of headed groups (Days, Weeks...). Presets without a group make one plain list. */}
-                    <div className="flex flex-col gap-1 sm:flex-row sm:gap-2">
-                      {periodColumns(presets).map((groups, ci) => (
-                        <div key={ci} className="flex min-w-28 flex-col gap-1">
-                          {groups.map((g) => (
-                            <DropdownMenuGroup key={g.name || ci}>
-                              {g.name ? <DropdownMenuLabel>{g.name}</DropdownMenuLabel> : null}
-                              {g.items.map((p) => (
-                                <DropdownMenuRadioItem key={p.id} value={p.id} closeOnClick className="tabular-nums">
-                                  {presetLabel(p, today)}
-                                </DropdownMenuRadioItem>
-                              ))}
-                            </DropdownMenuGroup>
-                          ))}
-                        </div>
-                      ))}
-                    </div>
-                  </DropdownMenuRadioGroup>
-                </DropdownMenuContent>
+                <DropdownMenuContent
+                align="end"
+                className="max-h-[min(36rem,var(--available-height))] w-[min(24rem,calc(100vw-2rem))] p-0"
+              >
+                <DropdownMenuRadioGroup
+                  value={draftPeriod ? draftPeriod.id : ""}
+                  onValueChange={(v: unknown) => {
+                    const preset = presets.find((p) => p.id === v)
+                    if (!preset) return
+                    const range = preset.range(today)
+                    setPickedId(preset.id)
+                    setDraft(range)
+                    setPicking("to")
+                    onChange(range)
+                    setOpen(false)
+                  }}
+                >
+                  {/* One row per group (Days, Weeks...), with a thin line between rows. */}
+                  {periodGroups(presets).map((g, gi) => (
+                    <DropdownMenuGroup
+                      key={g.name || gi}
+                      className="border-border flex flex-col gap-1.5 border-b px-3 py-2.5 last:border-b-0"
+                    >
+                      {g.name ? (
+                        <DropdownMenuLabel className="px-0 py-0 text-[11px] tracking-wide uppercase">
+                          {g.name}
+                        </DropdownMenuLabel>
+                      ) : null}
+                      <div className="flex flex-wrap gap-1">
+                        {g.items.map((p) => (
+                          <DropdownMenuRadioItem
+                            key={p.id}
+                            value={p.id}
+                            closeOnClick
+                            className="border-border data-checked:border-foreground data-checked:bg-foreground data-checked:text-background data-checked:focus:bg-foreground/90 data-checked:focus:text-background h-7 rounded-md border px-2.5 py-0 pr-2.5 text-[13px] tabular-nums [&>[data-slot=dropdown-menu-radio-item-indicator]]:hidden"
+                          >
+                            {presetLabel(p, today)}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </div>
+                    </DropdownMenuGroup>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
               </DropdownMenu>
             </div>
           ) : null}
@@ -468,7 +530,44 @@ function DateRangePicker({
           className="p-3"
         />
         <div className="flex items-center justify-between gap-3 border-t px-3 py-2">
-          <span className="text-muted-foreground text-xs tabular-nums" aria-live="polite">
+          {fields && fields.length > 1 && onFieldChange ? (
+            // Which date column the range applies to. Long lists scroll.
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="Date to filter by"
+                    data-slot="date-range-field"
+                    className="h-8 max-w-48 min-w-0 gap-1.5 font-normal"
+                  />
+                }
+              >
+                <span className="truncate">{fields.find((f) => f.id === field)?.label ?? "Date"}</span>
+                <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" side="top" className="max-h-72">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel>Filter by</DropdownMenuLabel>
+                  <DropdownMenuRadioGroup value={field ?? ""} onValueChange={(v: unknown) => onFieldChange(String(v))}>
+                    {fields.map((f) => (
+                      <DropdownMenuRadioItem key={f.id} value={f.id} closeOnClick>
+                        {f.label}
+                      </DropdownMenuRadioItem>
+                    ))}
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
+          <span
+            className={cn(
+              "text-muted-foreground text-xs tabular-nums",
+              fields && fields.length > 1 && onFieldChange && "max-sm:sr-only",
+            )}
+            aria-live="polite"
+          >
             {picking === "to" && draft.from && !draft.to
               ? "Now pick the end date"
               : days > 0

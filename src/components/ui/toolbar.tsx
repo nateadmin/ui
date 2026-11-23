@@ -112,6 +112,10 @@ function Toolbar({
     const tops = new Set<number>()
     for (const child of Array.from(el.children) as HTMLElement[]) {
       if (child.offsetWidth === 0 && child.offsetHeight === 0) continue
+      // Popups add 1px focus-trap spans beside their button while open; they aren't parts of the bar.
+      if (child.hasAttribute("data-base-ui-focus-guard")) continue
+      const position = getComputedStyle(child).position
+      if (position === "fixed" || position === "absolute") continue
       tops.add(Math.round((child.offsetTop + child.offsetHeight / 2) / 8))
     }
     setWrapped(tops.size > 1)
@@ -405,14 +409,24 @@ function ToolbarDateRange({
   onValueChange,
   presets = defaultDatePresets,
   timeZone = "America/New_York",
+  dataRange,
+  fields,
+  field,
+  onFieldChange,
   className,
 }: {
   value: ToolbarDateRangeValue
   onValueChange: (value: ToolbarDateRangeValue) => void
-  /** Quick ranges in the Period dropdown inside the picker. Pass [] to hide it. */
+  /** Quick ranges in the Presets menu inside the picker. Pass [] to hide it. */
   presets?: ToolbarDatePreset[]
   /** Decides what "today" is for the presets. */
   timeZone?: string
+  /** Earliest and latest date in the rows now shown; filled in (gray) while no range is set. */
+  dataRange?: ToolbarDateRangeValue
+  /** The date columns the range can filter. The field shows the one in use ("Funding date: ..."). */
+  fields?: Array<{ id: string; label: string }>
+  field?: string
+  onFieldChange?: (field: string) => void
   className?: string
 }) {
   return (
@@ -422,6 +436,10 @@ function ToolbarDateRange({
       presets={presets.length > 0 ? presets : undefined}
       timeZone={timeZone}
       placeholder="Custom range"
+      dataRange={dataRange}
+      fields={fields}
+      field={field}
+      onFieldChange={onFieldChange}
       className={cn("in-data-wrapped:grow", className)}
     />
   )
