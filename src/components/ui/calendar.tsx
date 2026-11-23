@@ -37,28 +37,44 @@ function CalendarChevron({
 }
 
 /* The month and the year in the caption are buttons. Each opens a list (the
-   months, or every year in range) that scrolls to the current one, so going
-   back decades is two clicks. */
+   months, or every year in range) that opens at the current one, so going
+   back decades is two clicks. Nothing else moves: the button is as wide as
+   its longest choice, the page keeps its scroll, and the list scrolls only
+   itself. */
 function CalendarDropdown({ options = [], value, onChange, disabled, "aria-label": ariaLabel }: DropdownProps) {
   const listRef = React.useRef<HTMLDivElement>(null)
-  const current = options.find((o) => String(o.value) === String(value))
   return (
     <DropdownMenu
+      modal={false}
       onOpenChange={(open: boolean) => {
         if (!open) return
-        requestAnimationFrame(() =>
-          listRef.current?.querySelector("[data-checked]")?.scrollIntoView({ block: "center" }),
-        )
+        requestAnimationFrame(() => {
+          const list = listRef.current
+          const item = list?.querySelector<HTMLElement>("[data-checked]")
+          if (!list || !item) return
+          const at = item.getBoundingClientRect().top - list.getBoundingClientRect().top + list.scrollTop
+          list.scrollTop = at - (list.clientHeight - item.offsetHeight) / 2
+        })
       }}
     >
       <DropdownMenuTrigger
         disabled={disabled}
         aria-label={ariaLabel}
         data-slot="calendar-dropdown"
-        className="hover:bg-muted focus-visible:ring-ring/50 data-popup-open:bg-muted flex h-7 cursor-pointer items-center gap-1 rounded-(--cell-radius) pr-1 pl-1.5 text-sm font-medium outline-none select-none focus-visible:ring-2"
+        className="hover:bg-muted focus-visible:ring-ring/50 data-popup-open:bg-muted flex h-7 cursor-pointer items-center rounded-(--cell-radius) px-1.5 text-sm font-medium outline-none select-none focus-visible:ring-2"
       >
-        {current?.label ?? value}
-        <ChevronDownIcon aria-hidden="true" className="text-muted-foreground size-3.5" />
+        {/* Every choice sits in one grid cell, so the button keeps one width. */}
+        <span className="grid text-left">
+          {options.map((o) => (
+            <span
+              key={o.value}
+              aria-hidden={String(o.value) === String(value) ? undefined : true}
+              className={cn("col-start-1 row-start-1", String(o.value) !== String(value) && "invisible")}
+            >
+              {o.label}
+            </span>
+          ))}
+        </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent ref={listRef} align="start" className="max-h-72">
         <DropdownMenuRadioGroup
