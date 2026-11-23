@@ -8,6 +8,8 @@ import { Calendar } from "@/components/ui/calendar"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
@@ -31,41 +33,107 @@ type DateRange = { from?: Date; to?: Date }
 
 type DateRangePreset = {
   id: string
-  label: string
+  /** Text, or text worked out from today (for "Q2 2026"). */
+  label: string | ((today: Date) => string)
   /** Gets today's date (in the picker's time zone) and returns the range. */
   range: (today: Date) => { from: Date; to: Date }
+  /** Heading the period sits under in the Period menu, such as "Days". */
+  group?: string
+  /** Which column of the Period menu its group goes in, from 1. */
+  column?: number
 }
+
+const presetLabel = (p: DateRangePreset, today: Date) => (typeof p.label === "function" ? p.label(today) : p.label)
 
 const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
 const startOfWeek = (d: Date) => addDays(d, -d.getDay())
 const sameDay = (a?: Date, b?: Date) =>
   !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+/** The quarter n quarters before today's (0 is this quarter): its first and last day. */
+const quarterOf = (t: Date, back: number) => {
+  const first = new Date(t.getFullYear(), Math.floor(t.getMonth() / 3) * 3 - back * 3, 1)
+  return { from: first, to: new Date(first.getFullYear(), first.getMonth() + 3, 0), q: Math.floor(first.getMonth() / 3) + 1 }
+}
+/** The last n days, today included. */
+const lastDays = (t: Date, n: number) => ({ from: addDays(t, -(n - 1)), to: t })
+/** From the same day n months back (plus one) to today. */
+const lastMonths = (t: Date, n: number) => ({ from: addDays(new Date(t.getFullYear(), t.getMonth() - n, t.getDate()), 1), to: t })
 
-/** Weeks start on Sunday. */
+/*
+ * The standard periods, in three columns: Days | Weeks and Months | Quarters
+ * and Years. "N days" and "N weeks" end today, and count today. Weeks start on
+ * Sunday. "This ..." runs from the start of the period to today.
+ */
 const defaultDatePresets: DateRangePreset[] = [
-  { id: "today", label: "Today", range: (t) => ({ from: t, to: t }) },
-  { id: "yesterday", label: "Yesterday", range: (t) => ({ from: addDays(t, -1), to: addDays(t, -1) }) },
-  { id: "this-week", label: "This week", range: (t) => ({ from: startOfWeek(t), to: t }) },
-  {
-    id: "last-week",
-    label: "Last week",
-    range: (t) => ({ from: addDays(startOfWeek(t), -7), to: addDays(startOfWeek(t), -1) }),
-  },
-  { id: "7-days", label: "7 days", range: (t) => ({ from: addDays(t, -6), to: t }) },
-  {
-    id: "this-month",
-    label: "This month",
-    range: (t) => ({ from: new Date(t.getFullYear(), t.getMonth(), 1), to: t }),
-  },
-  {
-    id: "last-month",
-    label: "Last month",
-    range: (t) => ({
-      from: new Date(t.getFullYear(), t.getMonth() - 1, 1),
-      to: new Date(t.getFullYear(), t.getMonth(), 0),
-    }),
-  },
-  { id: "30-days", label: "30 days", range: (t) => ({ from: addDays(t, -29), to: t }) },
+  // Days
+  ...([
+    { id: "today", label: "Today", range: (t: Date) => ({ from: t, to: t }) },
+    { id: "yesterday", label: "Yesterday", range: (t: Date) => ({ from: addDays(t, -1), to: addDays(t, -1) }) },
+    { id: "24h", label: "24h", range: (t: Date) => ({ from: addDays(t, -1), to: t }) },
+    ...[3, 7, 14, 30, 60, 90, 120].map((n) => ({
+      id: `${n}-days`,
+      label: `${n} days`,
+      range: (t: Date) => lastDays(t, n),
+    })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Days", column: 1 })),
+  // Weeks
+  ...([
+    { id: "this-week", label: "This week", range: (t: Date) => ({ from: startOfWeek(t), to: t }) },
+    {
+      id: "last-week",
+      label: "Last week",
+      range: (t: Date) => ({ from: addDays(startOfWeek(t), -7), to: addDays(startOfWeek(t), -1) }),
+    },
+    ...[1, 2, 3, 4].map((n) => ({
+      id: `${n}-weeks`,
+      label: n === 1 ? "1 week" : `${n} weeks`,
+      range: (t: Date) => lastDays(t, n * 7),
+    })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Weeks", column: 2 })),
+  // Months
+  ...([
+    {
+      id: "this-month",
+      label: "This month",
+      range: (t: Date) => ({ from: new Date(t.getFullYear(), t.getMonth(), 1), to: t }),
+    },
+    {
+      id: "last-month",
+      label: "Last month",
+      range: (t: Date) => ({
+        from: new Date(t.getFullYear(), t.getMonth() - 1, 1),
+        to: new Date(t.getFullYear(), t.getMonth(), 0),
+      }),
+    },
+    ...[3, 6, 12].map((n) => ({ id: `${n}-months`, label: `${n} months`, range: (t: Date) => lastMonths(t, n) })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Months", column: 2 })),
+  // Quarters
+  ...([
+    { id: "this-quarter", label: "This quarter", range: (t: Date) => ({ from: quarterOf(t, 0).from, to: t }) },
+    { id: "last-quarter", label: "Last quarter", range: (t: Date) => quarterOf(t, 1) },
+    ...[2, 3, 4, 5, 6, 7].map((n) => ({
+      id: `quarter-${n}-back`,
+      label: (t: Date) => {
+        const q = quarterOf(t, n)
+        return `Q${q.q} ${q.from.getFullYear()}`
+      },
+      range: (t: Date) => quarterOf(t, n),
+    })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Quarters", column: 3 })),
+  // Years
+  ...([
+    { id: "this-year", label: "This year", range: (t: Date) => ({ from: new Date(t.getFullYear(), 0, 1), to: t }) },
+    {
+      id: "last-year",
+      label: "Last year",
+      range: (t: Date) => ({ from: new Date(t.getFullYear() - 1, 0, 1), to: new Date(t.getFullYear() - 1, 11, 31) }),
+    },
+    ...[2, 3, 4].map((n) => ({
+      id: `year-${n}-back`,
+      label: (t: Date) => String(t.getFullYear() - n),
+      range: (t: Date) => ({ from: new Date(t.getFullYear() - n, 0, 1), to: new Date(t.getFullYear() - n, 11, 31) }),
+    })),
+  ] as DateRangePreset[]).map((p) => ({ ...p, group: "Years", column: 3 })),
 ]
 
 /** Today's calendar date in an IANA time zone, as a local-midnight Date. */
@@ -78,6 +146,21 @@ function todayIn(timeZone: string): Date {
   }).formatToParts(new Date())
   const get = (type: string) => Number(parts.find((p) => p.type === type)?.value)
   return new Date(get("year"), get("month") - 1, get("day"))
+}
+
+/** Lays the presets out as columns of groups, keeping their order. */
+function periodColumns(presets: DateRangePreset[]) {
+  const cols: Array<Array<{ name: string; items: DateRangePreset[] }>> = []
+  for (const p of presets) {
+    const ci = Math.max(1, p.column ?? 1) - 1
+    while (cols.length <= ci) cols.push([])
+    const col = cols[ci]!
+    const name = p.group ?? ""
+    let g = col.find((x) => x.name === name)
+    if (!g) col.push((g = { name, items: [] }))
+    g.items.push(p)
+  }
+  return cols.filter((c) => c.length > 0)
 }
 
 const DAY = 24 * 60 * 60 * 1000
@@ -168,6 +251,7 @@ function DateRangePicker({
   const [picking, setPicking] = React.useState<"from" | "to">("from")
   const [hover, setHover] = React.useState<Date | undefined>()
   const [month, setMonth] = React.useState<Date>(value.from ?? new Date())
+  const [pickedId, setPickedId] = React.useState<string>()
   const fromRef = React.useRef<HTMLInputElement>(null)
   const toRef = React.useRef<HTMLInputElement>(null)
   const months = useMonths()
@@ -248,12 +332,14 @@ function DateRangePicker({
   const days = draft.from && draft.to ? daysBetween(draft.from, draft.to) : 0
 
   const today = presets?.length ? todayIn(timeZone) : undefined
+  // Some periods cover the same days ("2 weeks", "14 days"): the one picked keeps its name.
+  const covers = (p: DateRangePreset, r: DateRange) => {
+    const x = p.range(today!)
+    return sameDay(x.from, r.from) && sameDay(x.to, r.to)
+  }
   const matchOf = (r: DateRange) =>
     today
-      ? presets?.find((p) => {
-          const x = p.range(today)
-          return sameDay(x.from, r.from) && sameDay(x.to, r.to)
-        })
+      ? (presets?.find((p) => p.id === pickedId && covers(p, r)) ?? presets?.find((p) => covers(p, r)))
       : undefined
   const active = matchOf(value)
   const draftPeriod = matchOf(draft)
@@ -272,7 +358,7 @@ function DateRangePicker({
       >
         <CalendarIcon aria-hidden="true" />
         {active ? (
-          <span data-toolbar-label="">{active.label}</span>
+          <span data-toolbar-label="">{presetLabel(active, today!)}</span>
         ) : value.from && value.to ? (
           <span data-toolbar-label="" className="inline-flex items-center gap-2">
             {formatDate(value.from)}
@@ -301,27 +387,40 @@ function DateRangePicker({
                   />
                 }
               >
-                {draftPeriod ? draftPeriod.label : "Custom"}
+                {draftPeriod ? presetLabel(draftPeriod, today) : "Custom"}
                 <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent align="end" className="max-h-[min(30rem,var(--available-height))]">
                 <DropdownMenuRadioGroup
                   value={draftPeriod ? draftPeriod.id : ""}
                   onValueChange={(v: unknown) => {
                     const preset = presets.find((p) => p.id === v)
                     if (!preset) return
                     const range = preset.range(today)
+                    setPickedId(preset.id)
                     setDraft(range)
                     setPicking("to")
                     onChange(range)
                     setOpen(false)
                   }}
                 >
-                  {presets.map((p) => (
-                    <DropdownMenuRadioItem key={p.id} value={p.id} closeOnClick>
-                      {p.label}
-                    </DropdownMenuRadioItem>
-                  ))}
+                  {/* Columns of headed groups (Days, Weeks...). Presets without a group make one plain list. */}
+                  <div className="flex flex-col gap-1 sm:flex-row sm:gap-2">
+                    {periodColumns(presets).map((groups, ci) => (
+                      <div key={ci} className="flex min-w-28 flex-col gap-1">
+                        {groups.map((g) => (
+                          <DropdownMenuGroup key={g.name || ci}>
+                            {g.name ? <DropdownMenuLabel>{g.name}</DropdownMenuLabel> : null}
+                            {g.items.map((p) => (
+                              <DropdownMenuRadioItem key={p.id} value={p.id} closeOnClick className="tabular-nums">
+                                {presetLabel(p, today)}
+                              </DropdownMenuRadioItem>
+                            ))}
+                          </DropdownMenuGroup>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
