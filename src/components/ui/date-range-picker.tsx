@@ -205,11 +205,10 @@ function DateSlot({
     <label
       data-active={active || undefined}
       className={cn(
-        "flex min-w-36 flex-1 cursor-text flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors",
+        "flex h-8 w-[5.75rem] grow cursor-text items-center rounded-lg border px-1.5 transition-colors sm:w-32 sm:grow-0 sm:px-2.5",
         active ? "border-foreground/40 bg-muted/40" : "border-border hover:bg-muted/40",
       )}
     >
-      <span className="text-muted-foreground text-[11px]">{label}</span>
       <DateInput
         inputRef={inputRef}
         aria-label={label}
@@ -218,7 +217,7 @@ function DateSlot({
         max={max}
         onFocus={onActivate}
         onValueChange={onType}
-        className={cn("text-sm", date && "font-medium")}
+        className={cn("text-[13px] sm:text-sm", date && "font-medium")}
       />
     </label>
   )
@@ -372,61 +371,9 @@ function DateRangePicker({
         )}
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto gap-0 p-0" initialFocus={fromRef}>
-        {presets?.length && today ? (
-          <div className="flex items-center justify-between gap-3 px-3 pt-3">
-            <span className="text-muted-foreground text-xs font-medium">Period</span>
-            <DropdownMenu>
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label="Period"
-                    data-slot="date-range-period"
-                    className="h-8 gap-1.5 font-normal"
-                  />
-                }
-              >
-                {draftPeriod ? presetLabel(draftPeriod, today) : "Custom"}
-                <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="max-h-[min(30rem,var(--available-height))]">
-                <DropdownMenuRadioGroup
-                  value={draftPeriod ? draftPeriod.id : ""}
-                  onValueChange={(v: unknown) => {
-                    const preset = presets.find((p) => p.id === v)
-                    if (!preset) return
-                    const range = preset.range(today)
-                    setPickedId(preset.id)
-                    setDraft(range)
-                    setPicking("to")
-                    onChange(range)
-                    setOpen(false)
-                  }}
-                >
-                  {/* Columns of headed groups (Days, Weeks...). Presets without a group make one plain list. */}
-                  <div className="flex flex-col gap-1 sm:flex-row sm:gap-2">
-                    {periodColumns(presets).map((groups, ci) => (
-                      <div key={ci} className="flex min-w-28 flex-col gap-1">
-                        {groups.map((g) => (
-                          <DropdownMenuGroup key={g.name || ci}>
-                            {g.name ? <DropdownMenuLabel>{g.name}</DropdownMenuLabel> : null}
-                            {g.items.map((p) => (
-                              <DropdownMenuRadioItem key={p.id} value={p.id} closeOnClick className="tabular-nums">
-                                {presetLabel(p, today)}
-                              </DropdownMenuRadioItem>
-                            ))}
-                          </DropdownMenuGroup>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        ) : null}
-        <div className="flex gap-2 border-b p-3">
+        {/* One row: start, end, then the Period menu. On a phone the date fields narrow to fit; on the
+            narrowest phones Period wraps under them. */}
+        <div className="flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-1.5 border-b p-3 sm:flex-nowrap sm:gap-2">
           <DateSlot
             label="Start date"
             date={draft.from}
@@ -437,6 +384,7 @@ function DateRangePicker({
             min={min}
             max={max}
           />
+          <ArrowRightIcon aria-hidden="true" className="text-muted-foreground size-3.5 shrink-0" />
           <DateSlot
             label="End date"
             date={draft.to}
@@ -447,6 +395,59 @@ function DateRangePicker({
             min={min}
             max={max}
           />
+          {presets?.length && today ? (
+            <div className="ml-auto shrink-0 sm:pl-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  render={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label="Period"
+                      data-slot="date-range-period"
+                      className="h-8 gap-1.5 font-normal"
+                    />
+                  }
+                >
+                  {draftPeriod ? presetLabel(draftPeriod, today) : "Custom"}
+                  <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="max-h-[min(30rem,var(--available-height))]">
+                  <DropdownMenuRadioGroup
+                    value={draftPeriod ? draftPeriod.id : ""}
+                    onValueChange={(v: unknown) => {
+                      const preset = presets.find((p) => p.id === v)
+                      if (!preset) return
+                      const range = preset.range(today)
+                      setPickedId(preset.id)
+                      setDraft(range)
+                      setPicking("to")
+                      onChange(range)
+                      setOpen(false)
+                    }}
+                  >
+                    {/* Columns of headed groups (Days, Weeks...). Presets without a group make one plain list. */}
+                    <div className="flex flex-col gap-1 sm:flex-row sm:gap-2">
+                      {periodColumns(presets).map((groups, ci) => (
+                        <div key={ci} className="flex min-w-28 flex-col gap-1">
+                          {groups.map((g) => (
+                            <DropdownMenuGroup key={g.name || ci}>
+                              {g.name ? <DropdownMenuLabel>{g.name}</DropdownMenuLabel> : null}
+                              {g.items.map((p) => (
+                                <DropdownMenuRadioItem key={p.id} value={p.id} closeOnClick className="tabular-nums">
+                                  {presetLabel(p, today)}
+                                </DropdownMenuRadioItem>
+                              ))}
+                            </DropdownMenuGroup>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  </DropdownMenuRadioGroup>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          ) : null}
         </div>
         <Calendar
           mode="range"

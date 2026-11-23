@@ -61,10 +61,10 @@ function CalendarDropdown({ options = [], value, onChange, disabled, "aria-label
         disabled={disabled}
         aria-label={ariaLabel}
         data-slot="calendar-dropdown"
-        className="hover:bg-muted focus-visible:ring-ring/50 data-popup-open:bg-muted flex h-7 cursor-pointer items-center rounded-(--cell-radius) px-1.5 text-sm font-medium outline-none select-none focus-visible:ring-2"
+        className="hover:bg-muted focus-visible:ring-ring/50 data-popup-open:bg-muted flex h-7 cursor-pointer items-center justify-center rounded-(--cell-radius) px-1.5 text-sm font-medium outline-none select-none focus-visible:ring-2"
       >
         {/* Every choice sits in one grid cell, so the button keeps one width. */}
-        <span className="grid text-left">
+        <span className="grid justify-items-center text-center">
           {options.map((o) => (
             <span
               key={o.value}

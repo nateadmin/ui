@@ -2,3 +2,11 @@
 @import "../src/styles.css";
 @source "../src";
 @source "./";
+
+/* In a catalog frame, center dialogs in the part of the frame that is on screen
+   (main.tsx sets these). Outside a frame the fallbacks are the normal center. */
+[data-slot="dialog-content"] {
+  top: calc(var(--frame-visible-top, 0px) + var(--frame-visible-height, 100vh) / 2);
+  max-height: calc(var(--frame-visible-height, 100vh) - 2rem);
+  overflow-y: auto;
+}
