@@ -620,6 +620,13 @@ function ToolbarFilter(props: ToolbarFilterProps) {
 
 /* ---------- Filters dialog ---------- */
 
+/*
+ * How a multi-select group works: nothing chosen means everything shows, so
+ * every pill starts selected. Unselect pills to hide those rows; the last one
+ * can't be turned off. The value lists only what's kept, and goes back to []
+ * once everything is selected again. Select all (per group) and Clear all put
+ * everything back.
+ */
 type ToolbarFilterGroup = {
   id: string
   label: string
@@ -836,10 +843,28 @@ function ToolbarFilterDialog({
   className?: string
 }) {
   const activeConditions = Object.values(conditions).filter(conditionActive).length
-  const count = filters.reduce((n, f) => n + (f.required ? 0 : (values[f.id]?.length ?? 0)), 0) + activeConditions
+  // Each narrowed group counts once; a single-choice group counts its choice.
+  const count =
+    filters.reduce((n, f) => n + (f.required ? 0 : Math.min(values[f.id]?.length ?? 0, 1)), 0) + activeConditions
+  /** Multi-select groups that aren't required start with everything selected. */
+  const allByDefault = (g: ToolbarFilterGroup) => g.multiple !== false && !g.required
+  const isOn = (g: ToolbarFilterGroup, option: string) => {
+    const current = values[g.id] ?? []
+    return allByDefault(g) ? current.length === 0 || current.includes(option) : current.includes(option)
+  }
   const showColumns = !!columns?.length && !!onConditionsChange
 
   const toggle = (group: ToolbarFilterGroup, option: string) => {
+    if (allByDefault(group)) {
+      const all = group.options.map((o) => o.value)
+      const current = values[group.id] ?? []
+      const shown = current.length ? current : all
+      const kept = shown.includes(option) ? shown.filter((v) => v !== option) : [...shown, option]
+      if (kept.length === 0) return
+      const next = all.every((v) => kept.includes(v)) ? [] : all.filter((v) => kept.includes(v))
+      onValuesChange({ ...values, [group.id]: next })
+      return
+    }
     const current = values[group.id] ?? []
     const on = current.includes(option)
     const next =
@@ -885,16 +910,24 @@ function ToolbarFilterDialog({
             <fieldset key={group.id} className="flex flex-col gap-2">
               {/* A legend is not a flex item, so the gap above does not reach it; it gets its own margin. */}
               <legend className="mb-2 flex w-full items-center justify-between gap-3 text-sm font-medium">
-                <span>{group.label}</span>
-                {/* Clear for this category only; shown while anything in it is selected. */}
+                <span>
+                  {group.label}
+                  {group.required ? (
+                    <span className="text-destructive ml-0.5" aria-hidden="true">
+                      *
+                    </span>
+                  ) : null}
+                  {group.required ? <span className="sr-only"> (required, pick at least one)</span> : null}
+                </span>
+                {/* Puts this category back to everything shown; there while it is narrowed. */}
                 {!group.required && (values[group.id]?.length ?? 0) > 0 ? (
                   <button
                     type="button"
                     onClick={() => onValuesChange({ ...values, [group.id]: [] })}
                     className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 cursor-pointer rounded px-1 text-xs font-normal outline-none focus-visible:ring-2"
-                    aria-label={`Clear ${group.label}`}
+                    aria-label={`${allByDefault(group) ? "Select all" : "Clear"} ${group.label}`}
                   >
-                    Clear
+                    {allByDefault(group) ? "Select all" : "Clear"}
                   </button>
                 ) : null}
               </legend>
@@ -911,7 +944,7 @@ function ToolbarFilterDialog({
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {group.options.map((o) => {
-                    const on = (values[group.id] ?? []).includes(o.value)
+                    const on = isOn(group, o.value)
                     return (
                       <Button
                         key={o.value}
@@ -1435,10 +1468,11 @@ function ToolbarReportLibrary({
               ) : (
                 <div className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {inCategory.map((r) => (
-                    <div key={r.id} className="flex items-stretch gap-1">
+                    // The options button sits inside the tile, on its right, so the tile takes the full width.
+                    <div key={r.id} className="relative">
                       <button
                         type="button"
-                        className={tile(r.id === activeId)}
+                        className={cn(tile(r.id === activeId), (onRename || onDelete) && "pr-9")}
                         onClick={() => {
                           onSelect(r.id === activeId ? null : r.id)
                           setOpen(false)
@@ -1450,7 +1484,12 @@ function ToolbarReportLibrary({
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             aria-label={`${r.name} options`}
-                            className="text-muted-foreground hover:bg-muted inline-flex size-6 shrink-0 cursor-pointer items-center justify-center self-center rounded-md"
+                            className={cn(
+                              "absolute top-1/2 right-1.5 inline-flex size-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md outline-none focus-visible:ring-2",
+                              r.id === activeId
+                                ? "text-background/70 hover:bg-background/15 hover:text-background data-popup-open:bg-background/15"
+                                : "text-muted-foreground hover:bg-foreground/10 hover:text-foreground data-popup-open:bg-foreground/10",
+                            )}
                           >
                             <EllipsisVerticalIcon className="size-3.5" />
                           </DropdownMenuTrigger>

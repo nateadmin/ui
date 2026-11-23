@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { formatDate } from "@/components/ui/date-picker"
+import { DateInput, formatDate } from "@/components/ui/date-picker"
 
 /*
  * One field for a start and end date that opens two months side by side,
@@ -97,32 +97,47 @@ function useMonths() {
   return wide ? 2 : 1
 }
 
+/* A Start or End box. Click it to pick that date on the calendar, or type the
+   date straight into it. */
 function DateSlot({
   label,
   date,
   active,
-  onClick,
+  onActivate,
+  onType,
+  inputRef,
+  min,
+  max,
 }: {
   label: string
   date?: Date
   active: boolean
-  onClick: () => void
+  onActivate: () => void
+  onType: (date: Date | undefined) => void
+  inputRef: React.Ref<HTMLInputElement>
+  min?: Date
+  max?: Date
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
+    <label
+      data-active={active || undefined}
       className={cn(
-        "flex min-w-36 flex-1 flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors outline-none",
+        "flex min-w-36 flex-1 cursor-text flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors",
         active ? "border-foreground/40 bg-muted/40" : "border-border hover:bg-muted/40",
       )}
     >
       <span className="text-muted-foreground text-[11px]">{label}</span>
-      <span className={cn("text-sm tabular-nums", date ? "font-medium" : "text-muted-foreground")}>
-        {date ? formatDate(date) : "Select a date"}
-      </span>
-    </button>
+      <DateInput
+        inputRef={inputRef}
+        aria-label={label}
+        value={date}
+        min={min}
+        max={max}
+        onFocus={onActivate}
+        onValueChange={onType}
+        className={cn("text-sm", date && "font-medium")}
+      />
+    </label>
   )
 }
 
@@ -152,6 +167,9 @@ function DateRangePicker({
   const [draft, setDraft] = React.useState<DateRange>(value)
   const [picking, setPicking] = React.useState<"from" | "to">("from")
   const [hover, setHover] = React.useState<Date | undefined>()
+  const [month, setMonth] = React.useState<Date>(value.from ?? new Date())
+  const fromRef = React.useRef<HTMLInputElement>(null)
+  const toRef = React.useRef<HTMLInputElement>(null)
   const months = useMonths()
 
   const openWith = (next: boolean) => {
@@ -160,7 +178,46 @@ function DateRangePicker({
       setDraft(value)
       setPicking("from")
       setHover(undefined)
+      setMonth(value.from ?? new Date())
     }
+  }
+
+  /* Bring a typed date into view, leaving the calendar alone if it already shows. */
+  const show = (d: Date) => {
+    const first = new Date(month.getFullYear(), month.getMonth(), 1)
+    const after = new Date(month.getFullYear(), month.getMonth() + months, 1)
+    if (d >= first && d < after) return
+    setMonth(new Date(d.getFullYear(), d.getMonth() - (d < first ? 0 : months - 1), 1))
+  }
+
+  const typeFrom = (d: Date | undefined) => {
+    if (!d) {
+      setDraft({ from: undefined, to: draft.to })
+      return
+    }
+    const keepEnd = draft.to && d <= draft.to ? draft.to : undefined
+    const next = { from: d, to: keepEnd }
+    setDraft(next)
+    setPicking("to")
+    show(d)
+    if (keepEnd) onChange(next)
+    // Typing goes on to the end date.
+    requestAnimationFrame(() => toRef.current?.focus())
+  }
+  const typeTo = (d: Date | undefined) => {
+    if (!d) {
+      setDraft({ from: draft.from, to: undefined })
+      return
+    }
+    show(d)
+    if (!draft.from || d < draft.from) {
+      // An end before the start starts over from that day.
+      setDraft({ from: d, to: undefined })
+      return
+    }
+    const range = { from: draft.from, to: d }
+    setDraft(range)
+    onChange(range)
   }
 
   /* Picking the start moves on to the end. Once the end is picked it stays the
@@ -228,7 +285,7 @@ function DateRangePicker({
           </span>
         )}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-auto gap-0 p-0">
+      <PopoverContent align="start" className="w-auto gap-0 p-0" initialFocus={fromRef}>
         {presets?.length && today ? (
           <div className="flex items-center justify-between gap-3 px-3 pt-3">
             <span className="text-muted-foreground text-xs font-medium">Period</span>
@@ -275,20 +332,29 @@ function DateRangePicker({
             label="Start date"
             date={draft.from}
             active={picking === "from"}
-            onClick={() => setPicking("from")}
+            onActivate={() => setPicking("from")}
+            onType={typeFrom}
+            inputRef={fromRef}
+            min={min}
+            max={max}
           />
           <DateSlot
             label="End date"
             date={draft.to}
             active={picking === "to"}
-            onClick={() => draft.from && setPicking("to")}
+            onActivate={() => setPicking("to")}
+            onType={typeTo}
+            inputRef={toRef}
+            min={min}
+            max={max}
           />
         </div>
         <Calendar
           mode="range"
           numberOfMonths={months}
-          captionLayout="label"
-          defaultMonth={draft.from ?? value.from}
+          captionLayout="dropdown"
+          month={month}
+          onMonthChange={setMonth}
           selected={draft.from ? { from: draft.from, to: draft.to } : undefined}
           onSelect={() => {}}
           onDayClick={(day, modifiers) => {

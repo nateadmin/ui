@@ -2,10 +2,17 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
-import { DayPicker, getDefaultClassNames, type DayButton, type Locale } from "react-day-picker"
+import { DayPicker, getDefaultClassNames, type DayButton, type DropdownProps, type Locale } from "react-day-picker"
 
 import { Button, buttonVariants } from "@/components/ui/button"
 import { ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 function CalendarRoot({
   className,
@@ -29,6 +36,54 @@ function CalendarChevron({
   return <Icon className={cn("size-4", className)} {...rest} />
 }
 
+/* The month and the year in the caption are buttons. Each opens a list (the
+   months, or every year in range) that scrolls to the current one, so going
+   back decades is two clicks. */
+function CalendarDropdown({ options = [], value, onChange, disabled, "aria-label": ariaLabel }: DropdownProps) {
+  const listRef = React.useRef<HTMLDivElement>(null)
+  const current = options.find((o) => String(o.value) === String(value))
+  return (
+    <DropdownMenu
+      onOpenChange={(open: boolean) => {
+        if (!open) return
+        requestAnimationFrame(() =>
+          listRef.current?.querySelector("[data-checked]")?.scrollIntoView({ block: "center" }),
+        )
+      }}
+    >
+      <DropdownMenuTrigger
+        disabled={disabled}
+        aria-label={ariaLabel}
+        data-slot="calendar-dropdown"
+        className="hover:bg-muted focus-visible:ring-ring/50 data-popup-open:bg-muted flex h-7 cursor-pointer items-center gap-1 rounded-(--cell-radius) pr-1 pl-1.5 text-sm font-medium outline-none select-none focus-visible:ring-2"
+      >
+        {current?.label ?? value}
+        <ChevronDownIcon aria-hidden="true" className="text-muted-foreground size-3.5" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent ref={listRef} align="start" className="max-h-72">
+        <DropdownMenuRadioGroup
+          value={String(value)}
+          onValueChange={(v: unknown) =>
+            onChange?.({ target: { value: String(v) } } as unknown as React.ChangeEvent<HTMLSelectElement>)
+          }
+        >
+          {options.map((o) => (
+            <DropdownMenuRadioItem
+              key={o.value}
+              value={String(o.value)}
+              disabled={o.disabled}
+              closeOnClick
+              className="tabular-nums"
+            >
+              {o.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function CalendarWeekNumber({ children, ...props }: React.ComponentProps<"td"> & { week?: unknown }) {
   const { week: _week, ...rest } = props as typeof props & { week?: unknown }
   return (
@@ -47,11 +102,17 @@ function Calendar({
   locale,
   formatters,
   components,
+  startMonth,
+  endMonth,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"]
 }) {
   const defaultClassNames = getDefaultClassNames()
+  // The year list reaches 100 years back and 10 ahead unless a range is given.
+  const thisYear = new Date().getFullYear()
+  const firstMonth = startMonth ?? new Date(thisYear - 100, 0, 1)
+  const lastMonth = endMonth ?? new Date(thisYear + 10, 11, 1)
 
   // Parts must keep the same identity between renders. Defined inline, every
   // hover or focus rebuilt each day button, so the first click was lost.
@@ -61,6 +122,7 @@ function Calendar({
       Chevron: CalendarChevron,
       DayButton: (props: React.ComponentProps<typeof DayButton>) => <CalendarDayButton locale={locale} {...props} />,
       WeekNumber: CalendarWeekNumber,
+      Dropdown: CalendarDropdown,
       ...components,
     }),
     [locale, components],
@@ -76,16 +138,22 @@ function Calendar({
         className,
       )}
       captionLayout={captionLayout}
+      startMonth={firstMonth}
+      endMonth={lastMonth}
       locale={locale}
       formatters={{
-        formatMonthDropdown: (date) => date.toLocaleString(locale?.code, { month: "short" }),
+        formatMonthDropdown: (date) => date.toLocaleString(locale?.code, { month: "long" }),
         ...formatters,
       }}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),
         months: cn("relative flex flex-col gap-4 md:flex-row", defaultClassNames.months),
         month: cn("flex w-full flex-col gap-4", defaultClassNames.month),
-        nav: cn("absolute inset-x-0 top-0 flex w-full items-center justify-between gap-1", defaultClassNames.nav),
+        // The arrow bar lies over the captions; only its buttons take clicks, so the month and year stay clickable.
+        nav: cn(
+          "pointer-events-none absolute inset-x-0 top-0 z-10 flex w-full items-center justify-between gap-1 [&>button]:pointer-events-auto",
+          defaultClassNames.nav,
+        ),
         button_previous: cn(
           buttonVariants({ variant: buttonVariant }),
           "size-(--cell-size) p-0 select-none aria-disabled:opacity-50",

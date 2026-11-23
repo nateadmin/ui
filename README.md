@@ -41,8 +41,8 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | --- | --- |
 | Toolbar | The bar on top of a list, table, or board. Parts below. Include only the parts a page needs. Wraps on narrow screens. |
 | MultiSelect | Searchable checkbox dropdown for long lists (people, statuses). |
-| DatePicker | Calendar in a popover, shows mm/dd/yyyy, optional label and min/max. |
-| DateRangePicker | One field for a start and end date. Opens two months side by side (one on phones), like an airline site: first click sets the start, second the end, hover previews the range. Optional `presets` add a Period dropdown at the top. |
+| DatePicker | Calendar in a popover, shows mm/dd/yyyy, optional label and min/max. The date can be typed (DateInput, also exported). |
+| DateRangePicker | One field for a start and end date. Opens two months side by side (one on phones), like an airline site: first click sets the start, second the end, hover previews the range. Optional `presets` add a Period dropdown at the top. Start and End can be typed (mm/dd/yyyy; slashes fill in). |
 | Button | Variants: default, outline, secondary, ghost, destructive, link |
 | Input | Text input |
 | Table | Table primitives: header, body, row, head, cell, footer, caption |
@@ -54,7 +54,7 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | DropdownMenu | Items, checkbox items, radio items, submenus |
 | ContextMenu | Right-click menu: items, labels, separators, submenus |
 | Dialog | Modal with header, footer, and close button |
-| Calendar, Popover | Building blocks for the date picker |
+| Calendar, Popover | Building blocks for the date picker. The month and year in the caption open lists (100 years back, 10 ahead by default). |
 | Toggle, ToggleGroup | Single toggle or a segmented group |
 
 Toolbar parts:
@@ -65,7 +65,7 @@ Toolbar parts:
 | `ToolbarTabs` | Status tabs that filter the list (Active 128, Monitor 41). Stay tabs at any number, scroll sideways when they do not fit. `stretch` fills the row. |
 | `ToolbarSearch` | Search box that fills the free space. |
 | `ToolbarFilter` | One filter. Use `multiple` unless the choices exclude each other. Over 10 options it becomes a searchable dropdown. The button keeps one width whatever is picked. |
-| `ToolbarFilterDialog` | "Filters" button with a count, opening every filter group in a dialog. Groups up to 8 options show as pills, longer ones as a searchable dropdown (`pillLimit`). Pass `columns`, `conditions` and `onConditionsChange` for a Column filters section (column, condition, value; text, number and date columns); apply them with `matchesCondition`. |
+| `ToolbarFilterDialog` | "Filters" button with a count, opening every filter group in a dialog. Groups up to 8 options show as pills, longer ones as a searchable dropdown (`pillLimit`). Multi-select pills all start selected (everything shows); unselect to hide, the last can't be turned off, Select all puts them back. `required` groups get a red star. Pass `columns`, `conditions` and `onConditionsChange` for a Column filters section (column, condition, value; text, number and date columns); apply them with `matchesCondition`. |
 | `ToolbarDateRange` | One field, "Custom range" until set. It opens a DateRangePicker with a Period dropdown at the top (Today, Yesterday, This week, Last week, 7 days, This month, Last month, 30 days); a picked period shows by name. Presets never show as a row of chips. "Today" follows `timeZone`, America/New_York by default. Weeks start Sunday. |
 | `ToolbarSavedViews` | Named views of a list (filters, search, sort) for interactive browsing. Pick a view, see a dot when filters changed, "Update" the active view, "Save current view as..." with a name, delete views. The app stores views on the user's profile. Not the same as saving a report on a reports page. |
 | `ToolbarExport` | Export button that opens a dropdown to pick the format (CSV or PDF by default; pass `formats` to change). |
