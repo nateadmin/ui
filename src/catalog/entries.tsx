@@ -409,7 +409,12 @@ export const catalog: CatalogEntry[] = [
     name: "Report",
     examples: [
       {
-        name: "Report and Data page, as it looks in the Data app today (placeholder data)",
+        name: "With the library Toolbar: filters in the Filters dialog, columns in Columns (placeholder data)",
+        render: () => <SimplyFundingReport layout="toolbar" />,
+        minHeight: 900,
+      },
+      {
+        name: "As it looks in the Data app today, filters in a left panel (placeholder data)",
         render: () => <SimplyFundingReport />,
         minHeight: 880,
       },

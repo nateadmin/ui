@@ -7,10 +7,28 @@ import {
   Maximize2Icon,
   Minimize2Icon,
   PlusIcon,
+  SparklesIcon,
   XIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SortIcon } from "@/components/ui/data-list"
+import { CustomizeMenu, CustomizeOption } from "@/components/ui/customize-menu"
+import { formatDate } from "@/components/ui/date-picker"
+import { ListPagination } from "@/components/ui/list-pagination"
+import {
+  Toolbar,
+  ToolbarActiveFilters,
+  ToolbarDateRange,
+  ToolbarExport,
+  ToolbarFilterDialog,
+  ToolbarLabel,
+  ToolbarSavedViews,
+  ToolbarSearch,
+  activeFilterItems,
+  type ToolbarDateRangeValue,
+  type ToolbarFilterGroup,
+  type ToolbarSavedView,
+} from "@/components/ui/toolbar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -310,6 +328,35 @@ const SOURCES = [
   { id: "payments", label: "Payments", rows: 465950 },
   { id: "applications", label: "Applications", rows: 183079 },
 ]
+
+/* Filters dialog groups for the toolbar layout. */
+const AMOUNT_BANDS = [
+  { value: "u25", label: "Under $25k" },
+  { value: "25-50", label: "$25k to $50k" },
+  { value: "50-100", label: "$50k to $100k" },
+  { value: "100+", label: "$100k and up" },
+]
+const amountBand = (n: number) => (n < 25000 ? "u25" : n < 50000 ? "25-50" : n < 100000 ? "50-100" : "100+")
+const statusColor: Record<string, string> = {
+  Defaulted: "#ef4444",
+  Active: "#22c55e",
+  "Paid off": "#3b82f6",
+  Renewed: "#a855f7",
+}
+const reportFilters: ToolbarFilterGroup[] = [
+  { id: "source", label: "Data", options: SOURCES.map((x) => ({ value: x.id, label: x.label })) },
+  { id: "status", label: "Status", options: statuses.map((x) => ({ value: x, label: x, color: statusColor[x] })) },
+  { id: "lawFirm", label: "Law firm", options: lawFirms.map((x) => ({ value: x, label: x })) },
+  { id: "iso", label: "Referring ISO", options: isos.map((x) => ({ value: x, label: x })) },
+  { id: "amount", label: "Funded amount", options: AMOUNT_BANDS },
+]
+const inRange = (mdY: string, from: Date, to: Date) => {
+  const [m, d, y] = mdY.split("/").map(Number)
+  const t = new Date(y!, m! - 1, d!).getTime()
+  const f = new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime()
+  const e = new Date(to.getFullYear(), to.getMonth(), to.getDate()).getTime()
+  return t >= f && t <= e
+}
 
 const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" })
 const dateKey = (s: string) => {
@@ -726,7 +773,14 @@ function ChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
 
 /* ---------- Page ---------- */
 
-export function SimplyFundingReport() {
+/*
+ * layout "panel": the Data app as it is today, filters in a left panel.
+ * layout "toolbar": the same report driven by the library's own parts: Toolbar
+ * (saved reports, data, search, dates, Filters dialog, columns, count, chat,
+ * full screen, export), applied-filter chips, and ListPagination. Those are
+ * imported, not copied, so changes to them show up here.
+ */
+export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "toolbar" }) {
   const [sources, setSources] = useState(["deals"])
   const [cols, setCols] = useState<ColKey[]>(DEFAULT_COLS)
   const [groupBy, setGroupBy] = useState("none")
@@ -745,6 +799,13 @@ export function SimplyFundingReport() {
   const sortBy = (key: ColKey) =>
     setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null))
   const [pageSize, setPageSize] = useState("50")
+  const [dates, setDates] = useState<ToolbarDateRangeValue>({})
+  const [amountBands, setAmountBands] = useState<string[]>([])
+  const [savedViews, setSavedViews] = useState<ToolbarSavedView[]>(
+    Object.values(libraryReports)
+      .flat()
+      .map((name) => ({ id: name, name })),
+  )
   const [q, setQ] = useState("")
   const [page, setPage] = useState(1)
   const [chatOpen, setChatOpen] = useState(false)
@@ -771,6 +832,13 @@ export function SimplyFundingReport() {
 
   const columns = cols.map((k) => COLUMNS.find((c) => c.key === k)!)
 
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setExpanded(false)
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [expanded])
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase()
     let rows = deals.filter(
@@ -778,7 +846,9 @@ export function SimplyFundingReport() {
         (!status.length || status.includes(d.status)) &&
         (!lawFirm.length || lawFirm.includes(d.lawFirm)) &&
         (!iso.length || iso.includes(d.iso)) &&
-        (!needle || d.name.toLowerCase().includes(needle) || String(d.id).includes(needle)),
+        (!needle || d.name.toLowerCase().includes(needle) || String(d.id).includes(needle)) &&
+        (!amountBands.length || amountBands.includes(amountBand(d.amount))) &&
+        (!dates.from || !dates.to || inRange(d.fundedAt, dates.from, dates.to)),
     )
     if (!sort) return rows
     const k = sort.key
@@ -789,9 +859,9 @@ export function SimplyFundingReport() {
       return sort.dir === "asc" ? cmp : -cmp
     })
     return rows
-  }, [q, status, lawFirm, iso, sort])
+  }, [q, status, lawFirm, iso, sort, amountBands, dates])
 
-  useEffect(() => setPage(1), [q, status, lawFirm, iso, sort, pageSize, groupBy])
+  useEffect(() => setPage(1), [q, status, lawFirm, iso, sort, pageSize, groupBy, amountBands, dates])
 
   const size = Number(pageSize)
   const pageCount = Math.max(1, Math.ceil(filtered.length / size))
@@ -830,6 +900,9 @@ export function SimplyFundingReport() {
   const filtersActive =
     status.length > 0 || lawFirm.length > 0 || iso.length > 0 || colFilters.length > 0 || !!from || !!to || q !== ""
   const reset = () => {
+    setSources(["deals"])
+    setAmountBands([])
+    setDates({})
     setStatus([])
     setLawFirm([])
     setIso([])
@@ -841,19 +914,6 @@ export function SimplyFundingReport() {
     setGroupBy("none")
     setCols(DEFAULT_COLS)
   }
-
-  const expandButton = (
-    <Button
-      type="button"
-      variant="ghost"
-      size="icon-sm"
-      className="size-7"
-      aria-label={expanded ? "Collapse" : "Expand"}
-      onClick={() => setExpanded((e) => !e)}
-    >
-      {expanded ? <Minimize2Icon /> : <Maximize2Icon />}
-    </Button>
-  )
 
   const head = (
     <tr className="bg-muted/50 border-b">
@@ -918,8 +978,6 @@ export function SimplyFundingReport() {
           </th>
         )
       })}
-      {/* Fixed corner at the right end of the title band: column titles slide under it. */}
-      <th className="bg-muted sticky top-0 right-0 z-20 w-10 p-0 pr-1 text-right align-middle">{expandButton}</th>
     </tr>
   )
 
@@ -959,198 +1017,310 @@ export function SimplyFundingReport() {
   )
 
   return (
-    <div className="flex h-[820px] min-w-0 flex-col text-[13px] [&_[data-slot=button]]:text-[13px] gap-4 overflow-x-hidden lg:grid lg:min-h-0 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:gap-y-2 lg:overflow-hidden">
-      {/* Left: filters card */}
-      <div className="w-full shrink-0 lg:col-start-1 lg:row-start-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
-        <Card className="flex min-h-0 w-full flex-1 flex-col overflow-hidden pt-2">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-y-auto px-(--card-spacing) pt-0 pb-(--card-spacing) [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            <div className="grid shrink-0 grid-cols-2 gap-2">
-              {SOURCES.map((s) => {
-                const on = sources.includes(s.id)
-                return (
-                  <Button
-                    key={s.id}
-                    type="button"
-                    size="sm"
-                    variant={on ? "default" : "outline"}
-                    aria-pressed={on}
-                    onClick={() =>
-                      setSources((cur) =>
-                        on ? (cur.length > 1 ? cur.filter((x) => x !== s.id) : cur) : [...cur, s.id],
-                      )
-                    }
-                    className="h-auto w-full min-w-0 shrink-0 flex-col gap-0 py-1 leading-tight"
-                  >
-                    <span className="truncate">{s.label}</span>
-                    <span
-                      className={cn(
-                        "text-[10px] font-normal tabular-nums",
-                        on ? "text-primary-foreground/80" : "text-muted-foreground",
-                      )}
-                    >
-                      {s.rows.toLocaleString("en-US")} rows
-                    </span>
-                  </Button>
-                )
-              })}
-            </div>
-
-            <div className="grid min-w-0 grid-cols-1 gap-2">
-              <ColumnPicker selected={cols} onChange={setCols} />
-              <FormulaDialog />
-              <div className="grid min-w-0 gap-2">
-                <Label>Group by</Label>
-                <Select
-                  ariaLabel="Group by"
-                  value={groupBy}
-                  onChange={setGroupBy}
-                  options={[
-                    { value: "none", label: "None" },
-                    { value: "lawFirm", label: "Law Firm" },
-                    { value: "iso", label: "Referring ISO" },
-                    { value: "status", label: "Status" },
-                  ]}
-                />
-              </div>
-            </div>
-
-            <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-1">
-              <div className="grid gap-2">
-                <Label htmlFor="report-range">Range</Label>
-                <Select
-                  id="report-range"
-                  value={range}
-                  onChange={setRange}
-                  options={[
-                    { value: "all", label: "All" },
-                    { value: "today", label: "Today" },
-                    { value: "yesterday", label: "Yesterday" },
-                    { value: "7d", label: "Last 7 days" },
-                    { value: "30d", label: "Last 30 days" },
-                    { value: "month", label: "This month" },
-                    { value: "last-month", label: "Last month" },
-                    { value: "year", label: "This year" },
-                  ]}
-                />
-              </div>
-              <div className="col-span-2 grid grid-cols-2 gap-3 lg:col-span-1 lg:grid-cols-1">
-                <DateField id="report-from" label="From" value={from} onChange={setFrom} />
-                <DateField id="report-to" label="To" value={to} onChange={setTo} />
-              </div>
-              <ChipsCombobox
-                id="report-value-lawFirm"
-                label="Law Firm"
-                values={lawFirm}
-                options={lawFirms}
-                onChange={setLawFirm}
+    <div
+      className={cn(
+        "flex min-w-0 flex-col text-[13px] [&_[data-slot=button]]:text-[13px]",
+        layout === "toolbar"
+          ? cn("gap-2", expanded ? "bg-background fixed inset-0 z-50 h-auto p-4" : "h-[820px]")
+          : "h-[820px] gap-4 overflow-x-hidden lg:grid lg:min-h-0 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:gap-y-2 lg:overflow-hidden",
+      )}
+    >
+      {layout === "toolbar" ? (
+        <>
+          <Toolbar>
+            <ToolbarSavedViews
+              views={savedViews}
+              activeId={activeReport || null}
+              defaultLabel="All deals"
+              onSelect={(id) => setActiveReport(id ?? "")}
+              onSave={(name) => {
+                setSavedViews((cur) => [...cur, { id: name, name }])
+                setActiveReport(name)
+              }}
+              onDelete={(id) => setSavedViews((cur) => cur.filter((v) => v.id !== id))}
+            />
+            <ToolbarSearch
+              placeholder="Search name or funding ID"
+              aria-label="Search the report"
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+            <ToolbarDateRange value={dates} onValueChange={setDates} />
+            <ToolbarFilterDialog
+              filters={reportFilters}
+              values={{ source: sources, status, lawFirm, iso, amount: amountBands }}
+              onValuesChange={(v) => {
+                setSources(v.source?.length ? v.source : ["deals"])
+                setStatus(v.status ?? [])
+                setLawFirm(v.lawFirm ?? [])
+                setIso(v.iso ?? [])
+                setAmountBands(v.amount ?? [])
+              }}
+            />
+            <CustomizeMenu
+              label="Columns"
+              itemsLabel="Columns"
+              searchPlaceholder="Search columns"
+              items={COLUMNS.map((c) => ({ key: c.key, label: c.label }))}
+              value={cols}
+              onValueChange={(v) => setCols(v.length ? v : cols)}
+              defaultValue={DEFAULT_COLS}
+            >
+              <CustomizeOption
+                label="Group by"
+                value={groupBy}
+                onValueChange={setGroupBy}
+                options={[
+                  { value: "none", label: "None" },
+                  { value: "lawFirm", label: "Law firm" },
+                  { value: "iso", label: "ISO" },
+                  { value: "status", label: "Status" },
+                ]}
               />
-              <ChipsCombobox
-                id="report-value-iso"
-                label="Referring ISO"
-                values={iso}
-                options={isos}
-                onChange={setIso}
-              />
-              <ChipsCombobox
-                id="report-status"
-                label="Status"
-                values={status}
-                options={statuses}
-                onChange={setStatus}
-                placeholder="all"
-              />
-              <ColumnFilters
-                filters={colFilters}
-                onApply={(f) => setColFilters((cur) => [...cur.filter((x) => x.id !== f.id), f])}
-                onRemove={(id) => setColFilters((cur) => cur.filter((x) => x.id !== id))}
-              />
-              <div className="grid gap-2">
-                <Label htmlFor="report-sort">Sort</Label>
-                <Select
-                  id="report-sort"
-                  value={sort?.key === "name" ? "name" : sort?.key === "amount" ? "amount" : "date"}
-                  onChange={(v) =>
-                    setSort(
-                      v === "name"
-                        ? { key: "name", dir: "asc" }
-                        : v === "amount"
-                          ? { key: "amount", dir: "desc" }
-                          : null,
-                    )
-                  }
-                  options={[
-                    { value: "date", label: "Date" },
-                    { value: "name", label: "Name" },
-                    { value: "amount", label: "Amount" },
-                  ]}
-                />
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-muted-foreground text-xs font-medium">Formulas</span>
+                <FormulaDialog />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="report-page-size">Rows per page</Label>
-                <Select
-                  id="report-page-size"
-                  value={pageSize}
-                  onChange={setPageSize}
-                  options={["50", "100", "250", "500", "1000"].map((v) => ({
-                    value: v,
-                    label: Number(v).toLocaleString("en-US"),
-                  }))}
-                />
-              </div>
-            </div>
-          </div>
-          <div
-            data-slot="card-footer"
-            className="bg-muted/50 flex shrink-0 flex-col items-center gap-2 rounded-b-xl border-t p-(--card-spacing)"
-          >
-            <Button type="button" variant="outline" className="w-full" onClick={() => setChatOpen(true)}>
-              Chat
+            </CustomizeMenu>
+            <div aria-hidden="true" className="-mr-2 ml-auto" />
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="gap-2 font-normal"
+              onClick={() => setChatOpen(true)}
+            >
+              <SparklesIcon aria-hidden="true" />
+              <ToolbarLabel>Chat</ToolbarLabel>
             </Button>
-            {filtersActive ? (
-              <Button type="button" variant="destructive" size="lg" className="w-full" onClick={reset}>
-                Reset
-              </Button>
-            ) : null}
-          </div>
-        </Card>
-      </div>
-
-      {/* Top bar */}
-      <div className="flex min-w-0 shrink-0 flex-col gap-2 lg:col-start-2 lg:row-start-1">
-        <div className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-          <ReportLibraryMenu active={activeReport} onPick={setActiveReport} />
-          <SfInput
-            id="report-search"
-            className="w-full min-w-0 sm:min-w-[12rem] sm:flex-1"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            aria-label="Search"
+            <Button
+              type="button"
+              variant="outline"
+              size="icon-lg"
+              aria-label={expanded ? "Exit full screen" : "Full screen"}
+              title={expanded ? "Exit full screen (Esc)" : "Full screen"}
+              onClick={() => setExpanded((e) => !e)}
+            >
+              {expanded ? <Minimize2Icon /> : <Maximize2Icon />}
+            </Button>
+            <ToolbarExport onExport={() => {}} onEmail={() => new Promise<void>((done) => setTimeout(done, 600))} />
+          </Toolbar>
+          <ToolbarActiveFilters
+            items={[
+              ...activeFilterItems(
+                reportFilters,
+                { source: sources, status, lawFirm, iso, amount: amountBands },
+                (v) => {
+                  setSources(v.source?.length ? v.source : ["deals"])
+                  setStatus(v.status ?? [])
+                  setLawFirm(v.lawFirm ?? [])
+                  setIso(v.iso ?? [])
+                  setAmountBands(v.amount ?? [])
+                },
+              ),
+              ...(dates.from && dates.to
+                ? [
+                    {
+                      id: "dates",
+                      label: "Funded",
+                      value: `${formatDate(dates.from)} to ${formatDate(dates.to)}`,
+                      onRemove: () => setDates({}),
+                    },
+                  ]
+                : []),
+            ]}
+            onClearAll={reset}
           />
-          <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:shrink-0">
-            <span className="text-muted-foreground text-[13px] tabular-nums">
-              {filtered.length.toLocaleString("en-US")} rows total
-            </span>
-            <Button type="button" aria-label="Export">
-              Export
-            </Button>
+        </>
+      ) : null}
+
+      {layout === "panel" ? (
+        <>
+          {/* Left: filters card */}
+          <div className="w-full shrink-0 lg:col-start-1 lg:row-start-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
+            <Card className="flex min-h-0 w-full flex-1 flex-col overflow-hidden pt-2">
+              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-y-auto px-(--card-spacing) pt-0 pb-(--card-spacing) [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="grid shrink-0 grid-cols-2 gap-2">
+                  {SOURCES.map((s) => {
+                    const on = sources.includes(s.id)
+                    return (
+                      <Button
+                        key={s.id}
+                        type="button"
+                        size="sm"
+                        variant={on ? "default" : "outline"}
+                        aria-pressed={on}
+                        onClick={() =>
+                          setSources((cur) =>
+                            on ? (cur.length > 1 ? cur.filter((x) => x !== s.id) : cur) : [...cur, s.id],
+                          )
+                        }
+                        className="h-auto w-full min-w-0 shrink-0 flex-col gap-0 py-1 leading-tight"
+                      >
+                        <span className="truncate">{s.label}</span>
+                        <span
+                          className={cn(
+                            "text-[10px] font-normal tabular-nums",
+                            on ? "text-primary-foreground/80" : "text-muted-foreground",
+                          )}
+                        >
+                          {s.rows.toLocaleString("en-US")} rows
+                        </span>
+                      </Button>
+                    )
+                  })}
+                </div>
+
+                <div className="grid min-w-0 grid-cols-1 gap-2">
+                  <ColumnPicker selected={cols} onChange={setCols} />
+                  <FormulaDialog />
+                  <div className="grid min-w-0 gap-2">
+                    <Label>Group by</Label>
+                    <Select
+                      ariaLabel="Group by"
+                      value={groupBy}
+                      onChange={setGroupBy}
+                      options={[
+                        { value: "none", label: "None" },
+                        { value: "lawFirm", label: "Law Firm" },
+                        { value: "iso", label: "Referring ISO" },
+                        { value: "status", label: "Status" },
+                      ]}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-1">
+                  <div className="grid gap-2">
+                    <Label htmlFor="report-range">Range</Label>
+                    <Select
+                      id="report-range"
+                      value={range}
+                      onChange={setRange}
+                      options={[
+                        { value: "all", label: "All" },
+                        { value: "today", label: "Today" },
+                        { value: "yesterday", label: "Yesterday" },
+                        { value: "7d", label: "Last 7 days" },
+                        { value: "30d", label: "Last 30 days" },
+                        { value: "month", label: "This month" },
+                        { value: "last-month", label: "Last month" },
+                        { value: "year", label: "This year" },
+                      ]}
+                    />
+                  </div>
+                  <div className="col-span-2 grid grid-cols-2 gap-3 lg:col-span-1 lg:grid-cols-1">
+                    <DateField id="report-from" label="From" value={from} onChange={setFrom} />
+                    <DateField id="report-to" label="To" value={to} onChange={setTo} />
+                  </div>
+                  <ChipsCombobox
+                    id="report-value-lawFirm"
+                    label="Law Firm"
+                    values={lawFirm}
+                    options={lawFirms}
+                    onChange={setLawFirm}
+                  />
+                  <ChipsCombobox
+                    id="report-value-iso"
+                    label="Referring ISO"
+                    values={iso}
+                    options={isos}
+                    onChange={setIso}
+                  />
+                  <ChipsCombobox
+                    id="report-status"
+                    label="Status"
+                    values={status}
+                    options={statuses}
+                    onChange={setStatus}
+                    placeholder="all"
+                  />
+                  <ColumnFilters
+                    filters={colFilters}
+                    onApply={(f) => setColFilters((cur) => [...cur.filter((x) => x.id !== f.id), f])}
+                    onRemove={(id) => setColFilters((cur) => cur.filter((x) => x.id !== id))}
+                  />
+                  <div className="grid gap-2">
+                    <Label htmlFor="report-sort">Sort</Label>
+                    <Select
+                      id="report-sort"
+                      value={sort?.key === "name" ? "name" : sort?.key === "amount" ? "amount" : "date"}
+                      onChange={(v) =>
+                        setSort(
+                          v === "name"
+                            ? { key: "name", dir: "asc" }
+                            : v === "amount"
+                              ? { key: "amount", dir: "desc" }
+                              : null,
+                        )
+                      }
+                      options={[
+                        { value: "date", label: "Date" },
+                        { value: "name", label: "Name" },
+                        { value: "amount", label: "Amount" },
+                      ]}
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="report-page-size">Rows per page</Label>
+                    <Select
+                      id="report-page-size"
+                      value={pageSize}
+                      onChange={setPageSize}
+                      options={["50", "100", "250", "500", "1000"].map((v) => ({
+                        value: v,
+                        label: Number(v).toLocaleString("en-US"),
+                      }))}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div
+                data-slot="card-footer"
+                className="bg-muted/50 flex shrink-0 flex-col items-center gap-2 rounded-b-xl border-t p-(--card-spacing)"
+              >
+                <Button type="button" variant="outline" className="w-full" onClick={() => setChatOpen(true)}>
+                  Chat
+                </Button>
+                {filtersActive ? (
+                  <Button type="button" variant="destructive" size="lg" className="w-full" onClick={reset}>
+                    Reset
+                  </Button>
+                ) : null}
+              </div>
+            </Card>
           </div>
-        </div>
-      </div>
+
+          {/* Top bar */}
+          <div className="flex min-w-0 shrink-0 flex-col gap-2 lg:col-start-2 lg:row-start-1">
+            <div className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <ReportLibraryMenu active={activeReport} onPick={setActiveReport} />
+              <SfInput
+                id="report-search"
+                className="w-full min-w-0 sm:min-w-[12rem] sm:flex-1"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                aria-label="Search"
+              />
+              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:shrink-0">
+                <span className="text-muted-foreground text-[13px] tabular-nums">
+                  {filtered.length.toLocaleString("en-US")} rows total
+                </span>
+                <Button type="button" aria-label="Export">
+                  Export
+                </Button>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : null}
 
       {/* Table */}
       <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden lg:col-start-2 lg:row-start-2 lg:h-full lg:min-h-0">
-        {expanded ? (
-          <div
-            className="fixed inset-0 z-50 bg-black/10 supports-backdrop-filter:backdrop-blur-xs"
-            aria-hidden
-            onClick={() => setExpanded(false)}
-          />
-        ) : null}
         <Card
           className={cn(
             // No padding: the title and Total bands reach the card's edges, and the card's rounded corners clip them.
-            "relative gap-0 overflow-hidden py-0",
-            expanded ? "fixed inset-4 z-50 h-[calc(100dvh-2rem)] max-h-none" : "h-full min-h-0 flex-1",
+            "relative h-full min-h-0 flex-1 gap-0 overflow-hidden py-0",
           )}
         >
           <h2 className="sr-only">Report</h2>
@@ -1219,7 +1389,6 @@ export function SimplyFundingReport() {
                           {i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""}
                         </td>
                       ))}
-                      <td aria-hidden className="w-10" />
                     </tr>
                   </tfoot>
                 </table>
@@ -1230,18 +1399,28 @@ export function SimplyFundingReport() {
       </div>
 
       {/* Footer */}
-      <div className="flex shrink-0 flex-wrap items-center gap-2 lg:col-start-2 lg:row-start-3">
-        <span className="text-muted-foreground mr-auto text-[13px] tabular-nums">
-          Showing {first.toLocaleString("en-US")}-{last.toLocaleString("en-US")} of{" "}
-          {filtered.length.toLocaleString("en-US")}
-        </span>
-        <Button type="button" variant="outline" disabled={current <= 1} onClick={() => setPage(current - 1)}>
-          Previous
-        </Button>
-        <Button type="button" variant="outline" disabled={current >= pageCount} onClick={() => setPage(current + 1)}>
-          Next
-        </Button>
-      </div>
+      {layout === "toolbar" ? (
+        <ListPagination
+          page={current}
+          pageSize={size}
+          total={filtered.length}
+          onPageChange={setPage}
+          onPageSizeChange={(n) => setPageSize(String(n))}
+        />
+      ) : (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:col-start-2 lg:row-start-3">
+          <span className="text-muted-foreground mr-auto text-[13px] tabular-nums">
+            Showing {first.toLocaleString("en-US")}-{last.toLocaleString("en-US")} of{" "}
+            {filtered.length.toLocaleString("en-US")}
+          </span>
+          <Button type="button" variant="outline" disabled={current <= 1} onClick={() => setPage(current - 1)}>
+            Previous
+          </Button>
+          <Button type="button" variant="outline" disabled={current >= pageCount} onClick={() => setPage(current + 1)}>
+            Next
+          </Button>
+        </div>
+      )}
 
       <Dialog open={detail != null} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="sm:max-w-lg">
