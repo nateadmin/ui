@@ -739,7 +739,11 @@ export function SimplyFundingReport() {
   const [colFilters, setColFilters] = useState<ColumnFilter[]>([
     { id: "default-date", text: "Date of Default between 2026-01-01 and 2026-11-30" },
   ])
-  const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" }>({ key: "fundedAt", dir: "desc" })
+  // No sort means the report's normal order (newest funding first). Column titles follow the List's rule:
+  // click once for ascending, again for descending, a third time to go back to no sort.
+  const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null)
+  const sortBy = (key: ColKey) =>
+    setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null))
   const [pageSize, setPageSize] = useState("50")
   const [q, setQ] = useState("")
   const [page, setPage] = useState(1)
@@ -776,6 +780,7 @@ export function SimplyFundingReport() {
         (!iso.length || iso.includes(d.iso)) &&
         (!needle || d.name.toLowerCase().includes(needle) || String(d.id).includes(needle)),
     )
+    if (!sort) return rows
     const k = sort.key
     rows = [...rows].sort((a, b) => {
       const va = k === "fundedAt" ? dateKey(a.fundedAt) : a[k]
@@ -840,18 +845,18 @@ export function SimplyFundingReport() {
   const head = (
     <tr className="bg-muted/50 border-b">
       {columns.map((c) => {
-        const active = sort.key === c.key
+        const active = sort?.key === c.key
         return (
           <th
             key={c.key}
             draggable
             tabIndex={0}
-            aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
-            onClick={() => setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))}
+            aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}
+            onClick={() => sortBy(c.key)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault()
-                setSort((s) => ({ key: c.key, dir: s.key === c.key && s.dir === "desc" ? "asc" : "desc" }))
+                sortBy(c.key)
               }
             }}
             onDragStart={(e) => {
@@ -894,7 +899,7 @@ export function SimplyFundingReport() {
             <span className="inline-flex items-center gap-1">
               {c.label}
               <span aria-hidden className="inline-flex shrink-0 cursor-pointer items-center justify-center">
-                <SortIcon dir={active ? sort.dir : null} />
+                <SortIcon dir={active ? sort!.dir : null} />
               </span>
             </span>
           </th>
@@ -1048,9 +1053,15 @@ export function SimplyFundingReport() {
                 <Label htmlFor="report-sort">Sort</Label>
                 <Select
                   id="report-sort"
-                  value={sort.key === "name" ? "name" : sort.key === "amount" ? "amount" : "date"}
+                  value={sort?.key === "name" ? "name" : sort?.key === "amount" ? "amount" : "date"}
                   onChange={(v) =>
-                    setSort({ key: v === "name" ? "name" : v === "amount" ? "amount" : "fundedAt", dir: "desc" })
+                    setSort(
+                      v === "name"
+                        ? { key: "name", dir: "asc" }
+                        : v === "amount"
+                          ? { key: "amount", dir: "desc" }
+                          : null,
+                    )
                   }
                   options={[
                     { value: "date", label: "Date" },
