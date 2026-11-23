@@ -943,7 +943,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
   }
 
   const head = (
-    <tr className="bg-muted/50 border-b">
+    <tr className="bg-muted">
       {columns.map((c) => {
         const active = sort?.key === c.key
         return (
@@ -1411,7 +1411,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
                       : pageRows.map(row)}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-muted sticky bottom-0 z-10 border-t">
+                    <tr className="bg-muted sticky bottom-0 z-10">
                       {columns.map((c, i) => (
                         <td
                           key={c.key}
@@ -1602,7 +1602,7 @@ function CanvasScroll({ children }: { children: ReactNode }) {
         </div>
         {/* Right edge: the title band, the vertical scrollbar flush to the edge, then the Total band. */}
         <div className="flex shrink-0 flex-col" style={{ width: GUTTER }}>
-          <div className={cn(band, "border-b")} style={{ height: dims.head }} />
+          <div className={band} style={{ height: dims.head }} />
           <div
             ref={vbar}
             aria-hidden
@@ -1611,7 +1611,7 @@ function CanvasScroll({ children }: { children: ReactNode }) {
           >
             <div style={{ height: dims.vh + Math.max(0, dims.sh - dims.ch) }} />
           </div>
-          <div className={cn(band, "border-t")} style={{ height: dims.foot }} />
+          <div className={band} style={{ height: dims.foot }} />
         </div>
       </div>
       {wide ? (
