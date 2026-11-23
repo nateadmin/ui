@@ -27,6 +27,7 @@ import {
 import { CustomizeMenu, CustomizeOption, CustomizeSwitch } from "@/components/ui/customize-menu"
 import { SimplyFundingList } from "./list-sample"
 import { SimplyFundingReport } from "./report-sample"
+import { SimpleCheckboxDemo, SplashCheckboxDemo } from "./checkbox-samples"
 import { ListBuilder } from "./list-builder"
 
 export type CatalogExample = { name: string; render: () => ReactNode; minHeight?: number }
@@ -384,6 +385,22 @@ export const catalog: CatalogEntry[] = [
           </div>
         ),
         minHeight: 640,
+      },
+    ],
+  },
+  {
+    id: "checkbox",
+    name: "Checkbox",
+    examples: [
+      {
+        name: "Simple: round, fills with the accent color (the List's bulk select)",
+        render: () => <SimpleCheckboxDemo />,
+        minHeight: 220,
+      },
+      {
+        name: "Splash: round, splashes when ticked (Sales Deals CTE)",
+        render: () => <SplashCheckboxDemo />,
+        minHeight: 220,
       },
     ],
   },
