@@ -842,6 +842,19 @@ export function SimplyFundingReport() {
     setCols(DEFAULT_COLS)
   }
 
+  const expandButton = (
+    <Button
+      type="button"
+      variant="ghost"
+      size="icon-sm"
+      className="size-7"
+      aria-label={expanded ? "Collapse" : "Expand"}
+      onClick={() => setExpanded((e) => !e)}
+    >
+      {expanded ? <Minimize2Icon /> : <Maximize2Icon />}
+    </Button>
+  )
+
   const head = (
     <tr className="bg-muted/50 border-b">
       {columns.map((c) => {
@@ -905,6 +918,8 @@ export function SimplyFundingReport() {
           </th>
         )
       })}
+      {/* Fixed corner at the right end of the title band: column titles slide under it. */}
+      <th className="bg-muted sticky top-0 right-0 z-20 w-10 p-0 pr-1 text-right align-middle">{expandButton}</th>
     </tr>
   )
 
@@ -1145,20 +1160,7 @@ export function SimplyFundingReport() {
                 No rows match these filters.
               </div>
             ) : (
-              <CanvasScroll
-                corner={
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="size-7"
-                    aria-label={expanded ? "Collapse" : "Expand"}
-                    onClick={() => setExpanded((e) => !e)}
-                  >
-                    {expanded ? <Minimize2Icon /> : <Maximize2Icon />}
-                  </Button>
-                }
-              >
+              <CanvasScroll>
                 {/* 16px before the first column, so the text lines up with the band edges. */}
                 <table className="w-max min-w-full caption-bottom text-sm [&_tr>*:first-child]:pl-4">
                   <thead>{head}</thead>
@@ -1214,6 +1216,7 @@ export function SimplyFundingReport() {
                           {i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""}
                         </td>
                       ))}
+                      <td aria-hidden className="w-10" />
                     </tr>
                   </tfoot>
                 </table>
@@ -1276,10 +1279,9 @@ function GroupRows({ children }: { children: ReactNode }) {
  *     down; links, buttons and column titles still click as usual, and a drag
  *     never opens a row
  */
-const GUTTER = 16 // the vertical scrollbar's track
-const EDGE = 32 // right-edge column: the expand icon above, a 16px gap plus the scrollbar below
+const GUTTER = 10 // the scrollbars' track (ui-scrollbar draws a 6px thumb in it)
 
-function CanvasScroll({ children, corner }: { children: ReactNode; corner?: ReactNode }) {
+function CanvasScroll({ children }: { children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null)
   const vbar = useRef<HTMLDivElement>(null)
   const hbar = useRef<HTMLDivElement>(null)
@@ -1378,22 +1380,16 @@ function CanvasScroll({ children, corner }: { children: ReactNode; corner?: Reac
         >
           {children}
         </div>
-        {/* Right edge, its own column: the title band (holding the expand icon), then a gap and the
-            vertical scrollbar flush to the edge, then the Total band. The grid never runs under the icon. */}
-        <div className="flex shrink-0 flex-col" style={{ width: EDGE }}>
-          <div className={cn(band, "flex items-center justify-center border-b")} style={{ height: dims.head }}>
-            {corner}
-          </div>
-          <div className="flex min-h-0 flex-1 justify-end">
-            <div
-              ref={vbar}
-              aria-hidden
-              onScroll={() => follow(vbar.current, () => (box.current!.scrollTop = vbar.current!.scrollTop))}
-              className="min-h-0 overflow-x-hidden overflow-y-auto"
-              style={{ width: GUTTER }}
-            >
-              <div style={{ height: Math.max(0, dims.sh - dims.head - dims.foot) }} />
-            </div>
+        {/* Right edge: the title band, the vertical scrollbar flush to the edge, then the Total band. */}
+        <div className="flex shrink-0 flex-col" style={{ width: GUTTER }}>
+          <div className={cn(band, "border-b")} style={{ height: dims.head }} />
+          <div
+            ref={vbar}
+            aria-hidden
+            onScroll={() => follow(vbar.current, () => (box.current!.scrollTop = vbar.current!.scrollTop))}
+            className="ui-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
+          >
+            <div style={{ height: Math.max(0, dims.sh - dims.head - dims.foot) }} />
           </div>
           <div className={cn(band, "border-t")} style={{ height: dims.foot }} />
         </div>
@@ -1405,11 +1401,11 @@ function CanvasScroll({ children, corner }: { children: ReactNode; corner?: Reac
             ref={hbar}
             aria-hidden
             onScroll={() => follow(hbar.current, () => (box.current!.scrollLeft = hbar.current!.scrollLeft))}
-            className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+            className="ui-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
           >
             <div className="h-px" style={{ width: dims.sw }} />
           </div>
-          <div className="shrink-0" style={{ width: EDGE }} />
+          <div className="shrink-0" style={{ width: GUTTER }} />
         </div>
       ) : null}
     </div>
