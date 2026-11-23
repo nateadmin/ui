@@ -830,7 +830,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
     setDrop(null)
   }
 
-  const columns = cols.map((k) => COLUMNS.find((c) => c.key === k)!)
+  const columns = useMemo(() => cols.map((k) => COLUMNS.find((c) => c.key === k)!), [cols])
 
   useEffect(() => {
     if (!expanded) return
@@ -884,6 +884,33 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
       )
     return String(v)
   }
+
+  /* Column widths come from every row in the report (plus the title and the Total), not just the rows on
+     this page, so sorting or paging never moves a column. Text is measured once per distinct value. */
+  const colWidths = useMemo(() => {
+    const ctx = document.createElement("canvas").getContext("2d")
+    const family = getComputedStyle(document.body).fontFamily || "system-ui, sans-serif"
+    const measure = (text: string, font: string, spacing = 0) => {
+      if (!ctx) return text.length * 8
+      ctx.font = font
+      return ctx.measureText(text).width + spacing * text.length
+    }
+    const text = (c: Col, r: Deal) => {
+      const v = r[c.key]
+      return c.kind === "money" ? money(v as number) : c.kind === "number" ? (v as number).toFixed(2) : String(v)
+    }
+    return columns.map((c, i) => {
+      const seen = new Set(filtered.map((r) => text(c, r)))
+      let widest = 0
+      for (const t of seen) widest = Math.max(widest, measure(t, `400 13px ${family}`))
+      const total = i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""
+      widest = Math.max(widest, measure(total, `600 13px ${family}`))
+      // Title: 11px semibold caps with wide letter spacing, then the 11px sort arrows after a 4px gap.
+      widest = Math.max(widest, measure(c.label.toUpperCase(), `600 11px ${family}`, 11 * 0.05) + 15)
+      // Cell padding 8px a side, the first column 16px on the left, a few px for rounding.
+      return Math.ceil(widest + 16 + (i === 0 ? 8 : 0) + 4)
+    })
+  }, [columns, filtered])
 
   // Group by: section header, rows, then a subtotal row per group.
   const groups = useMemo(() => {
@@ -1332,7 +1359,15 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
             ) : (
               <CanvasScroll>
                 {/* 16px before the first column, so the text lines up with the band edges. */}
-                <table className="w-max min-w-full caption-bottom text-[13px] [&_tr>*:first-child]:pl-4">
+                <table
+                  className="min-w-full caption-bottom text-[13px] [&_tr>*:first-child]:pl-4"
+                  style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0) }}
+                >
+                  <colgroup>
+                    {colWidths.map((w, i) => (
+                      <col key={columns[i]!.key} style={{ width: w }} />
+                    ))}
+                  </colgroup>
                   <thead>{head}</thead>
                   <tbody>
                     {groups
@@ -1467,7 +1502,7 @@ function CanvasScroll({ children }: { children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null)
   const vbar = useRef<HTMLDivElement>(null)
   const hbar = useRef<HTMLDivElement>(null)
-  const [dims, setDims] = useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0 })
+  const [dims, setDims] = useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0, vh: 0 })
 
   useEffect(() => {
     const el = box.current
@@ -1480,28 +1515,31 @@ function CanvasScroll({ children }: { children: ReactNode }) {
         cw: el.clientWidth,
         head: el.querySelector("thead")?.getBoundingClientRect().height ?? 0,
         foot: el.querySelector("tfoot")?.getBoundingClientRect().height ?? 0,
+        vh: vbar.current?.clientHeight ?? 0,
       })
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
+    if (vbar.current) ro.observe(vbar.current)
     const table = el.firstElementChild
     if (table) ro.observe(table)
     return () => ro.disconnect()
   }, [])
 
-  // Keep the grid and the two bars in step. Each bar's spacer is sized so it scrolls exactly as far as the grid.
-  const syncing = useRef(false)
-  const follow = (from: HTMLElement | null, apply: () => void) => {
-    if (!from || syncing.current) return
-    syncing.current = true
-    apply()
-    requestAnimationFrame(() => (syncing.current = false))
+  /* Keep the grid and the two bars in step. Each bar's spacer is sized so the bar scrolls exactly as far
+     as the grid (bar size + the grid's overflow), so both reach their ends together. A copy only moves
+     when it differs from its source, so the two never pull against each other and scrolling keeps its
+     full speed all the way to the top and bottom. */
+  const copyTop = (from: HTMLElement | null, to: HTMLElement | null) => {
+    if (from && to && Math.abs(to.scrollTop - from.scrollTop) >= 1) to.scrollTop = from.scrollTop
   }
-  const onGrid = () =>
-    follow(box.current, () => {
-      if (vbar.current) vbar.current.scrollTop = box.current!.scrollTop
-      if (hbar.current) hbar.current.scrollLeft = box.current!.scrollLeft
-    })
+  const copyLeft = (from: HTMLElement | null, to: HTMLElement | null) => {
+    if (from && to && Math.abs(to.scrollLeft - from.scrollLeft) >= 1) to.scrollLeft = from.scrollLeft
+  }
+  const onGrid = () => {
+    copyTop(box.current, vbar.current)
+    copyLeft(box.current, hbar.current)
+  }
 
   // Drag to pan.
   const drag = useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(null)
@@ -1558,7 +1596,7 @@ function CanvasScroll({ children }: { children: ReactNode }) {
           onPointerMove={onPointerMove}
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
-          className="min-h-0 min-w-0 flex-1 cursor-grab overflow-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="min-h-0 min-w-0 flex-1 cursor-grab overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {children}
         </div>
@@ -1568,10 +1606,10 @@ function CanvasScroll({ children }: { children: ReactNode }) {
           <div
             ref={vbar}
             aria-hidden
-            onScroll={() => follow(vbar.current, () => (box.current!.scrollTop = vbar.current!.scrollTop))}
+            onScroll={() => copyTop(vbar.current, box.current)}
             className="ui-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
           >
-            <div style={{ height: Math.max(0, dims.sh - dims.head - dims.foot) }} />
+            <div style={{ height: dims.vh + Math.max(0, dims.sh - dims.ch) }} />
           </div>
           <div className={cn(band, "border-t")} style={{ height: dims.foot }} />
         </div>
@@ -1582,7 +1620,7 @@ function CanvasScroll({ children }: { children: ReactNode }) {
         <div
           ref={hbar}
           aria-hidden
-          onScroll={() => follow(hbar.current, () => (box.current!.scrollLeft = hbar.current!.scrollLeft))}
+          onScroll={() => copyLeft(hbar.current, box.current)}
           className="ui-scrollbar absolute bottom-0 left-0 z-30 overflow-x-auto overflow-y-hidden"
           style={{ right: GUTTER, height: 10 }}
         >
