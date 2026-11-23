@@ -423,7 +423,8 @@ const reportFilters: ToolbarFilterGroup[] = [
   { id: "source", label: "Data", required: true, options: SOURCES.map((x) => ({ value: x.id, label: x.label })) },
   { id: "status", label: "Status", options: statuses.map((x) => ({ value: x, label: x, color: statusColor[x] })) },
   { id: "lawFirm", label: "Law firm", options: lawFirms.map((x) => ({ value: x, label: x })) },
-  { id: "iso", label: "Referring ISO", options: isos.map((x) => ({ value: x, label: x })) },
+  // The real ISO list is long, so it is a searchable dropdown rather than pills.
+  { id: "iso", label: "Referring ISO", display: "dropdown", options: isos.map((x) => ({ value: x, label: x })) },
   { id: "amount", label: "Funded amount", options: AMOUNT_BANDS },
 ]
 /* Every column but the ID can be filtered by a condition in the Filters dialog. */

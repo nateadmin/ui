@@ -620,6 +620,9 @@ function ToolbarFilter(props: ToolbarFilterProps) {
 
 /* ---------- Filters dialog ---------- */
 
+/** Lowercases ordinary words for use mid-sentence, keeping acronyms such as ISO. */
+const lowerWords = (text: string) => text.replace(/\b[A-Z][a-z]+\b/g, (w) => w.toLowerCase())
+
 /*
  * How a multi-select group works: nothing chosen means everything shows, so
  * every pill starts selected. Unselect pills to hide those rows; the last one
@@ -633,6 +636,8 @@ type ToolbarFilterGroup = {
   options: ToolbarFilterOption[]
   /** Allow more than one option. Default true. */
   multiple?: boolean
+  /** Pills, or a searchable dropdown with checkboxes. By default groups over pillLimit options use the dropdown. */
+  display?: "pills" | "dropdown"
   /** Always keeps at least one option, like which data a report reads. No Clear, not counted on the
       Filters button, left as is by Clear all, and its last selected option can't be turned off. */
   required?: boolean
@@ -931,13 +936,15 @@ function ToolbarFilterDialog({
                   </button>
                 ) : null}
               </legend>
-              {group.multiple !== false && group.options.length > pillLimit ? (
+              {group.multiple !== false &&
+              (group.display === "dropdown" || (group.display !== "pills" && group.options.length > pillLimit)) ? (
                 <MultiSelect
                   options={group.options}
                   values={values[group.id] ?? []}
                   onValuesChange={(next) => onValuesChange({ ...values, [group.id]: next })}
-                  placeholder={`Any ${group.label.toLowerCase()}`}
-                  searchPlaceholder={`Search ${group.label.toLowerCase()}`}
+                  allLabel={allByDefault(group) ? "All" : undefined}
+                  placeholder={`Any ${lowerWords(group.label)}`}
+                  searchPlaceholder={`Search ${lowerWords(group.label)}`}
                   aria-label={group.label}
                   className="w-64 max-w-full"
                 />

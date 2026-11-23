@@ -18,6 +18,10 @@ type MultiSelectOption = {
  * top, a scrolling list of checkboxes, and a count with Clear at the bottom.
  * Use it when a list is too long for pills or a plain menu (people, statuses,
  * companies).
+ *
+ * Pass allLabel for a filter where nothing chosen means everything shows: then
+ * every box starts ticked, unticking hides that option, the last one stays
+ * ticked, and the footer offers Select all. The value is still [] for "all".
  */
 function MultiSelect({
   options,
@@ -28,6 +32,7 @@ function MultiSelect({
   trigger,
   className,
   align = "start",
+  allLabel,
   "aria-label": ariaLabel,
 }: {
   options: MultiSelectOption[]
@@ -40,6 +45,8 @@ function MultiSelect({
   trigger?: React.ReactNode
   className?: string
   align?: "start" | "center" | "end"
+  /** Turns on "everything selected by default" and is the trigger text while all are selected. */
+  allLabel?: string
   "aria-label"?: string
 }) {
   const [open, setOpen] = React.useState(false)
@@ -48,13 +55,23 @@ function MultiSelect({
 
   const q = query.trim().toLowerCase()
   const shown = q ? options.filter((o) => o.label.toLowerCase().includes(q)) : options
-  const picked = options.filter((o) => values.includes(o.value))
+  const all = options.map((o) => o.value)
+  const allMode = allLabel !== undefined
+  // In all mode an empty value means every option is ticked.
+  const ticked = allMode && values.length === 0 ? all : values
+  const picked = options.filter((o) => ticked.includes(o.value))
 
-  const toggle = (value: string) =>
-    onValuesChange(values.includes(value) ? values.filter((v) => v !== value) : [...values, value])
+  const toggle = (value: string) => {
+    const kept = ticked.includes(value) ? ticked.filter((v) => v !== value) : [...ticked, value]
+    if (!allMode) return onValuesChange(kept)
+    if (kept.length === 0) return
+    onValuesChange(all.every((v) => kept.includes(v)) ? [] : all.filter((v) => kept.includes(v)))
+  }
 
   const summary =
-    picked.length === 0 ? (
+    allMode && values.length === 0 ? (
+      allLabel
+    ) : picked.length === 0 ? (
       <span className="text-muted-foreground">{placeholder}</span>
     ) : picked.length === 1 ? (
       picked[0]?.label
@@ -111,7 +128,7 @@ function MultiSelect({
             <p className="text-muted-foreground px-2 py-6 text-center text-sm">No matches</p>
           ) : (
             shown.map((o) => {
-              const on = values.includes(o.value)
+              const on = ticked.includes(o.value)
               return (
                 <label
                   key={o.value}
@@ -138,15 +155,15 @@ function MultiSelect({
         </div>
         <div className="text-muted-foreground flex items-center justify-between border-t px-3 py-2 text-xs">
           <span className="tabular-nums">
-            {values.length} of {options.length} selected
+            {picked.length} of {options.length} selected
           </span>
           <button
             type="button"
             disabled={values.length === 0}
             onClick={() => onValuesChange([])}
-            className="hover:text-foreground rounded px-1 font-medium disabled:opacity-50"
+            className="hover:text-foreground cursor-pointer rounded px-1 font-medium disabled:cursor-default disabled:opacity-50"
           >
-            Clear
+            {allMode ? "Select all" : "Clear"}
           </button>
         </div>
       </PopoverContent>
