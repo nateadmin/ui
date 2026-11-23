@@ -20,11 +20,12 @@ import {
   ToolbarExport,
   ToolbarFilterDialog,
   ToolbarLabel,
-  ToolbarSavedViews,
+  ToolbarReportLibrary,
   ToolbarSearch,
   type ToolbarDateRangeValue,
   type ToolbarFilterGroup,
-  type ToolbarSavedView,
+  type ToolbarReport,
+  type ToolbarReportCategory,
 } from "@/components/ui/toolbar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -324,6 +325,81 @@ const SOURCES = [
   { id: "deals", label: "Deals", rows: 6145 },
   { id: "payments", label: "Payments", rows: 465950 },
   { id: "applications", label: "Applications", rows: 183079 },
+]
+
+/* Saved reports for the toolbar layout: each keeps the whole view. */
+type ReportView = {
+  sources: string[]
+  status: string[]
+  lawFirm: string[]
+  iso: string[]
+  amount: string[]
+  from: string | null
+  to: string | null
+  q: string
+  cols: ColKey[]
+  groupBy: string
+  sort: { key: ColKey; dir: "asc" | "desc" } | null
+}
+type SavedReport = ToolbarReport & { view: ReportView }
+
+const PLAIN_VIEW: ReportView = {
+  sources: ["deals"],
+  status: [],
+  lawFirm: [],
+  iso: [],
+  amount: [],
+  from: null,
+  to: null,
+  q: "",
+  cols: ["id", "name", "lawFirm", "fundedAt", "amount", "iso", "status", "balance"],
+  groupBy: "none",
+  sort: null,
+}
+const day = (y: number, m: number, d: number) => new Date(y, m - 1, d).toISOString()
+const SEED_CATEGORIES: ToolbarReportCategory[] = [
+  { id: "defaults", name: "Defaults" },
+  { id: "funding", name: "Funding" },
+  { id: "iso", name: "ISO performance" },
+]
+const SEED_REPORTS: SavedReport[] = [
+  {
+    id: "2026-defaults",
+    name: "2026 defaults",
+    categoryId: "defaults",
+    view: { ...PLAIN_VIEW, status: ["Defaulted"], from: day(2026, 1, 1), to: day(2026, 12, 31) },
+  },
+  {
+    id: "defaults-by-firm",
+    name: "Defaults by law firm",
+    categoryId: "defaults",
+    view: { ...PLAIN_VIEW, status: ["Defaulted"], groupBy: "lawFirm" },
+  },
+  {
+    id: "big-defaults",
+    name: "Defaults over $100k",
+    categoryId: "defaults",
+    view: { ...PLAIN_VIEW, status: ["Defaulted"], amount: ["100+"], sort: { key: "amount", dir: "desc" } },
+  },
+  {
+    id: "funded-month",
+    name: "Funded this month",
+    categoryId: "funding",
+    view: { ...PLAIN_VIEW, from: day(2026, 11, 1), to: day(2026, 11, 30) },
+  },
+  {
+    id: "active-book",
+    name: "Active book",
+    categoryId: "funding",
+    view: { ...PLAIN_VIEW, status: ["Active"], cols: ["id", "name", "fundedAt", "amount", "balance", "factor"] },
+  },
+  { id: "volume-iso", name: "Volume by ISO", categoryId: "iso", view: { ...PLAIN_VIEW, groupBy: "iso" } },
+  {
+    id: "paid-iso",
+    name: "Paid off by ISO",
+    categoryId: "iso",
+    view: { ...PLAIN_VIEW, status: ["Paid off"], groupBy: "iso" },
+  },
 ]
 
 /* Filters dialog groups for the toolbar layout. */
@@ -798,11 +874,9 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
   const [pageSize, setPageSize] = useState("50")
   const [dates, setDates] = useState<ToolbarDateRangeValue>({})
   const [amountBands, setAmountBands] = useState<string[]>([])
-  const [savedViews, setSavedViews] = useState<ToolbarSavedView[]>(
-    Object.values(libraryReports)
-      .flat()
-      .map((name) => ({ id: name, name })),
-  )
+  // Saved reports (toolbar layout). In an app these live on the server; each keeps the whole view.
+  const [reportCategories, setReportCategories] = useState<ToolbarReportCategory[]>(SEED_CATEGORIES)
+  const [savedReports, setSavedReports] = useState<SavedReport[]>(SEED_REPORTS)
   const [q, setQ] = useState("")
   const [page, setPage] = useState(1)
   const [chatOpen, setChatOpen] = useState(false)
@@ -828,6 +902,34 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
   }
 
   const columns = useMemo(() => cols.map((k) => COLUMNS.find((c) => c.key === k)!), [cols])
+
+  const snapshot: ReportView = {
+    sources,
+    status,
+    lawFirm,
+    iso,
+    amount: amountBands,
+    from: dates.from ? dates.from.toISOString() : null,
+    to: dates.to ? dates.to.toISOString() : null,
+    q,
+    cols,
+    groupBy,
+    sort,
+  }
+  const applyView = (v: ReportView) => {
+    setSources(v.sources)
+    setStatus(v.status)
+    setLawFirm(v.lawFirm)
+    setIso(v.iso)
+    setAmountBands(v.amount)
+    setDates(v.from && v.to ? { from: new Date(v.from), to: new Date(v.to) } : {})
+    setQ(v.q)
+    setCols(v.cols)
+    setGroupBy(v.groupBy)
+    setSort(v.sort)
+  }
+  const openReport = savedReports.find((x) => x.id === activeReport) ?? null
+  const sameView = (a: ReportView, b: ReportView) => JSON.stringify(a) === JSON.stringify(b)
 
   useEffect(() => {
     if (!expanded) return
@@ -1052,16 +1154,36 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
       {layout === "toolbar" ? (
         <>
           <Toolbar>
-            <ToolbarSavedViews
-              views={savedViews}
-              activeId={activeReport || null}
-              defaultLabel="All deals"
-              onSelect={(id) => setActiveReport(id ?? "")}
-              onSave={(name) => {
-                setSavedViews((cur) => [...cur, { id: name, name }])
-                setActiveReport(name)
+            <ToolbarReportLibrary
+              reports={savedReports}
+              categories={reportCategories}
+              activeId={openReport?.id ?? null}
+              modified={!!openReport && !sameView(openReport.view, snapshot)}
+              canSave={!sameView(PLAIN_VIEW, snapshot)}
+              onSelect={(id) => {
+                const next = savedReports.find((x) => x.id === id)
+                setActiveReport(next?.id ?? "")
+                applyView(next ? next.view : PLAIN_VIEW)
               }}
-              onDelete={(id) => setSavedViews((cur) => cur.filter((v) => v.id !== id))}
+              onSave={({ name, categoryId }) => {
+                const id = `r${Date.now()}`
+                setSavedReports((cur) => [...cur, { id, name, categoryId, view: snapshot }])
+                setActiveReport(id)
+              }}
+              onUpdate={(id) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, view: snapshot } : x)))}
+              onRename={(id, name) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, name } : x)))}
+              onDelete={(id) => {
+                setSavedReports((cur) => cur.filter((x) => x.id !== id))
+                if (id === activeReport) setActiveReport("")
+              }}
+              onCreateCategory={(name) => setReportCategories((cur) => [...cur, { id: `c${Date.now()}`, name }])}
+              onRenameCategory={(id, name) =>
+                setReportCategories((cur) => cur.map((c) => (c.id === id ? { ...c, name } : c)))
+              }
+              onDeleteCategory={(id) => {
+                setReportCategories((cur) => cur.filter((c) => c.id !== id))
+                setSavedReports((cur) => cur.map((x) => (x.categoryId === id ? { ...x, categoryId: null } : x)))
+              }}
             />
             <ToolbarSearch
               placeholder="Search name or funding ID"

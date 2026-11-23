@@ -6,8 +6,11 @@ import {
   CalendarRangeIcon,
   ChevronDownIcon,
   DownloadIcon,
+  EllipsisVerticalIcon,
+  FolderOpenIcon,
   ListFilterIcon,
   MailIcon,
+  PlusIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
   SaveIcon,
@@ -42,6 +45,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker"
 import { EmailInput, isEmail } from "@/components/ui/email-input"
 import { Input } from "@/components/ui/input"
 import { MultiSelect } from "@/components/ui/multi-select"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 
 /*
@@ -50,6 +54,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
  *
  *   <Toolbar>
  *     <ToolbarViews />         Board / List. Four or more views become a dropdown.
+ *     <ToolbarReportLibrary /> saved reports in categories, Save as report, Update (reports pages)
  *     <ToolbarSearch />        fills the free space
  *     <ToolbarTabs />          status tabs with counts (Active 12, Monitor 3)
  *     <ToolbarDateRange />     From / To pickers plus presets (Today, 7 days, ...)
@@ -1083,6 +1088,500 @@ function ToolbarSavedViews({
   )
 }
 
+/* ---------- Report library ---------- */
+
+type ToolbarReportCategory = { id: string; name: string }
+type ToolbarReport = { id: string; name: string; categoryId?: string | null }
+
+const UNCATEGORIZED = "__uncategorized"
+
+/*
+ * A reports page's saved reports, grouped in categories: the Reports menu
+ * (categories on the left, the category's reports as tiles on the right),
+ * Save as report with a name and a category, Update report and Save as new
+ * once the open report has unsaved changes, and rename and delete for both
+ * reports and categories. Reports whose category was deleted show under
+ * Uncategorized. On phones the two sides of the menu stack.
+ *
+ * The app stores reports and categories and passes them back in; this only
+ * shows them and reports what the user did. Leave out a handler to hide that
+ * action (for example no onDeleteCategory for people who can't delete).
+ */
+function ToolbarReportLibrary({
+  reports,
+  categories,
+  activeId,
+  modified = false,
+  canSave = true,
+  noneLabel = "None",
+  onSelect,
+  onSave,
+  onUpdate,
+  onRename,
+  onDelete,
+  onCreateCategory,
+  onRenameCategory,
+  onDeleteCategory,
+  className,
+}: {
+  reports: ToolbarReport[]
+  categories: ToolbarReportCategory[]
+  /** The open report, or null when none is open. */
+  activeId: string | null
+  /** The open report was changed since it was opened. Shows Update report and Save as new. */
+  modified?: boolean
+  /** There is something worth saving (filters or columns differ from the plain page). */
+  canSave?: boolean
+  /** Trigger text when no report is open. */
+  noneLabel?: string
+  onSelect: (id: string | null) => void
+  onSave: (report: { name: string; categoryId: string | null }) => void
+  onUpdate?: (id: string) => void
+  onRename?: (id: string, name: string) => void
+  onDelete?: (id: string) => void
+  onCreateCategory?: (name: string) => void
+  onRenameCategory?: (id: string, name: string) => void
+  onDeleteCategory?: (id: string) => void
+  className?: string
+}) {
+  const [open, setOpen] = React.useState(false)
+  const active = reports.find((r) => r.id === activeId) ?? null
+  const hasLoose = reports.some((r) => !r.categoryId || !categories.some((c) => c.id === r.categoryId))
+  const allCategories = hasLoose ? [...categories, { id: UNCATEGORIZED, name: "Uncategorized" }] : categories
+  const categoryOf = (r: ToolbarReport) =>
+    r.categoryId && categories.some((c) => c.id === r.categoryId) ? r.categoryId : UNCATEGORIZED
+  const [category, setCategory] = React.useState<string>(
+    (active && categoryOf(active)) || allCategories[0]?.id || UNCATEGORIZED,
+  )
+  // Opening the menu shows the open report's category.
+  React.useEffect(() => {
+    if (open && active) setCategory(categoryOf(active))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+  const inCategory = reports.filter((r) => categoryOf(r) === category)
+
+  // Dialogs
+  type Pending =
+    | { kind: "save"; asNew: boolean }
+    | { kind: "update"; id: string }
+    | { kind: "rename"; id: string }
+    | { kind: "delete"; id: string }
+    | { kind: "newCategory" }
+    | { kind: "renameCategory"; id: string }
+    | { kind: "deleteCategory"; id: string }
+    | null
+  const [pending, setPending] = React.useState<Pending>(null)
+  const [name, setName] = React.useState("")
+  const [saveCategory, setSaveCategory] = React.useState<string | null>(null)
+  const ask = (p: NonNullable<Pending>, initialName = "") => {
+    setName(initialName)
+    setSaveCategory(category === UNCATEGORIZED ? (categories[0]?.id ?? null) : category)
+    setOpen(false)
+    setPending(p)
+  }
+  const close = () => setPending(null)
+  const nameOf = (id: string) => reports.find((r) => r.id === id)?.name ?? ""
+  const categoryName = (id: string) => categories.find((c) => c.id === id)?.name ?? ""
+  const trimmed = name.trim()
+  const reportTaken = (exceptId?: string) =>
+    reports.some((r) => r.id !== exceptId && r.name.trim().toLowerCase() === trimmed.toLowerCase())
+  const categoryTaken = (exceptId?: string) =>
+    categories.some((c) => c.id !== exceptId && c.name.trim().toLowerCase() === trimmed.toLowerCase())
+
+  const saveActions =
+    active && modified ? (
+      <>
+        {onUpdate ? (
+          <Button size="sm" onClick={() => ask({ kind: "update", id: active.id })}>
+            Update report
+          </Button>
+        ) : null}
+        <Button size="sm" variant="outline" onClick={() => ask({ kind: "save", asNew: true })}>
+          Save as new
+        </Button>
+      </>
+    ) : canSave && !active ? (
+      <Button size="sm" onClick={() => ask({ kind: "save", asNew: false })}>
+        Save as report
+      </Button>
+    ) : null
+
+  const tile = (on: boolean) =>
+    cn(
+      "border-border bg-background hover:bg-muted focus-visible:ring-ring/50 relative flex min-h-12 w-full cursor-pointer items-center rounded-lg border px-2.5 py-2 text-left text-sm font-medium transition-colors outline-none focus-visible:ring-3",
+      on && "border-foreground bg-foreground text-background hover:bg-foreground/90",
+    )
+
+  return (
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger
+          render={
+            <Button
+              variant="outline"
+              size="lg"
+              data-slot="toolbar-report-library"
+              className={cn(triggerClass, className)}
+            />
+          }
+        >
+          <FolderOpenIcon aria-hidden="true" />
+          {/* Sized to "Report: None"; longer report names are cut with "..." and shown in full on hover. */}
+          <span data-toolbar-label="" className="relative flex min-w-0 text-left" title={active?.name}>
+            <span aria-hidden="true" className="invisible flex">
+              {withLabel("Report", noneLabel)}
+            </span>
+            <span className="absolute inset-0 flex min-w-0 overflow-hidden">
+              {withLabel("Report", active?.name ?? noneLabel)}
+            </span>
+          </span>
+          <Chevron />
+        </PopoverTrigger>
+        <PopoverContent
+          align="start"
+          className="w-[min(52rem,calc(100vw-2rem))] max-w-[min(52rem,calc(100vw-2rem))] gap-0 p-0"
+        >
+          <div className="flex min-h-56 flex-col sm:flex-row">
+            <div className="flex shrink-0 flex-col border-b p-2 sm:w-52 sm:border-r sm:border-b-0">
+              <div className="mb-2 flex items-center gap-1 px-1">
+                <p className="text-muted-foreground min-w-0 flex-1 text-xs font-medium tracking-wide uppercase">
+                  Categories
+                </p>
+                {onCreateCategory ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label="New category"
+                    onClick={() => ask({ kind: "newCategory" })}
+                  >
+                    <PlusIcon />
+                  </Button>
+                ) : null}
+              </div>
+              <div className="flex flex-col gap-1">
+                {allCategories.map((c) => (
+                  <div key={c.id} className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onMouseEnter={() => setCategory(c.id)}
+                      onFocus={() => setCategory(c.id)}
+                      onClick={() => setCategory(c.id)}
+                      className={cn(
+                        "hover:bg-muted focus-visible:ring-ring/50 min-w-0 flex-1 cursor-pointer truncate rounded-md px-2 py-1.5 text-left text-sm outline-none focus-visible:ring-3",
+                        c.id === category && "bg-muted text-foreground font-medium",
+                      )}
+                    >
+                      {c.name}
+                    </button>
+                    {c.id !== UNCATEGORIZED && (onRenameCategory || onDeleteCategory) ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          aria-label={`${c.name} options`}
+                          className="text-muted-foreground hover:bg-muted inline-flex size-6 cursor-pointer items-center justify-center rounded-md"
+                        >
+                          <EllipsisVerticalIcon className="size-3.5" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          {onRenameCategory ? (
+                            <DropdownMenuItem onClick={() => ask({ kind: "renameCategory", id: c.id }, c.name)}>
+                              Rename
+                            </DropdownMenuItem>
+                          ) : null}
+                          {onDeleteCategory ? (
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => ask({ kind: "deleteCategory", id: c.id })}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          ) : null}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : null}
+                  </div>
+                ))}
+                {allCategories.length === 0 ? (
+                  <p className="text-muted-foreground px-2 py-1.5 text-sm">No categories yet</p>
+                ) : null}
+              </div>
+            </div>
+            <div className="min-w-0 flex-1 p-2">
+              {inCategory.length === 0 ? (
+                <p className="text-muted-foreground px-2 py-6 text-center text-sm">No reports in this category</p>
+              ) : (
+                <div className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {inCategory.map((r) => (
+                    <div key={r.id} className="flex items-stretch gap-1">
+                      <button
+                        type="button"
+                        className={tile(r.id === activeId)}
+                        onClick={() => {
+                          onSelect(r.id === activeId ? null : r.id)
+                          setOpen(false)
+                        }}
+                      >
+                        <span className="min-w-0 break-words">{r.name}</span>
+                      </button>
+                      {onRename || onDelete ? (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            aria-label={`${r.name} options`}
+                            className="text-muted-foreground hover:bg-muted inline-flex size-6 shrink-0 cursor-pointer items-center justify-center self-center rounded-md"
+                          >
+                            <EllipsisVerticalIcon className="size-3.5" />
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {onRename ? (
+                              <DropdownMenuItem onClick={() => ask({ kind: "rename", id: r.id }, r.name)}>
+                                Rename
+                              </DropdownMenuItem>
+                            ) : null}
+                            {onDelete ? (
+                              <DropdownMenuItem variant="destructive" onClick={() => ask({ kind: "delete", id: r.id })}>
+                                Delete
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 border-t p-2">
+            {saveActions}
+            {active ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto"
+                onClick={() => {
+                  onSelect(null)
+                  setOpen(false)
+                }}
+              >
+                Close report
+              </Button>
+            ) : null}
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Shown on the bar only when there is something to save, so the bar stays short otherwise. */}
+      {active && modified && onUpdate ? (
+        <Button
+          variant="outline"
+          size="lg"
+          className="gap-2 font-normal"
+          onClick={() => ask({ kind: "update", id: active.id })}
+        >
+          <SaveIcon aria-hidden="true" />
+          <ToolbarLabel>Update</ToolbarLabel>
+        </Button>
+      ) : canSave && !active ? (
+        <Button
+          variant="outline"
+          size="lg"
+          className="gap-2 font-normal"
+          onClick={() => ask({ kind: "save", asNew: false })}
+        >
+          <SaveIcon aria-hidden="true" />
+          <ToolbarLabel>Save</ToolbarLabel>
+        </Button>
+      ) : null}
+
+      {/* Name dialogs: save, rename, new category, rename category */}
+      <Dialog
+        open={
+          pending?.kind === "save" ||
+          pending?.kind === "rename" ||
+          pending?.kind === "newCategory" ||
+          pending?.kind === "renameCategory"
+        }
+        onOpenChange={(o: boolean) => !o && close()}
+      >
+        <DialogContent className="sm:max-w-sm">
+          {(() => {
+            if (!pending) return null
+            const isCategory = pending.kind === "newCategory" || pending.kind === "renameCategory"
+            const taken = isCategory
+              ? categoryTaken(pending.kind === "renameCategory" ? pending.id : undefined)
+              : reportTaken(pending.kind === "rename" ? pending.id : undefined)
+            const ok = trimmed.length > 0 && !taken
+            const title =
+              pending.kind === "save"
+                ? pending.asNew
+                  ? "Save as new report"
+                  : "Save as report"
+                : pending.kind === "rename"
+                  ? "Rename report"
+                  : pending.kind === "newCategory"
+                    ? "New category"
+                    : "Rename category"
+            const submit = () => {
+              if (!ok) return
+              if (pending.kind === "save") onSave({ name: trimmed, categoryId: saveCategory })
+              if (pending.kind === "rename") onRename?.(pending.id, trimmed)
+              if (pending.kind === "newCategory") onCreateCategory?.(trimmed)
+              if (pending.kind === "renameCategory") onRenameCategory?.(pending.id, trimmed)
+              close()
+            }
+            return (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault()
+                  submit()
+                }}
+                className="flex flex-col gap-4"
+              >
+                <DialogHeader>
+                  <DialogTitle>{title}</DialogTitle>
+                  {pending.kind === "save" ? (
+                    <DialogDescription>Saves the data, filters, dates, search, columns and sort.</DialogDescription>
+                  ) : null}
+                </DialogHeader>
+                <div className="flex flex-col gap-2">
+                  <label htmlFor="toolbar-report-name" className="text-sm font-medium">
+                    Name
+                  </label>
+                  <Input
+                    id="toolbar-report-name"
+                    autoFocus
+                    value={name}
+                    maxLength={80}
+                    onChange={(e) => setName(e.target.value)}
+                    aria-invalid={taken || undefined}
+                  />
+                  {taken ? (
+                    <p className="text-destructive text-xs">
+                      {isCategory ? "A category" : "A report"} with this name already exists.
+                    </p>
+                  ) : null}
+                </div>
+                {pending.kind === "save" && categories.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <span className="text-sm font-medium">Category</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-between font-normal"
+                            aria-label="Category"
+                          />
+                        }
+                      >
+                        <span className="truncate">{saveCategory ? categoryName(saveCategory) : "Uncategorized"}</span>
+                        <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start">
+                        <DropdownMenuRadioGroup
+                          value={saveCategory ?? UNCATEGORIZED}
+                          onValueChange={(v: unknown) => setSaveCategory(v === UNCATEGORIZED ? null : String(v))}
+                        >
+                          {categories.map((c) => (
+                            <DropdownMenuRadioItem key={c.id} value={c.id} closeOnClick>
+                              {c.name}
+                            </DropdownMenuRadioItem>
+                          ))}
+                          <DropdownMenuRadioItem value={UNCATEGORIZED} closeOnClick>
+                            Uncategorized
+                          </DropdownMenuRadioItem>
+                        </DropdownMenuRadioGroup>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ) : null}
+                <DialogFooter>
+                  <DialogClose render={<Button type="button" variant="ghost" />}>Cancel</DialogClose>
+                  <Button type="submit" disabled={!ok}>
+                    Save
+                  </Button>
+                </DialogFooter>
+              </form>
+            )
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm dialogs: update, delete report, delete category */}
+      <Dialog
+        open={pending?.kind === "update" || pending?.kind === "delete" || pending?.kind === "deleteCategory"}
+        onOpenChange={(o: boolean) => !o && close()}
+      >
+        <DialogContent className="sm:max-w-sm">
+          {pending?.kind === "update" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Update report</DialogTitle>
+                <DialogDescription>
+                  Replace "{nameOf(pending.id)}" with the current data, filters, dates, search, columns and sort?
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
+                <Button
+                  onClick={() => {
+                    onUpdate?.(pending.id)
+                    close()
+                  }}
+                >
+                  Update
+                </Button>
+              </DialogFooter>
+            </>
+          ) : pending?.kind === "delete" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Delete report</DialogTitle>
+                <DialogDescription>Delete "{nameOf(pending.id)}"? This can't be undone.</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    onDelete?.(pending.id)
+                    close()
+                  }}
+                >
+                  Delete
+                </Button>
+              </DialogFooter>
+            </>
+          ) : pending?.kind === "deleteCategory" ? (
+            <>
+              <DialogHeader>
+                <DialogTitle>Delete category</DialogTitle>
+                <DialogDescription>
+                  Delete "{categoryName(pending.id)}"? Its reports are kept and move to Uncategorized.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    onDeleteCategory?.(pending.id)
+                    if (category === pending.id) setCategory(UNCATEGORIZED)
+                    close()
+                  }}
+                >
+                  Delete
+                </Button>
+              </DialogFooter>
+            </>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
+  )
+}
+
 /* ---------- Export ---------- */
 
 type ToolbarExportFormat = { value: string; label: string; description?: string }
@@ -1285,6 +1784,7 @@ function ToolbarActions({ className, ...props }: React.ComponentProps<"div">) {
 
 export {
   Toolbar,
+  ToolbarReportLibrary,
   ToolbarLabel,
   ToolbarActions,
   ToolbarActiveFilters,
@@ -1301,6 +1801,8 @@ export {
   defaultDatePresets,
 }
 export type {
+  ToolbarReport,
+  ToolbarReportCategory,
   ToolbarActiveFilter,
   ToolbarSavedView,
   ToolbarExportFormat,
