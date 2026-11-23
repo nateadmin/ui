@@ -33,6 +33,7 @@ import {
   ListMuted,
   ListNone,
   ListNumber,
+  ListTextarea,
   ListTitle,
   formatListDate,
   sortRows,
@@ -205,6 +206,7 @@ type ColKey =
   | "apiKey"
   | "inlineSelect"
   | "inlineInput"
+  | "textInput"
   | "rowButton"
   | "iconActions"
   | "icon"
@@ -234,6 +236,7 @@ const COLUMNS: Array<{ key: ColKey; label: string }> = [
   { key: "apiKey", label: "Secret (masked)" },
   { key: "inlineSelect", label: "Inline dropdown" },
   { key: "inlineInput", label: "Inline input and buttons" },
+  { key: "textInput", label: "Notes (multi-line input)" },
   { key: "rowButton", label: "Row button" },
   { key: "iconActions", label: "Icon actions" },
   { key: "icon", label: "Icon" },
@@ -301,6 +304,7 @@ export function ListBuilder() {
   const [selected, setSelected] = useState<string[]>([])
   const [isoBy, setIsoBy] = useState<Record<string, string>>({})
   const [tracking, setTracking] = useState<Record<string, string>>({})
+  const [comments, setComments] = useState<Record<string, string>>({})
   const [saved, setSaved] = useState<string[]>(["4"])
   const [note, setNote] = useState("")
 
@@ -562,6 +566,23 @@ export function ListBuilder() {
             Delete
           </Button>
         </div>
+      ),
+    },
+    textInput: {
+      id: "textInput",
+      header: "Notes",
+      interactive: true,
+      width: "grow",
+      minWidth: "14rem",
+      cell: (r) => (
+        <ListTextarea
+          value={comments[r.id] ?? ""}
+          onValueChange={(v) => {
+            setComments((cur) => ({ ...cur, [r.id]: v }))
+            setNote(`Saved notes for ${r.name}`)
+          }}
+          aria-label={`Notes for ${r.name}`}
+        />
       ),
     },
     rowButton: {

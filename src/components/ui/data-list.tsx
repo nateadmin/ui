@@ -843,6 +843,55 @@ function ListMuted({ className, ...props }: React.ComponentProps<"span">) {
   return <span className={cn("text-muted-foreground truncate", className)} {...props} />
 }
 
+/*
+ * A multi-line text field inside a row, for notes, like the Notes column on
+ * the Sales Deals table: 64px tall, as wide as its column, and the person can
+ * drag its corner to make it taller. The text is saved when they leave the
+ * field. While saving is true the field is locked. Give its column
+ * interactive: true so clicks stay in the field instead of opening the row.
+ */
+function ListTextarea({
+  value,
+  onValueChange,
+  saving = false,
+  maxLength = 4000,
+  placeholder,
+  className,
+  "aria-label": ariaLabel,
+}: {
+  value: string
+  /** Called with the new text when the person leaves the field. */
+  onValueChange: (value: string) => void
+  /** Locks the field while the app saves. */
+  saving?: boolean
+  maxLength?: number
+  placeholder?: string
+  className?: string
+  "aria-label"?: string
+}) {
+  const [draft, setDraft] = React.useState(value)
+  React.useEffect(() => setDraft(value), [value])
+  return (
+    <textarea
+      value={draft}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      maxLength={maxLength}
+      disabled={saving}
+      onClick={(e) => e.stopPropagation()}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft !== value) onValueChange(draft)
+      }}
+      className={cn(
+        "border-input dark:bg-input/30 placeholder:text-muted-foreground block min-h-16 w-full resize-y rounded-md border bg-transparent px-2 py-1 text-sm outline-none disabled:opacity-50",
+        "focus-visible:shadow-[0_0_0_2px_color-mix(in_oklch,var(--foreground)_8%,transparent),0_0_5px_color-mix(in_oklch,var(--foreground)_12%,transparent)]",
+        className,
+      )}
+    />
+  )
+}
+
 /** Shown when a cell has no value. */
 function ListNone() {
   return (
@@ -937,6 +986,7 @@ export {
   ListMuted,
   ListNone,
   ListNumber,
+  ListTextarea,
   ListTitle,
   SortIcon,
   formatListDate,
