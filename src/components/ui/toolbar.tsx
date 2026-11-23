@@ -3,7 +3,6 @@
 import * as React from "react"
 import {
   BookmarkIcon,
-  CalendarRangeIcon,
   ChevronDownIcon,
   DownloadIcon,
   EllipsisVerticalIcon,
@@ -41,7 +40,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { DateRangePicker } from "@/components/ui/date-range-picker"
+import { DatePicker } from "@/components/ui/date-picker"
+import { DateRangePicker, defaultDatePresets, type DateRangePreset } from "@/components/ui/date-range-picker"
 import { EmailInput, isEmail } from "@/components/ui/email-input"
 import { Input } from "@/components/ui/input"
 import { MultiSelect } from "@/components/ui/multi-select"
@@ -398,56 +398,7 @@ function ToolbarCount({ className, ...props }: React.ComponentProps<"span">) {
 
 type ToolbarDateRangeValue = { from?: Date; to?: Date }
 
-type ToolbarDatePreset = {
-  id: string
-  label: string
-  /** Gets today's date (in the toolbar's time zone) and returns the range. */
-  range: (today: Date) => { from: Date; to: Date }
-}
-
-const addDays = (d: Date, n: number) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)
-const startOfWeek = (d: Date) => addDays(d, -d.getDay())
-const sameDay = (a?: Date, b?: Date) =>
-  !!a && !!b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-
-/** Weeks start on Sunday. */
-const defaultDatePresets: ToolbarDatePreset[] = [
-  { id: "today", label: "Today", range: (t) => ({ from: t, to: t }) },
-  { id: "yesterday", label: "Yesterday", range: (t) => ({ from: addDays(t, -1), to: addDays(t, -1) }) },
-  { id: "this-week", label: "This week", range: (t) => ({ from: startOfWeek(t), to: t }) },
-  {
-    id: "last-week",
-    label: "Last week",
-    range: (t) => ({ from: addDays(startOfWeek(t), -7), to: addDays(startOfWeek(t), -1) }),
-  },
-  { id: "7-days", label: "7 days", range: (t) => ({ from: addDays(t, -6), to: t }) },
-  {
-    id: "this-month",
-    label: "This month",
-    range: (t) => ({ from: new Date(t.getFullYear(), t.getMonth(), 1), to: t }),
-  },
-  {
-    id: "last-month",
-    label: "Last month",
-    range: (t) => ({
-      from: new Date(t.getFullYear(), t.getMonth() - 1, 1),
-      to: new Date(t.getFullYear(), t.getMonth(), 0),
-    }),
-  },
-  { id: "30-days", label: "30 days", range: (t) => ({ from: addDays(t, -29), to: t }) },
-]
-
-/** Today's calendar date in an IANA time zone, as a local-midnight Date. */
-function todayIn(timeZone: string): Date {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    year: "numeric",
-    month: "numeric",
-    day: "numeric",
-  }).formatToParts(new Date())
-  const get = (type: string) => Number(parts.find((p) => p.type === type)?.value)
-  return new Date(get("year"), get("month") - 1, get("day"))
-}
+type ToolbarDatePreset = DateRangePreset
 
 function ToolbarDateRange({
   value,
@@ -458,61 +409,21 @@ function ToolbarDateRange({
 }: {
   value: ToolbarDateRangeValue
   onValueChange: (value: ToolbarDateRangeValue) => void
-  /** Quick ranges shown after the pickers. Pass [] to hide them. */
+  /** Quick ranges in the Period dropdown inside the picker. Pass [] to hide it. */
   presets?: ToolbarDatePreset[]
   /** Decides what "today" is for the presets. */
   timeZone?: string
   className?: string
 }) {
-  const today = todayIn(timeZone)
-  const active = presets.find((p) => {
-    const r = p.range(today)
-    return sameDay(r.from, value.from) && sameDay(r.to, value.to)
-  })
   return (
-    <div
-      data-slot="toolbar-date-range"
-      className={cn("in-data-wrapped:*:grow flex flex-wrap items-center gap-2", className)}
-    >
-      {presets.length > 0 ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                variant="outline"
-                size="lg"
-                aria-label="Date range presets"
-                data-slot="toolbar-date-presets"
-                className={triggerClass}
-              />
-            }
-          >
-            <CalendarRangeIcon aria-hidden="true" />
-            <StableLabel
-              active={active ? active.id : "__custom"}
-              items={[...presets.map((p) => ({ key: p.id, node: p.label })), { key: "__custom", node: "Custom range" }]}
-            />
-            <Chevron />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuRadioGroup
-              value={active ? active.id : ""}
-              onValueChange={(v: unknown) => {
-                const preset = presets.find((p) => p.id === v)
-                if (preset) onValueChange(preset.range(today))
-              }}
-            >
-              {presets.map((p) => (
-                <DropdownMenuRadioItem key={p.id} value={p.id} closeOnClick>
-                  {p.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      ) : null}
-      <DateRangePicker value={value} onChange={onValueChange} />
-    </div>
+    <DateRangePicker
+      value={value}
+      onChange={onValueChange}
+      presets={presets.length > 0 ? presets : undefined}
+      timeZone={timeZone}
+      placeholder="Custom range"
+      className={cn("in-data-wrapped:grow", className)}
+    />
   )
 }
 
@@ -722,6 +633,182 @@ type ToolbarFilterGroup = {
 
 type ToolbarFilterValues = Record<string, string[]>
 
+/** A column that can be filtered by a condition, like "Balance less than 5000". */
+type ToolbarColumnFilter = { id: string; label: string; kind?: "text" | "number" | "date" }
+/** One column's condition. Dates are ISO days (yyyy-mm-dd); "to" is the end of a Between. */
+type ToolbarColumnCondition = { op: ToolbarConditionOp; value: string; to?: string }
+type ToolbarColumnConditions = Record<string, ToolbarColumnCondition>
+type ToolbarConditionOp = "contains" | "eq" | "ne" | "lt" | "gt" | "gte" | "lte" | "between"
+
+const conditionOps: Record<"text" | "number" | "date", Array<{ op: ToolbarConditionOp; label: string }>> = {
+  text: [
+    { op: "contains", label: "Contains" },
+    { op: "eq", label: "Equal to" },
+    { op: "ne", label: "Is not" },
+  ],
+  number: [
+    { op: "eq", label: "Equal to" },
+    { op: "lt", label: "Less than" },
+    { op: "gt", label: "Greater than" },
+    { op: "gte", label: "At least" },
+    { op: "lte", label: "At most" },
+    { op: "between", label: "Between" },
+  ],
+  date: [
+    { op: "eq", label: "On" },
+    { op: "gte", label: "On or after" },
+    { op: "lte", label: "On or before" },
+    { op: "between", label: "Between" },
+  ],
+}
+
+/** A condition counts once its value (and, for Between, its end) is filled in. */
+const conditionActive = (c?: ToolbarColumnCondition) =>
+  !!c && c.value.trim() !== "" && (c.op !== "between" || (c.to ?? "").trim() !== "")
+
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
+const fromIsoDay = (s?: string) => {
+  if (!s) return undefined
+  const [y, m, d] = s.split("-").map(Number)
+  return y && m && d ? new Date(y, m - 1, d) : undefined
+}
+
+/** Whether a cell passes a column's condition. Pass dates as Date or ISO day, numbers as numbers. */
+function matchesCondition(
+  condition: ToolbarColumnCondition | undefined,
+  kind: "text" | "number" | "date",
+  cell: string | number | Date | null | undefined,
+): boolean {
+  if (!conditionActive(condition)) return true
+  const c = condition!
+  if (cell === null || cell === undefined) return false
+  if (kind === "text") {
+    const a = String(cell).toLowerCase()
+    const b = c.value.trim().toLowerCase()
+    return c.op === "contains" ? a.includes(b) : c.op === "ne" ? a !== b : a === b
+  }
+  let a: number, b: number, e: number
+  if (kind === "date") {
+    a = (cell instanceof Date ? cell : (fromIsoDay(String(cell)) ?? new Date(NaN))).setHours(0, 0, 0, 0)
+    b = fromIsoDay(c.value)?.getTime() ?? NaN
+    e = fromIsoDay(c.to)?.getTime() ?? NaN
+  } else {
+    a = typeof cell === "number" ? cell : Number(String(cell).replace(/[^0-9.-]/g, ""))
+    b = Number(c.value.replace(/[^0-9.-]/g, ""))
+    e = Number((c.to ?? "").replace(/[^0-9.-]/g, ""))
+  }
+  if (Number.isNaN(a) || Number.isNaN(b)) return false
+  switch (c.op) {
+    case "eq":
+      return a === b
+    case "ne":
+      return a !== b
+    case "lt":
+      return a < b
+    case "gt":
+      return a > b
+    case "gte":
+      return a >= b
+    case "lte":
+      return a <= b
+    case "between":
+      return !Number.isNaN(e) && a >= Math.min(b, e) && a <= Math.max(b, e)
+    default:
+      return true
+  }
+}
+
+/** One row of the Column filters section: column name, condition, value. */
+function ColumnConditionRow({
+  column,
+  condition,
+  onChange,
+}: {
+  column: ToolbarColumnFilter
+  condition?: ToolbarColumnCondition
+  onChange: (next: ToolbarColumnCondition) => void
+}) {
+  const kind = column.kind ?? "text"
+  const ops = conditionOps[kind]
+  const op = condition && ops.some((o) => o.op === condition.op) ? condition.op : ops[0]!.op
+  const value = condition?.value ?? ""
+  const to = condition?.to ?? ""
+  const set = (patch: Partial<ToolbarColumnCondition>) => {
+    const next: ToolbarColumnCondition = { op, value, to, ...patch }
+    onChange(next.op === "between" ? next : { op: next.op, value: next.value })
+  }
+  return (
+    <div className="grid grid-cols-[8.5rem_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[10.5rem_8.5rem_minmax(0,1fr)]">
+      <span className="truncate text-sm max-sm:col-span-2">{column.label}</span>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button
+              variant="outline"
+              size="sm"
+              aria-label={`${column.label} condition`}
+              className="h-8 w-full justify-between gap-1.5 font-normal"
+            />
+          }
+        >
+          <StableLabel active={op} items={ops.map((o) => ({ key: o.op, node: o.label }))} />
+          <Chevron />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuRadioGroup value={op} onValueChange={(v: unknown) => set({ op: v as ToolbarConditionOp })}>
+            {ops.map((o) => (
+              <DropdownMenuRadioItem key={o.op} value={o.op} closeOnClick>
+                {o.label}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {kind === "date" ? (
+        op === "between" ? (
+          <DateRangePicker
+            value={{ from: fromIsoDay(value), to: fromIsoDay(to) }}
+            onChange={(r) => set({ value: r.from ? isoDay(r.from) : "", to: r.to ? isoDay(r.to) : "" })}
+            placeholder="Pick dates"
+            className="h-8 w-full min-w-0 text-sm"
+          />
+        ) : (
+          <DatePicker
+            value={fromIsoDay(value)}
+            onChange={(d) => set({ value: d ? isoDay(d) : "" })}
+            placeholder="mm/dd/yyyy"
+            className="h-8 w-full min-w-0"
+          />
+        )
+      ) : op === "between" ? (
+        <div className="flex min-w-0 items-center gap-1.5">
+          <Input
+            aria-label={`${column.label} from`}
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => set({ value: e.target.value })}
+          />
+          <span className="text-muted-foreground text-xs">and</span>
+          <Input
+            aria-label={`${column.label} to`}
+            inputMode="decimal"
+            value={to}
+            onChange={(e) => set({ to: e.target.value })}
+          />
+        </div>
+      ) : (
+        <Input
+          aria-label={`${column.label} value`}
+          inputMode={kind === "number" ? "decimal" : "text"}
+          value={value}
+          onChange={(e) => set({ value: e.target.value })}
+        />
+      )}
+    </div>
+  )
+}
+
 function ToolbarFilterDialog({
   filters,
   values,
@@ -729,18 +816,28 @@ function ToolbarFilterDialog({
   title = "Filters",
   pillLimit = 8,
   description,
+  columns,
+  conditions = {},
+  onConditionsChange,
   className,
 }: {
   filters: ToolbarFilterGroup[]
   values: ToolbarFilterValues
   onValuesChange: (values: ToolbarFilterValues) => void
+  /** Columns that can be filtered by a condition. Adds a Column filters section at the end. */
+  columns?: ToolbarColumnFilter[]
+  /** Each column's condition, by column id. Apply them with matchesCondition. */
+  conditions?: ToolbarColumnConditions
+  onConditionsChange?: (conditions: ToolbarColumnConditions) => void
   title?: string
   /** Groups with more options than this show a searchable dropdown instead of pills. */
   pillLimit?: number
   description?: string
   className?: string
 }) {
-  const count = filters.reduce((n, f) => n + (f.required ? 0 : (values[f.id]?.length ?? 0)), 0)
+  const activeConditions = Object.values(conditions).filter(conditionActive).length
+  const count = filters.reduce((n, f) => n + (f.required ? 0 : (values[f.id]?.length ?? 0)), 0) + activeConditions
+  const showColumns = !!columns?.length && !!onConditionsChange
 
   const toggle = (group: ToolbarFilterGroup, option: string) => {
     const current = values[group.id] ?? []
@@ -778,7 +875,7 @@ function ToolbarFilterDialog({
           <span className="sr-only"> active</span>
         </span>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className={showColumns ? "sm:max-w-xl" : "sm:max-w-lg"}>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {description ? <DialogDescription>{description}</DialogDescription> : null}
@@ -833,17 +930,43 @@ function ToolbarFilterDialog({
               )}
             </fieldset>
           ))}
+          {showColumns ? (
+            <fieldset className="flex flex-col gap-2">
+              <legend className="mb-2 flex w-full items-center justify-between gap-3 text-sm font-medium">
+                <span>Column filters</span>
+                {activeConditions > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => onConditionsChange!({})}
+                    className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 cursor-pointer rounded px-1 text-xs font-normal outline-none focus-visible:ring-2"
+                    aria-label="Clear Column filters"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </legend>
+              {columns!.map((c) => (
+                <ColumnConditionRow
+                  key={c.id}
+                  column={c}
+                  condition={conditions[c.id]}
+                  onChange={(next) => onConditionsChange!({ ...conditions, [c.id]: next })}
+                />
+              ))}
+            </fieldset>
+          ) : null}
         </div>
         <DialogFooter>
           <Button
             variant="ghost"
             disabled={count === 0}
-            onClick={() =>
+            onClick={() => {
               // Clear every category except the required ones, which keep their choice.
               onValuesChange(
                 Object.fromEntries(filters.filter((f) => f.required).map((f) => [f.id, values[f.id] ?? []])),
               )
-            }
+              if (showColumns) onConditionsChange!({})
+            }}
           >
             Clear all
           </Button>
@@ -1130,7 +1253,7 @@ function ToolbarReportLibrary({
   activeId: string | null
   /** The open report was changed since it was opened. Shows Update report and Save as new. */
   modified?: boolean
-  /** There is something worth saving (filters or columns differ from the plain page). */
+  /** Set false to disable Save as report (it always shows while no report is open). */
   canSave?: boolean
   /** Trigger text when no report is open. */
   noneLabel?: string
@@ -1200,8 +1323,8 @@ function ToolbarReportLibrary({
           Save as new
         </Button>
       </>
-    ) : canSave && !active ? (
-      <Button size="sm" onClick={() => ask({ kind: "save", asNew: false })}>
+    ) : !active ? (
+      <Button size="sm" disabled={!canSave} onClick={() => ask({ kind: "save", asNew: false })}>
         Save as report
       </Button>
     ) : null
@@ -1776,6 +1899,7 @@ export {
   ToolbarViews,
   activeFilterItems,
   defaultDatePresets,
+  matchesCondition,
 }
 export type {
   ToolbarReport,
@@ -1791,5 +1915,9 @@ export type {
   ToolbarFilterOption,
   ToolbarFilterProps,
   ToolbarFilterValues,
+  ToolbarColumnFilter,
+  ToolbarColumnCondition,
+  ToolbarColumnConditions,
+  ToolbarConditionOp,
   ToolbarView,
 }

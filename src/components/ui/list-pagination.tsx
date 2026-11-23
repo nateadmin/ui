@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 
 /*
- * The footer under a list: page size on the left, "Showing x-y of total" in the
+ * The footer under a list, always one row: page size on the left, "Showing x-y of total" in the
  * middle, and page controls on the right. The page number is a field: type any
  * page and press Enter (or leave the field) to jump there; the buttons still work.
  *
@@ -54,7 +54,8 @@ function PageSizeMenu({
               aria-hidden="true"
               className={cn("col-start-1 row-start-1 tabular-nums", size !== pageSize && "invisible")}
             >
-              {fmt(size)} per page
+              {fmt(size)}
+              <span className="max-sm:hidden"> per page</span>
             </span>
           ))}
         </span>
@@ -126,7 +127,8 @@ function PageField({
         style={{ width }}
         className="border-input text-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 h-8 rounded-md border bg-transparent text-center text-[12px] outline-none focus-visible:ring-3"
       />
-      <span>of {fmt(pageCount)}</span>
+      {/* On the narrowest phones the page total gives way so the footer stays on one row. */}
+      <span className="max-[359px]:hidden">of {fmt(pageCount)}</span>
     </span>
   )
 }
@@ -162,7 +164,8 @@ function ListPagination({
     <div
       data-slot="list-pagination"
       className={cn(
-        "flex flex-col items-center gap-2 pt-1 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center",
+        // One row at every width. On phones the labels shorten so it fits.
+        "grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 pt-1 sm:grid-cols-[1fr_auto_1fr]",
         className,
       )}
     >
@@ -177,30 +180,33 @@ function ListPagination({
           }}
         />
       </div>
-      <p className="text-muted-foreground text-center text-[11px] tabular-nums" aria-live="polite">
+      <p className="text-muted-foreground min-w-0 truncate text-center text-[11px] tabular-nums" aria-live="polite">
         {status}
-        Showing {fmt(first)}-{fmt(last)} of {fmt(total)}
+        <span className="max-sm:sr-only">Showing </span>
+        {fmt(first)}-{fmt(last)} of {fmt(total)}
       </p>
-      <nav aria-label="Pages" className="flex items-center gap-2 sm:justify-self-end">
+      <nav aria-label="Pages" className="flex items-center gap-1.5 sm:gap-2 sm:justify-self-end">
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1"
+          aria-label="Previous page"
+          className="h-8 gap-1 max-sm:w-8 max-sm:px-0"
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
           <ChevronLeftIcon aria-hidden="true" />
-          Previous
+          <span className="max-sm:hidden">Previous</span>
         </Button>
         <PageField page={page} pageCount={pageCount} onPageChange={onPageChange} />
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1"
+          aria-label="Next page"
+          className="h-8 gap-1 max-sm:w-8 max-sm:px-0"
           disabled={page >= pageCount}
           onClick={() => onPageChange(page + 1)}
         >
-          Next
+          <span className="max-sm:hidden">Next</span>
           <ChevronRightIcon aria-hidden="true" />
         </Button>
       </nav>

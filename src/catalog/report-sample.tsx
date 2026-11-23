@@ -20,6 +20,9 @@ import {
   ToolbarLabel,
   ToolbarReportLibrary,
   ToolbarSearch,
+  matchesCondition,
+  type ToolbarColumnConditions,
+  type ToolbarColumnFilter,
   type ToolbarDateRangeValue,
   type ToolbarFilterGroup,
   type ToolbarReport,
@@ -338,6 +341,7 @@ type ReportView = {
   cols: ColKey[]
   groupBy: string
   sort: { key: ColKey; dir: "asc" | "desc" } | null
+  conditions: ToolbarColumnConditions
 }
 type SavedReport = ToolbarReport & { view: ReportView }
 
@@ -353,6 +357,7 @@ const PLAIN_VIEW: ReportView = {
   cols: ["id", "name", "lawFirm", "fundedAt", "amount", "iso", "status", "balance"],
   groupBy: "none",
   sort: null,
+  conditions: {},
 }
 const day = (y: number, m: number, d: number) => new Date(y, m - 1, d).toISOString()
 const SEED_CATEGORIES: ToolbarReportCategory[] = [
@@ -421,6 +426,16 @@ const reportFilters: ToolbarFilterGroup[] = [
   { id: "iso", label: "Referring ISO", options: isos.map((x) => ({ value: x, label: x })) },
   { id: "amount", label: "Funded amount", options: AMOUNT_BANDS },
 ]
+/* Every column but the ID can be filtered by a condition in the Filters dialog. */
+const FILTER_COLUMNS: ToolbarColumnFilter[] = COLUMNS.filter((c) => c.kind !== "id").map((c) => ({
+  id: c.key,
+  label: c.label,
+  kind: c.kind === "money" || c.kind === "number" ? "number" : c.kind === "date" ? "date" : "text",
+}))
+const mdyDate = (mdY: string) => {
+  const [m, d, y] = mdY.split("/").map(Number)
+  return new Date(y!, m! - 1, d!)
+}
 const inRange = (mdY: string, from: Date, to: Date) => {
   const [m, d, y] = mdY.split("/").map(Number)
   const t = new Date(y!, m! - 1, d!).getTime()
@@ -872,6 +887,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
   const [pageSize, setPageSize] = useState("50")
   const [dates, setDates] = useState<ToolbarDateRangeValue>({})
   const [amountBands, setAmountBands] = useState<string[]>([])
+  const [conditions, setConditions] = useState<ToolbarColumnConditions>({})
   // Saved reports (toolbar layout). In an app these live on the server; each keeps the whole view.
   const [reportCategories, setReportCategories] = useState<ToolbarReportCategory[]>(SEED_CATEGORIES)
   const [savedReports, setSavedReports] = useState<SavedReport[]>(SEED_REPORTS)
@@ -912,6 +928,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
     cols,
     groupBy,
     sort,
+    conditions,
   }
   const applyView = (v: ReportView) => {
     setSources(v.sources)
@@ -924,6 +941,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
     setCols(v.cols)
     setGroupBy(v.groupBy)
     setSort(v.sort)
+    setConditions(v.conditions ?? {})
   }
   const openReport = savedReports.find((x) => x.id === activeReport) ?? null
   const sameView = (a: ReportView, b: ReportView) => JSON.stringify(a) === JSON.stringify(b)
@@ -937,7 +955,14 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
         (!iso.length || iso.includes(d.iso)) &&
         (!needle || d.name.toLowerCase().includes(needle) || String(d.id).includes(needle)) &&
         (!amountBands.length || amountBands.includes(amountBand(d.amount))) &&
-        (!dates.from || !dates.to || inRange(d.fundedAt, dates.from, dates.to)),
+        (!dates.from || !dates.to || inRange(d.fundedAt, dates.from, dates.to)) &&
+        FILTER_COLUMNS.every((c) =>
+          matchesCondition(
+            conditions[c.id],
+            c.kind ?? "text",
+            c.id === "fundedAt" ? mdyDate(d.fundedAt) : d[c.id as ColKey],
+          ),
+        ),
     )
     if (!sort) return rows
     const k = sort.key
@@ -948,9 +973,9 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
       return sort.dir === "asc" ? cmp : -cmp
     })
     return rows
-  }, [q, status, lawFirm, iso, sort, amountBands, dates])
+  }, [q, status, lawFirm, iso, sort, amountBands, dates, conditions])
 
-  useEffect(() => setPage(1), [q, status, lawFirm, iso, sort, pageSize, groupBy, amountBands, dates])
+  useEffect(() => setPage(1), [q, status, lawFirm, iso, sort, pageSize, groupBy, amountBands, dates, conditions])
 
   const size = Number(pageSize)
   const pageCount = Math.max(1, Math.ceil(filtered.length / size))
@@ -1149,7 +1174,6 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
               categories={reportCategories}
               activeId={openReport?.id ?? null}
               modified={!!openReport && !sameView(openReport.view, snapshot)}
-              canSave={!sameView(PLAIN_VIEW, snapshot)}
               onSelect={(id) => {
                 const next = savedReports.find((x) => x.id === id)
                 setActiveReport(next?.id ?? "")
@@ -1192,6 +1216,9 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
                 setIso(v.iso ?? [])
                 setAmountBands(v.amount ?? [])
               }}
+              columns={FILTER_COLUMNS}
+              conditions={conditions}
+              onConditionsChange={setConditions}
             />
             <CustomizeMenu
               label="Columns"
@@ -1653,6 +1680,47 @@ function CanvasScroll({ children }: { children: ReactNode }) {
     copyTop(box.current, vbar.current)
     copyLeft(box.current, hbar.current)
   }
+
+  /* At the top or bottom of the grid, the wheel goes on to the page right away. Browsers keep a wheel
+     gesture on the box it started in until the mouse moves, so without this the page only scrolls after
+     a nudge of the mouse. */
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let target: { node: HTMLElement; top: number } | null = null
+    let settle: ReturnType<typeof setTimeout> | undefined
+    const outer = (): HTMLElement => {
+      for (let n = el.parentElement; n; n = n.parentElement) {
+        const oy = getComputedStyle(n).overflowY
+        if ((oy === "auto" || oy === "scroll") && n.scrollHeight > n.clientHeight + 1) return n
+      }
+      return (document.scrollingElement as HTMLElement) ?? document.documentElement
+    }
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * el.clientHeight : e.deltaY
+      const atTop = el.scrollTop <= 0
+      const atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight - 1
+      if (!((dy < 0 && atTop) || (dy > 0 && atBottom))) return
+      const node = outer()
+      const max = node.scrollHeight - node.clientHeight
+      const from = target && target.node === node ? target.top : node.scrollTop
+      const top = Math.min(max, Math.max(0, from + dy))
+      if (top === node.scrollTop && !target) return
+      e.preventDefault()
+      // Mouse wheels step in big notches, so glide; trackpads send small steps, so follow them exactly.
+      const glide = Math.abs(dy) >= 40
+      target = glide ? { node, top } : null
+      node.scrollTo({ top, behavior: glide ? "smooth" : "instant" })
+      clearTimeout(settle)
+      settle = setTimeout(() => (target = null), 300)
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => {
+      el.removeEventListener("wheel", onWheel)
+      clearTimeout(settle)
+    }
+  }, [])
 
   // Drag to pan.
   const drag = useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(null)
