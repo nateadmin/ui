@@ -3,8 +3,6 @@ import {
   CalendarIcon,
   CheckIcon,
   ChevronDownIcon,
-  ChevronsUpDownIcon,
-  ChevronUpIcon,
   EllipsisVerticalIcon,
   Maximize2Icon,
   Minimize2Icon,
@@ -12,6 +10,7 @@ import {
   XIcon,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { SortIcon } from "@/components/ui/data-list"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -894,20 +893,8 @@ export function SimplyFundingReport() {
           >
             <span className="inline-flex items-center gap-1">
               {c.label}
-              <span
-                aria-hidden
-                className={cn(
-                  "inline-flex size-3.5 shrink-0 items-center justify-center",
-                  active ? "opacity-100" : "opacity-30 hover:opacity-100",
-                )}
-              >
-                {!active ? (
-                  <ChevronsUpDownIcon className="size-3 shrink-0" />
-                ) : sort.dir === "asc" ? (
-                  <ChevronUpIcon className="size-3 shrink-0" />
-                ) : (
-                  <ChevronDownIcon className="size-3 shrink-0" />
-                )}
+              <span aria-hidden className="inline-flex shrink-0 cursor-pointer items-center justify-center">
+                <SortIcon dir={active ? sort.dir : null} />
               </span>
             </span>
           </th>
@@ -1156,7 +1143,7 @@ export function SimplyFundingReport() {
                 No rows match these filters.
               </div>
             ) : (
-              <div className="h-full overflow-auto [scrollbar-width:thin]">
+              <CanvasScroll>
                 <table className="w-max min-w-full caption-bottom text-sm">
                   <thead>{head}</thead>
                   <tbody>
@@ -1214,7 +1201,7 @@ export function SimplyFundingReport() {
                     </tr>
                   </tfoot>
                 </table>
-              </div>
+              </CanvasScroll>
             )}
           </div>
         </Card>
@@ -1259,4 +1246,139 @@ export function SimplyFundingReport() {
 
 function GroupRows({ children }: { children: ReactNode }) {
   return <>{children}</>
+}
+
+/*
+ * The grid scrolls like a canvas, the way the Data app's table does:
+ *   - the table's own scrollbars are hidden; a separate vertical bar runs only
+ *     beside the rows (below the column titles, above the Total row), so it
+ *     never sits under the expand icon, and a horizontal bar sits at the bottom
+ *     when the columns are wider than the card
+ *   - press and drag anywhere on the rows to move around, sideways and up and
+ *     down; links, buttons and column titles still click as usual, and a drag
+ *     never opens a row
+ */
+const GUTTER = 16
+
+function CanvasScroll({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null)
+  const vbar = useRef<HTMLDivElement>(null)
+  const hbar = useRef<HTMLDivElement>(null)
+  const [dims, setDims] = useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0 })
+
+  useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () =>
+      setDims({
+        sh: el.scrollHeight,
+        ch: el.clientHeight,
+        sw: el.scrollWidth,
+        cw: el.clientWidth,
+        head: el.querySelector("thead")?.getBoundingClientRect().height ?? 0,
+        foot: el.querySelector("tfoot")?.getBoundingClientRect().height ?? 0,
+      })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    const table = el.firstElementChild
+    if (table) ro.observe(table)
+    return () => ro.disconnect()
+  }, [])
+
+  // Keep the grid and the two bars in step. Each bar's spacer is sized so it scrolls exactly as far as the grid.
+  const syncing = useRef(false)
+  const follow = (from: HTMLElement | null, apply: () => void) => {
+    if (!from || syncing.current) return
+    syncing.current = true
+    apply()
+    requestAnimationFrame(() => (syncing.current = false))
+  }
+  const onGrid = () =>
+    follow(box.current, () => {
+      if (vbar.current) vbar.current.scrollTop = box.current!.scrollTop
+      if (hbar.current) hbar.current.scrollLeft = box.current!.scrollLeft
+    })
+
+  // Drag to pan.
+  const drag = useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(null)
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return
+    if ((e.target as HTMLElement).closest("a, button, input, select, textarea, label, th, [role=button]")) return
+    const el = box.current!
+    drag.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, id: e.pointerId, moved: false }
+  }
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    const el = box.current
+    if (!d || !el) return
+    const dx = e.clientX - d.x
+    const dy = e.clientY - d.y
+    if (!d.moved) {
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      d.moved = true
+      el.setPointerCapture(d.id)
+      el.style.cursor = "grabbing"
+      el.style.userSelect = "none"
+    }
+    el.scrollLeft = d.left - dx
+    el.scrollTop = d.top - dy
+  }
+  const endDrag = () => {
+    const d = drag.current
+    const el = box.current
+    drag.current = null
+    if (!d || !el) return
+    el.style.cursor = ""
+    el.style.userSelect = ""
+    if (el.hasPointerCapture(d.id)) el.releasePointerCapture(d.id)
+    if (d.moved) {
+      // The drag ends in a click on whatever row is under the pointer; swallow it.
+      const stop = (ev: Event) => {
+        ev.stopPropagation()
+        ev.preventDefault()
+      }
+      el.addEventListener("click", stop, { capture: true, once: true })
+      setTimeout(() => el.removeEventListener("click", stop, { capture: true }), 0)
+    }
+  }
+
+  const wide = dims.sw > dims.cw + 1
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex min-h-0 flex-1">
+        <div
+          ref={box}
+          onScroll={onGrid}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className="min-h-0 min-w-0 flex-1 cursor-grab overflow-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {children}
+        </div>
+        <div
+          ref={vbar}
+          aria-hidden
+          onScroll={() => follow(vbar.current, () => (box.current!.scrollTop = vbar.current!.scrollTop))}
+          className="shrink-0 overflow-x-hidden overflow-y-auto"
+          style={{ width: GUTTER, marginTop: dims.head, marginBottom: dims.foot }}
+        >
+          <div style={{ height: Math.max(0, dims.sh - dims.head - dims.foot) }} />
+        </div>
+      </div>
+      {wide ? (
+        <div
+          ref={hbar}
+          aria-hidden
+          onScroll={() => follow(hbar.current, () => (box.current!.scrollLeft = hbar.current!.scrollLeft))}
+          className="shrink-0 overflow-x-auto overflow-y-hidden"
+          style={{ marginRight: GUTTER }}
+        >
+          <div className="h-px" style={{ width: dims.sw }} />
+        </div>
+      ) : null}
+    </div>
+  )
 }
