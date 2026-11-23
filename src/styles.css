@@ -291,8 +291,9 @@
  * on an invisible track, a little darker on hover. Used by the Report grid.
  */
 .ui-scrollbar::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  /* Keep the element at least 1px wider than this, or Chrome draws a thumb that fills the whole track. */
+  width: 9px;
+  height: 9px;
 }
 
 .ui-scrollbar::-webkit-scrollbar-button {

@@ -28,7 +28,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 /* ---------- Data app primitives (local copies) ---------- */
 
 const inputClass =
-  "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-base transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 md:text-sm dark:bg-input/30"
+  "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-[13px] transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30"
 
 function SfInput(props: React.ComponentProps<"input">) {
   return <input {...props} className={cn(inputClass, props.className)} />
@@ -38,7 +38,7 @@ function Label({ htmlFor, children }: { htmlFor?: string; children: ReactNode })
   return (
     <label
       htmlFor={htmlFor}
-      className="flex items-center gap-2 text-sm leading-none font-medium select-none peer-disabled:cursor-not-allowed peer-disabled:opacity-50"
+      className="flex items-center gap-2 text-[13px] leading-none font-medium select-none peer-disabled:cursor-not-allowed peer-disabled:opacity-50"
     >
       {children}
     </label>
@@ -50,7 +50,7 @@ function Card({ className, children }: { className?: string; children: ReactNode
     <div
       data-slot="card"
       className={cn(
-        "group/card bg-card text-card-foreground ring-foreground/10 flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl py-(--card-spacing) text-sm ring-1 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0",
+        "group/card bg-card text-card-foreground ring-foreground/10 flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl py-(--card-spacing) text-[13px] ring-1 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0",
         className,
       )}
     >
@@ -79,7 +79,7 @@ function Select({
       <DropdownMenuTrigger
         id={id}
         aria-label={ariaLabel}
-        className="border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-sm whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3"
+        className="border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-[13px] whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3"
       >
         <span className="line-clamp-1 flex flex-1 text-left">{current?.label}</span>
         <ChevronDownIcon className="text-muted-foreground pointer-events-none size-4" />
@@ -127,7 +127,7 @@ function ChipsCombobox({
         <PopoverTrigger
           nativeButton={false}
           render={
-            <div className="border-input focus-within:border-ring focus-within:ring-ring/50 dark:bg-input/30 flex min-h-8 w-full cursor-text flex-wrap items-center gap-1 rounded-lg border bg-transparent bg-clip-padding px-2.5 py-1 text-sm transition-colors focus-within:ring-3 has-data-[slot=combobox-chip]:px-1" />
+            <div className="border-input focus-within:border-ring focus-within:ring-ring/50 dark:bg-input/30 flex min-h-8 w-full cursor-text flex-wrap items-center gap-1 rounded-lg border bg-transparent bg-clip-padding px-2.5 py-1 text-[13px] transition-colors focus-within:ring-3 has-data-[slot=combobox-chip]:px-1" />
           }
         >
           {values.map((v) => (
@@ -169,7 +169,7 @@ function ChipsCombobox({
           className="w-(--anchor-width) min-w-(--anchor-width) gap-0 overflow-hidden p-1"
         >
           {shown.length === 0 ? (
-            <p className="text-muted-foreground py-2 text-center text-sm">No matches</p>
+            <p className="text-muted-foreground py-2 text-center text-[13px]">No matches</p>
           ) : (
             <div className="max-h-64 overflow-y-auto [scrollbar-width:none]">
               {shown.map((o) => (
@@ -177,7 +177,7 @@ function ChipsCombobox({
                   key={o}
                   type="button"
                   onClick={() => toggle(o)}
-                  className="hover:bg-accent hover:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-sm outline-hidden select-none"
+                  className="hover:bg-accent hover:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-[13px] outline-hidden select-none"
                 >
                   {o}
                   {values.includes(o) ? (
@@ -358,7 +358,7 @@ function ColumnPicker({ selected, onChange }: { selected: ColKey[]; onChange: (v
             className="border-border grid max-h-64 gap-0.5 overflow-x-hidden overflow-y-auto rounded-md border p-1"
           >
             {shown.length === 0 ? (
-              <p className="text-muted-foreground px-2 py-3 text-center text-sm">No matching columns</p>
+              <p className="text-muted-foreground px-2 py-3 text-center text-[13px]">No matching columns</p>
             ) : (
               shown.map((c) => {
                 const on = selected.includes(c.key)
@@ -500,7 +500,7 @@ function ColumnFilters({
           {filters.map((f) => (
             <div
               key={f.id}
-              className="border-border flex w-full min-w-0 items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-sm"
+              className="border-border flex w-full min-w-0 items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-[13px]"
             >
               <span className="min-w-0 flex-1 break-words">{f.text}</span>
               <Button
@@ -530,7 +530,7 @@ function ColumnFilters({
                   key={c.key}
                   className="grid grid-cols-[minmax(7rem,11rem)_9.5rem_minmax(0,1fr)] items-center gap-2"
                 >
-                  <p className="m-0 truncate text-sm">{c.label}</p>
+                  <p className="m-0 truncate text-[13px]">{c.label}</p>
                   <Select
                     ariaLabel={`${c.label} operator`}
                     value={op}
@@ -585,13 +585,13 @@ function ReportLibraryMenu({ active, onPick }: { active: string; onPick: (name: 
   const reports = libraryReports[category] ?? []
   const card = (on: boolean) =>
     cn(
-      "border-border bg-background hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 relative flex min-h-12 w-full items-center rounded-lg border px-2.5 py-2 text-left text-sm font-medium shadow-xs transition-colors outline-none focus-visible:ring-3",
+      "border-border bg-background hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 relative flex min-h-12 w-full items-center rounded-lg border px-2.5 py-2 text-left text-[13px] font-medium shadow-xs transition-colors outline-none focus-visible:ring-3",
       on && "border-primary bg-primary/10 text-primary hover:bg-primary/15",
     )
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-2">
       <Popover>
-        <PopoverTrigger className="group/navigation-menu-trigger hover:bg-muted focus:bg-muted data-popup-open:bg-muted/50 inline-flex h-8 w-max items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium outline-none">
+        <PopoverTrigger className="group/navigation-menu-trigger hover:bg-muted focus:bg-muted data-popup-open:bg-muted/50 inline-flex h-8 w-max items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium outline-none">
           Reports
           <ChevronDownIcon className="relative top-px size-3 transition duration-100 group-data-popup-open/navigation-menu-trigger:rotate-180" />
         </PopoverTrigger>
@@ -618,7 +618,7 @@ function ReportLibraryMenu({ active, onPick }: { active: string; onPick: (name: 
                       onFocus={() => setCategory(c)}
                       onClick={() => setCategory(c)}
                       className={cn(
-                        "hover:bg-muted focus-visible:ring-ring/50 min-w-0 flex-1 rounded-md px-2 py-1.5 text-left text-sm outline-none focus-visible:ring-3",
+                        "hover:bg-muted focus-visible:ring-ring/50 min-w-0 flex-1 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3",
                         c === category && "bg-primary/10 text-primary font-medium",
                       )}
                     >
@@ -702,7 +702,7 @@ function ChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
           <DialogTitle>Report and data chat</DialogTitle>
         </DialogHeader>
         <div className="flex min-h-0 flex-1 flex-col justify-center px-4 py-4">
-          <p className="text-muted-foreground m-0 px-2 text-center text-sm">
+          <p className="text-muted-foreground m-0 px-2 text-center text-[13px]">
             Ask for a report in plain language. Successful queries stay here so you can reload them later.
           </p>
         </div>
@@ -711,7 +711,7 @@ function ChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
             rows={2}
             placeholder="e.g. payments over $10k last month by ISO"
             aria-label="Report request"
-            className="border-input dark:bg-input/30 mb-3 w-full min-w-0 rounded-lg border bg-transparent px-2.5 py-1.5 text-sm outline-none"
+            className="border-input dark:bg-input/30 mb-3 w-full min-w-0 rounded-lg border bg-transparent px-2.5 py-1.5 text-[13px] outline-none"
           />
           <div className="flex justify-end gap-2">
             <Button type="button" aria-label="Send">
@@ -906,7 +906,7 @@ export function SimplyFundingReport() {
             onDragEnd={endDrag}
             className={cn(
               dropLine(c.key),
-              "bg-muted text-foreground sticky top-0 z-10 h-10 cursor-grab px-2 text-left align-middle text-[10px] font-semibold tracking-wider whitespace-nowrap uppercase select-none active:cursor-grabbing md:text-xs",
+              "bg-muted text-foreground sticky top-0 z-10 h-8 cursor-grab px-2 text-left align-middle text-[11px] font-semibold tracking-wider whitespace-nowrap uppercase select-none active:cursor-grabbing",
             )}
           >
             <span className="inline-flex items-center gap-1">
@@ -928,7 +928,7 @@ export function SimplyFundingReport() {
       {columns.map((c) => (
         <td
           key={c.key}
-          className={cn("p-2 align-middle whitespace-nowrap", isNum(c) && "tabular-nums", dropLine(c.key))}
+          className={cn("px-2 py-1.5 align-middle whitespace-nowrap", isNum(c) && "tabular-nums", dropLine(c.key))}
         >
           {cell(c, r)}
         </td>
@@ -942,7 +942,7 @@ export function SimplyFundingReport() {
         <td
           key={c.key}
           className={cn(
-            "p-2 align-middle whitespace-nowrap",
+            "px-2 py-1.5 align-middle whitespace-nowrap",
             strong ? "font-semibold" : "font-medium",
             isNum(c) && "tabular-nums",
             dropLine(c.key),
@@ -959,7 +959,7 @@ export function SimplyFundingReport() {
   )
 
   return (
-    <div className="flex h-[820px] min-w-0 flex-col gap-4 overflow-x-hidden lg:grid lg:min-h-0 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:gap-y-2 lg:overflow-hidden">
+    <div className="flex h-[820px] min-w-0 flex-col text-[13px] [&_[data-slot=button]]:text-[13px] gap-4 overflow-x-hidden lg:grid lg:min-h-0 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:gap-y-2 lg:overflow-hidden">
       {/* Left: filters card */}
       <div className="w-full shrink-0 lg:col-start-1 lg:row-start-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
         <Card className="flex min-h-0 w-full flex-1 flex-col overflow-hidden pt-2">
@@ -1127,7 +1127,7 @@ export function SimplyFundingReport() {
             aria-label="Search"
           />
           <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:shrink-0">
-            <span className="text-muted-foreground text-sm tabular-nums">
+            <span className="text-muted-foreground text-[13px] tabular-nums">
               {filtered.length.toLocaleString("en-US")} rows total
             </span>
             <Button type="button" aria-label="Export">
@@ -1156,13 +1156,13 @@ export function SimplyFundingReport() {
           <h2 className="sr-only">Report</h2>
           <div className="min-h-0 flex-1 overflow-hidden">
             {filtered.length === 0 ? (
-              <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
+              <div className="text-muted-foreground flex h-full items-center justify-center text-[13px]">
                 No rows match these filters.
               </div>
             ) : (
               <CanvasScroll>
                 {/* 16px before the first column, so the text lines up with the band edges. */}
-                <table className="w-max min-w-full caption-bottom text-sm [&_tr>*:first-child]:pl-4">
+                <table className="w-max min-w-full caption-bottom text-[13px] [&_tr>*:first-child]:pl-4">
                   <thead>{head}</thead>
                   <tbody>
                     {groups
@@ -1177,7 +1177,10 @@ export function SimplyFundingReport() {
                                   setCollapsed((cur) => (isCollapsed ? cur.filter((x) => x !== g) : [...cur, g]))
                                 }
                               >
-                                <td colSpan={columns.length} className="p-2 align-middle font-medium whitespace-nowrap">
+                                <td
+                                  colSpan={columns.length}
+                                  className="px-2 py-1.5 align-middle font-medium whitespace-nowrap"
+                                >
                                   <span className="inline-flex items-center gap-2">
                                     <ChevronDownIcon
                                       className={cn(
@@ -1208,7 +1211,7 @@ export function SimplyFundingReport() {
                         <td
                           key={c.key}
                           className={cn(
-                            "p-2 align-middle font-semibold whitespace-nowrap",
+                            "h-8 px-2 py-0 align-middle font-semibold whitespace-nowrap",
                             isNum(c) && "tabular-nums",
                             dropLine(c.key),
                           )}
@@ -1228,7 +1231,7 @@ export function SimplyFundingReport() {
 
       {/* Footer */}
       <div className="flex shrink-0 flex-wrap items-center gap-2 lg:col-start-2 lg:row-start-3">
-        <span className="text-muted-foreground mr-auto text-sm tabular-nums">
+        <span className="text-muted-foreground mr-auto text-[13px] tabular-nums">
           Showing {first.toLocaleString("en-US")}-{last.toLocaleString("en-US")} of{" "}
           {filtered.length.toLocaleString("en-US")}
         </span>
@@ -1245,7 +1248,7 @@ export function SimplyFundingReport() {
           <DialogHeader>
             <DialogTitle>Row details</DialogTitle>
           </DialogHeader>
-          <dl className="grid gap-2 text-sm">
+          <dl className="grid gap-2 text-[13px]">
             {detail
               ? COLUMNS.map((c) => (
                   <div key={c.key} className="grid grid-cols-[8rem_1fr] gap-2">
@@ -1395,17 +1398,16 @@ function CanvasScroll({ children }: { children: ReactNode }) {
         </div>
       </div>
       {wide ? (
-        // The sideways scrollbar sits in the Total band, along the bottom edge.
-        <div className={cn(band, "flex")}>
-          <div
-            ref={hbar}
-            aria-hidden
-            onScroll={() => follow(hbar.current, () => (box.current!.scrollLeft = hbar.current!.scrollLeft))}
-            className="ui-scrollbar min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
-          >
-            <div className="h-px" style={{ width: dims.sw }} />
-          </div>
-          <div className="shrink-0" style={{ width: GUTTER }} />
+        // The sideways scrollbar lies along the bottom edge of the Total band, over it, so the band keeps
+        // its own height and its text stays centered.
+        <div
+          ref={hbar}
+          aria-hidden
+          onScroll={() => follow(hbar.current, () => (box.current!.scrollLeft = hbar.current!.scrollLeft))}
+          className="ui-scrollbar absolute bottom-0 left-0 z-30 overflow-x-auto overflow-y-hidden"
+          style={{ right: GUTTER, height: 10 }}
+        >
+          <div className="h-px" style={{ width: dims.sw }} />
         </div>
       ) : null}
     </div>
