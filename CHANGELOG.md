@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.4.2
+
+### Patch Changes
+
+- 1893701: CustomizeMenu: inside a Toolbar that shows icons only, its button is an icon like the other parts.
+
 ## 0.4.1
 
 ### Patch Changes
