@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import {
-  CalendarIcon,
-  CheckIcon,
-  ChevronDownIcon,
-  EllipsisVerticalIcon,
-  PlusIcon,
-  SparklesIcon,
-  XIcon,
-} from "lucide-react"
+import { ChevronDownIcon, SparklesIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { SortIcon } from "@/components/ui/data-list"
 import { CustomizeMenu, CustomizeOption } from "@/components/ui/customize-menu"
@@ -30,19 +22,14 @@ import {
 } from "@/components/ui/toolbar"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 /*
- * The Report and Data page from the Simply Funding Data app, brought in as it
- * looks today: same layout, classes and controls, with made-up rows (this repo
- * is public). Next steps swap its parts for the library's own components.
- *
- * Its controls are local copies of the Data app's primitives (Card, Label,
- * Select, chips combobox, date fields, table) so the look matches the app.
+ * The Report page for the Simply Funding Data app, with made-up rows (this
+ * repo is public). Its top bar and footer are the library's own components;
+ * only the grid and a few small pieces live here.
  */
 
-/* ---------- Data app primitives (local copies) ---------- */
+/* ---------- Small local pieces ---------- */
 
 const inputClass =
   "h-8 w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1 text-[13px] transition-colors outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50 dark:bg-input/30"
@@ -77,179 +64,9 @@ function Card({ className, children }: { className?: string; children: ReactNode
 }
 
 /** Select: a trigger with the chosen label and a menu of options. */
-function Select({
-  id,
-  value,
-  options,
-  onChange,
-  ariaLabel,
-}: {
-  id?: string
-  value: string
-  options: Array<{ value: string; label: string }>
-  onChange: (v: string) => void
-  ariaLabel?: string
-}) {
-  const current = options.find((o) => o.value === value)
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        id={id}
-        aria-label={ariaLabel}
-        className="border-input focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 dark:hover:bg-input/50 flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border bg-transparent py-2 pr-2 pl-2.5 text-[13px] whitespace-nowrap transition-colors outline-none select-none focus-visible:ring-3"
-      >
-        <span className="line-clamp-1 flex flex-1 text-left">{current?.label}</span>
-        <ChevronDownIcon className="text-muted-foreground pointer-events-none size-4" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
-        {options.map((o) => (
-          <DropdownMenuItem key={o.value} onClick={() => onChange(o.value)} className="relative pr-8">
-            {o.label}
-            {o.value === value ? (
-              <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-                <CheckIcon />
-              </span>
-            ) : null}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
-
 /** Combobox with chips, like the Data app's MultiSelectCombobox: picked values show as chips, the rest in a list. */
-function ChipsCombobox({
-  id,
-  label,
-  values,
-  options,
-  onChange,
-  placeholder = "All",
-}: {
-  id: string
-  label: string
-  values: string[]
-  options: string[]
-  onChange: (v: string[]) => void
-  placeholder?: string
-}) {
-  const [query, setQuery] = useState("")
-  const [open, setOpen] = useState(false)
-  const shown = options.filter((o) => o.toLowerCase().includes(query.trim().toLowerCase()))
-  const toggle = (v: string) => onChange(values.includes(v) ? values.filter((x) => x !== v) : [...values, v])
-  return (
-    <div className="grid min-w-0 gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          nativeButton={false}
-          render={
-            <div className="border-input focus-within:border-ring focus-within:ring-ring/50 dark:bg-input/30 flex min-h-8 w-full cursor-text flex-wrap items-center gap-1 rounded-lg border bg-transparent bg-clip-padding px-2.5 py-1 text-[13px] transition-colors focus-within:ring-3 has-data-[slot=combobox-chip]:px-1" />
-          }
-        >
-          {values.map((v) => (
-            <span
-              key={v}
-              data-slot="combobox-chip"
-              className="bg-muted text-foreground flex h-[calc(--spacing(5.25))] w-fit max-w-full min-w-0 items-center justify-center gap-1 rounded-sm pl-1.5 text-xs font-medium whitespace-nowrap"
-            >
-              <span className="min-w-0 truncate">{v}</span>
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label={`Remove ${v}`}
-                className="-ml-1 opacity-50 hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  toggle(v)
-                }}
-              >
-                <XIcon />
-              </Button>
-            </span>
-          ))}
-          <input
-            id={id}
-            aria-label={label}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value)
-              setOpen(true)
-            }}
-            placeholder={values.length ? undefined : placeholder}
-            className="placeholder:text-muted-foreground min-w-16 flex-1 bg-transparent outline-none"
-          />
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          initialFocus={false}
-          className="w-(--anchor-width) min-w-(--anchor-width) gap-0 overflow-hidden p-1"
-        >
-          {shown.length === 0 ? (
-            <p className="text-muted-foreground py-2 text-center text-[13px]">No matches</p>
-          ) : (
-            <div className="max-h-64 overflow-y-auto [scrollbar-width:none]">
-              {shown.map((o) => (
-                <button
-                  key={o}
-                  type="button"
-                  onClick={() => toggle(o)}
-                  className="hover:bg-accent hover:text-accent-foreground relative flex w-full cursor-default items-center gap-2 rounded-md py-1 pr-8 pl-1.5 text-left text-[13px] outline-hidden select-none"
-                >
-                  {o}
-                  {values.includes(o) ? (
-                    <span className="pointer-events-none absolute right-2 flex size-4 items-center justify-center">
-                      <CheckIcon className="size-4" />
-                    </span>
-                  ) : null}
-                </button>
-              ))}
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
 
 /** From / To date fields with a calendar button, mm/dd/yyyy. */
-function DateField({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id: string
-  label: string
-  value: string
-  onChange: (v: string) => void
-}) {
-  return (
-    <div className="grid gap-2">
-      <Label htmlFor={id}>{label}</Label>
-      <div className="relative">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="text-muted-foreground absolute top-1/2 left-1 size-7 -translate-y-1/2"
-          aria-label={`${label}, open calendar`}
-        >
-          <CalendarIcon />
-        </Button>
-        <SfInput
-          id={id}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="mm/dd/yyyy"
-          inputMode="numeric"
-          autoComplete="off"
-          className="pl-9 font-normal"
-        />
-      </div>
-    </div>
-  )
-}
 
 /* ---------- Placeholder data ---------- */
 
@@ -310,17 +127,7 @@ const deals: Deal[] = Array.from({ length: 6145 }, (_, i) => {
   }
 })
 
-type ColKey =
-  | "id"
-  | "name"
-  | "lawFirm"
-  | "fundedAt"
-  | "lastPaidAt"
-  | "amount"
-  | "iso"
-  | "status"
-  | "balance"
-  | "factor"
+type ColKey = "id" | "name" | "lawFirm" | "fundedAt" | "lastPaidAt" | "amount" | "iso" | "status" | "balance" | "factor"
 type Col = { key: ColKey; label: string; kind: "id" | "text" | "date" | "money" | "number" }
 
 const COLUMNS: Col[] = [
@@ -477,91 +284,6 @@ const dateKey = (s: string) => {
 
 /* ---------- Pieces ---------- */
 
-function ColumnPicker({ selected, onChange }: { selected: ColKey[]; onChange: (v: ColKey[]) => void }) {
-  const [q, setQ] = useState("")
-  const [open, setOpen] = useState(false)
-  const shown = COLUMNS.filter((c) => c.label.toLowerCase().includes(q.trim().toLowerCase()))
-  return (
-    <div className="grid gap-2">
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              type="button"
-              variant="outline"
-              aria-label="Select report columns"
-              className="h-9 w-full justify-between font-normal"
-            />
-          }
-        >
-          <span className="text-muted-foreground truncate">
-            {selected.length} {selected.length === 1 ? "column" : "columns"} selected
-          </span>
-          <ChevronDownIcon
-            className={cn("size-4 shrink-0 opacity-50 transition-transform", open && "rotate-180")}
-            aria-hidden
-          />
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-(--anchor-width) max-w-full min-w-0 gap-2 overflow-x-hidden p-2">
-          <SfInput
-            placeholder="Search columns"
-            aria-label="Search columns"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <div
-            role="listbox"
-            aria-label="Report columns"
-            aria-multiselectable="true"
-            className="border-border grid max-h-64 gap-0.5 overflow-x-hidden overflow-y-auto rounded-md border p-1"
-          >
-            {shown.length === 0 ? (
-              <p className="text-muted-foreground px-2 py-3 text-center text-[13px]">No matching columns</p>
-            ) : (
-              shown.map((c) => {
-                const on = selected.includes(c.key)
-                return (
-                  <Button
-                    key={c.key}
-                    type="button"
-                    role="option"
-                    aria-selected={on}
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (on && selected.length === 1) return
-                      onChange(on ? selected.filter((k) => k !== c.key) : [...selected, c.key])
-                    }}
-                    className={cn(
-                      "h-auto min-h-8 w-full max-w-full min-w-0 shrink justify-start py-1.5 whitespace-normal",
-                      on && "bg-accent/40",
-                    )}
-                  >
-                    <CheckIcon className={cn("size-4 shrink-0", !on && "opacity-0")} aria-hidden />
-                    <span className="flex min-w-0 flex-col items-start text-left">
-                      <span className="line-clamp-2 max-w-full break-words whitespace-normal">{c.label}</span>
-                      <span className="text-muted-foreground text-xs">
-                        Deal ·{" "}
-                        {c.kind === "money"
-                          ? "money"
-                          : c.kind === "date"
-                            ? "date"
-                            : c.kind === "number"
-                              ? "number"
-                              : "text"}
-                      </span>
-                    </span>
-                  </Button>
-                )
-              })
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
-  )
-}
-
 function FormulaDialog() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
@@ -628,230 +350,6 @@ function FormulaDialog() {
   )
 }
 
-type ColumnFilter = { id: string; text: string }
-
-function ColumnFilters({
-  filters,
-  onApply,
-  onRemove,
-}: {
-  filters: ColumnFilter[]
-  onApply: (f: ColumnFilter) => void
-  onRemove: (id: string) => void
-}) {
-  const [open, setOpen] = useState(false)
-  const [ops, setOps] = useState<Record<string, string>>({})
-  const [vals, setVals] = useState<Record<string, string>>({})
-  const opsFor = (c: Col) =>
-    c.kind === "money" || c.kind === "number"
-      ? ["Less than", "Greater than", "At least", "At most", "Between", "Equal to"]
-      : c.kind === "date"
-        ? ["At least", "At most", "Between"]
-        : ["Equal to", "Is not", "Contains"]
-  return (
-    <div className="grid min-w-0 gap-2">
-      <Button type="button" variant="outline" className="w-full" onClick={() => setOpen(true)}>
-        Column filters
-      </Button>
-      {filters.length ? (
-        <div className="grid min-w-0 gap-1">
-          {filters.map((f) => (
-            <div
-              key={f.id}
-              className="border-border flex w-full min-w-0 items-start justify-between gap-2 rounded-md border px-2 py-1.5 text-[13px]"
-            >
-              <span className="min-w-0 flex-1 break-words">{f.text}</span>
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                className="h-auto shrink-0 px-1 py-0"
-                onClick={() => onRemove(f.id)}
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[min(36rem,85vh)] overflow-y-auto [scrollbar-gutter:stable] sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Column filters</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-2">
-            {COLUMNS.filter((c) => c.kind !== "id").map((c) => {
-              const list = opsFor(c)
-              const op = ops[c.key] ?? list[0]!
-              return (
-                <div
-                  key={c.key}
-                  className="grid grid-cols-[minmax(7rem,11rem)_9.5rem_minmax(0,1fr)] items-center gap-2"
-                >
-                  <p className="m-0 truncate text-[13px]">{c.label}</p>
-                  <Select
-                    ariaLabel={`${c.label} operator`}
-                    value={op}
-                    options={list.map((o) => ({ value: o, label: o }))}
-                    onChange={(v) => setOps((cur) => ({ ...cur, [c.key]: v }))}
-                  />
-                  <SfInput
-                    aria-label={`${c.label} value`}
-                    placeholder={c.kind === "date" ? "mm/dd/yyyy" : undefined}
-                    inputMode={c.kind === "money" || c.kind === "number" ? "decimal" : "text"}
-                    value={vals[c.key] ?? ""}
-                    onChange={(e) => setVals((cur) => ({ ...cur, [c.key]: e.target.value }))}
-                  />
-                </div>
-              )
-            })}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              onClick={() => {
-                for (const c of COLUMNS) {
-                  const v = vals[c.key]?.trim()
-                  if (!v) continue
-                  const op = ops[c.key] ?? opsFor(c)[0]!
-                  onApply({ id: c.key, text: `${c.label} ${op.toLowerCase()} ${v}` })
-                }
-                setVals({})
-                setOpen(false)
-              }}
-            >
-              Apply
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
-
-const libraryCategories = ["Collections", "Funding", "Renewals", "ISO performance"]
-const libraryReports: Record<string, string[]> = {
-  Collections: ["Defaulted deals by law firm", "Payments bounced this week", "Deals behind pace"],
-  Funding: ["Funded this month", "Funded by ISO", "Average deal size by month"],
-  Renewals: ["Renewals due", "Renewed deals this quarter"],
-  "ISO performance": ["Defaults by ISO", "Volume by ISO"],
-}
-
-function ReportLibraryMenu({ active, onPick }: { active: string; onPick: (name: string) => void }) {
-  const [category, setCategory] = useState(libraryCategories[0]!)
-  const [saveOpen, setSaveOpen] = useState(false)
-  const reports = libraryReports[category] ?? []
-  const card = (on: boolean) =>
-    cn(
-      "border-border bg-background hover:bg-muted hover:text-foreground focus-visible:border-ring focus-visible:ring-ring/50 relative flex min-h-12 w-full items-center rounded-lg border px-2.5 py-2 text-left text-[13px] font-medium shadow-xs transition-colors outline-none focus-visible:ring-3",
-      on && "border-primary bg-primary/10 text-primary hover:bg-primary/15",
-    )
-  return (
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
-      <Popover>
-        <PopoverTrigger className="group/navigation-menu-trigger hover:bg-muted focus:bg-muted data-popup-open:bg-muted/50 inline-flex h-8 w-max items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium outline-none">
-          Reports
-          <ChevronDownIcon className="relative top-px size-3 transition duration-100 group-data-popup-open/navigation-menu-trigger:rotate-180" />
-        </PopoverTrigger>
-        <PopoverContent
-          align="start"
-          className="w-[min(52rem,calc(100vw-2rem))] max-w-[min(52rem,calc(100vw-2rem))] gap-0 p-0"
-        >
-          <div className="flex min-h-56">
-            <div className="flex w-52 shrink-0 flex-col border-r p-2">
-              <div className="mb-2 flex items-center gap-1 px-1">
-                <p className="text-muted-foreground min-w-0 flex-1 text-xs font-medium tracking-wide uppercase">
-                  Categories
-                </p>
-                <Button type="button" variant="ghost" size="icon-xs" aria-label="Category">
-                  <PlusIcon />
-                </Button>
-              </div>
-              <div className="flex flex-col gap-1">
-                {libraryCategories.map((c) => (
-                  <div key={c} className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onMouseEnter={() => setCategory(c)}
-                      onFocus={() => setCategory(c)}
-                      onClick={() => setCategory(c)}
-                      className={cn(
-                        "hover:bg-muted focus-visible:ring-ring/50 min-w-0 flex-1 rounded-md px-2 py-1.5 text-left text-[13px] outline-none focus-visible:ring-3",
-                        c === category && "bg-primary/10 text-primary font-medium",
-                      )}
-                    >
-                      {c}
-                    </button>
-                    <span className="text-muted-foreground inline-flex size-6 items-center justify-center rounded-md">
-                      <EllipsisVerticalIcon className="size-3.5" />
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="min-w-0 flex-1 p-2">
-              <div
-                className={cn(
-                  "grid grid-cols-1 items-stretch gap-2",
-                  reports.length > 1 && "lg:grid-cols-2",
-                  reports.length >= 3 && "xl:grid-cols-3",
-                )}
-              >
-                {reports.map((r) => (
-                  <div key={r} className="flex items-stretch gap-1">
-                    <button type="button" className={card(r === active)} onClick={() => onPick(r)}>
-                      <span className="min-w-0 break-words">{r}</span>
-                    </button>
-                    <span className="text-muted-foreground inline-flex size-6 shrink-0 items-center justify-center self-center rounded-md">
-                      <EllipsisVerticalIcon className="size-3.5" />
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 border-t p-2">
-            <Button size="sm" onClick={() => setSaveOpen(true)}>
-              Save as report
-            </Button>
-          </div>
-        </PopoverContent>
-      </Popover>
-      <Button type="button" variant="outline" onClick={() => setSaveOpen(true)}>
-        Save as report
-      </Button>
-      <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Save as report</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-3">
-            <div className="grid gap-2">
-              <Label htmlFor="report-save-name">Name</Label>
-              <SfInput id="report-save-name" maxLength={80} />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="report-save-category">Category</Label>
-              <Select
-                id="report-save-category"
-                value={category}
-                options={libraryCategories.map((c) => ({ value: c, label: c }))}
-                onChange={setCategory}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSaveOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={() => setSaveOpen(false)}>Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  )
-}
-
 function ChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -885,25 +383,19 @@ function ChatDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: b
 /* ---------- Page ---------- */
 
 /*
- * layout "panel": the Data app as it is today, filters in a left panel.
- * layout "toolbar": the same report driven by the library's own parts: Toolbar
- * (saved reports, data, search, dates, Filters dialog, columns, count, chat,
- * full screen, export), applied-filter chips, and ListPagination. Those are
- * imported, not copied, so changes to them show up here.
+ * The report, driven by the library's own parts: Toolbar with
+ * ToolbarReportLibrary, ToolbarSearch, ToolbarDateRange, ToolbarFilterDialog,
+ * CustomizeMenu (Columns) and ToolbarExport, plus ListPagination. They are
+ * imported, not copied, so every change to them shows up here and everywhere
+ * else they are used.
  */
-export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "toolbar" }) {
+export function SimplyFundingReport() {
   const [sources, setSources] = useState(["deals"])
   const [cols, setCols] = useState<ColKey[]>(DEFAULT_COLS)
   const [groupBy, setGroupBy] = useState("none")
-  const [range, setRange] = useState("all")
-  const [from, setFrom] = useState("")
-  const [to, setTo] = useState("")
   const [lawFirm, setLawFirm] = useState<string[]>([])
   const [iso, setIso] = useState<string[]>([])
   const [status, setStatus] = useState<string[]>(["Defaulted"])
-  const [colFilters, setColFilters] = useState<ColumnFilter[]>([
-    { id: "default-date", text: "Date of Default between 2026-01-01 and 2026-11-30" },
-  ])
   // No sort means the report's normal order (newest funding first). Column titles follow the List's rule:
   // click once for ascending, again for descending, a third time to go back to no sort.
   const [sort, setSort] = useState<{ key: ColKey; dir: "asc" | "desc" } | null>(null)
@@ -1008,9 +500,7 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
 
   const filtered = useMemo(() => {
     let rows =
-      dates.from && dates.to
-        ? base.filter((d) => inRange(d[dateField as "fundedAt"], dates.from!, dates.to!))
-        : base
+      dates.from && dates.to ? base.filter((d) => inRange(d[dateField as "fundedAt"], dates.from!, dates.to!)) : base
     if (!sort) return rows
     const k = sort.key
     const isDate = COLUMNS.find((c) => c.key === k)?.kind === "date"
@@ -1032,8 +522,6 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
   const pageCount = Math.max(1, Math.ceil(filtered.length / size))
   const current = Math.min(page, pageCount)
   const pageRows = filtered.slice((current - 1) * size, current * size)
-  const first = filtered.length ? (current - 1) * size + 1 : 0
-  const last = Math.min(current * size, filtered.length)
 
   const totalOf = (key: ColKey, rows: Deal[]) => rows.reduce((s, r) => s + (r[key] as number), 0)
   const isNum = (c: Col) => c.kind === "money" || c.kind === "number"
@@ -1088,24 +576,6 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
     }
     return [...map.entries()]
   }, [groupBy, pageRows])
-
-  const filtersActive =
-    status.length > 0 || lawFirm.length > 0 || iso.length > 0 || colFilters.length > 0 || !!from || !!to || q !== ""
-  const reset = () => {
-    setSources(["deals"])
-    setAmountBands([])
-    setDates({})
-    setStatus([])
-    setLawFirm([])
-    setIso([])
-    setColFilters([])
-    setFrom("")
-    setTo("")
-    setRange("all")
-    setQ("")
-    setGroupBy("none")
-    setCols(DEFAULT_COLS)
-  }
 
   const head = (
     <tr className="bg-muted">
@@ -1209,299 +679,107 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
   )
 
   return (
-    <div
-      className={cn(
-        "flex min-w-0 flex-col text-[13px] [&_[data-slot=button]]:text-[13px]",
-        layout === "toolbar"
-          ? "h-[820px] gap-2"
-          : "h-[820px] gap-4 overflow-x-hidden lg:grid lg:min-h-0 lg:grid-cols-[18rem_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)_auto] lg:gap-x-4 lg:gap-y-2 lg:overflow-hidden",
-      )}
-    >
-      {layout === "toolbar" ? (
-        <>
-          <Toolbar>
-            <ToolbarReportLibrary
-              reports={savedReports}
-              categories={reportCategories}
-              activeId={openReport?.id ?? null}
-              modified={!!openReport && !sameView(openReport.view, snapshot)}
-              onSelect={(id) => {
-                const next = savedReports.find((x) => x.id === id)
-                setActiveReport(next?.id ?? "")
-                applyView(next ? next.view : PLAIN_VIEW)
-              }}
-              onSave={({ name, categoryId }) => {
-                const id = `r${Date.now()}`
-                setSavedReports((cur) => [...cur, { id, name, categoryId, view: snapshot }])
-                setActiveReport(id)
-              }}
-              onUpdate={(id) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, view: snapshot } : x)))}
-              onRename={(id, name) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, name } : x)))}
-              onDelete={(id) => {
-                setSavedReports((cur) => cur.filter((x) => x.id !== id))
-                if (id === activeReport) setActiveReport("")
-              }}
-              onCreateCategory={(name) => setReportCategories((cur) => [...cur, { id: `c${Date.now()}`, name }])}
-              onRenameCategory={(id, name) =>
-                setReportCategories((cur) => cur.map((c) => (c.id === id ? { ...c, name } : c)))
-              }
-              onDeleteCategory={(id) => {
-                setReportCategories((cur) => cur.filter((c) => c.id !== id))
-                setSavedReports((cur) => cur.map((x) => (x.categoryId === id ? { ...x, categoryId: null } : x)))
-              }}
-            />
-            <ToolbarSearch
-              placeholder="Search name or funding ID"
-              aria-label="Search the report"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <ToolbarDateRange
-              value={dates}
-              onValueChange={setDates}
-              dataRange={dataRange}
-              fields={DATE_FIELDS}
-              field={dateField}
-              onFieldChange={(f) => setDateField(f as ColKey)}
-            />
-            <ToolbarFilterDialog
-              filters={reportFilters}
-              values={{ source: sources, status, lawFirm, iso, amount: amountBands }}
-              onValuesChange={(v) => {
-                setSources(v.source?.length ? v.source : ["deals"])
-                setStatus(v.status ?? [])
-                setLawFirm(v.lawFirm ?? [])
-                setIso(v.iso ?? [])
-                setAmountBands(v.amount ?? [])
-              }}
-              columns={FILTER_COLUMNS}
-              conditions={conditions}
-              onConditionsChange={setConditions}
-            />
-            <CustomizeMenu
-              label="Columns"
-              itemsLabel="Columns"
-              searchPlaceholder="Search columns"
-              items={COLUMNS.map((c) => ({ key: c.key, label: c.label }))}
-              value={cols}
-              onValueChange={(v) => setCols(v.length ? v : cols)}
-              defaultValue={DEFAULT_COLS}
-            >
-              <CustomizeOption
-                label="Group by"
-                value={groupBy}
-                onValueChange={setGroupBy}
-                options={[
-                  { value: "none", label: "None" },
-                  { value: "lawFirm", label: "Law firm" },
-                  { value: "iso", label: "ISO" },
-                  { value: "status", label: "Status" },
-                ]}
-              />
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-muted-foreground text-xs font-medium">Formulas</span>
-                <FormulaDialog />
-              </div>
-            </CustomizeMenu>
-            <div aria-hidden="true" className="-mr-2 ml-auto" />
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              className="gap-2 font-normal"
-              onClick={() => setChatOpen(true)}
-            >
-              <SparklesIcon aria-hidden="true" />
-              <ToolbarLabel>Chat</ToolbarLabel>
-            </Button>
-            <ToolbarExport onExport={() => {}} onEmail={() => new Promise<void>((done) => setTimeout(done, 600))} />
-          </Toolbar>
-        </>
-      ) : null}
-
-      {layout === "panel" ? (
-        <>
-          {/* Left: filters card */}
-          <div className="w-full shrink-0 lg:col-start-1 lg:row-start-2 lg:flex lg:h-full lg:min-h-0 lg:flex-col lg:overflow-hidden">
-            <Card className="flex min-h-0 w-full flex-1 flex-col overflow-hidden pt-2">
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-x-hidden overflow-y-auto overscroll-y-auto px-(--card-spacing) pt-0 pb-(--card-spacing) [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="grid shrink-0 grid-cols-2 gap-2">
-                  {SOURCES.map((s) => {
-                    const on = sources.includes(s.id)
-                    return (
-                      <Button
-                        key={s.id}
-                        type="button"
-                        size="sm"
-                        variant={on ? "default" : "outline"}
-                        aria-pressed={on}
-                        onClick={() =>
-                          setSources((cur) =>
-                            on ? (cur.length > 1 ? cur.filter((x) => x !== s.id) : cur) : [...cur, s.id],
-                          )
-                        }
-                        className="h-auto w-full min-w-0 shrink-0 flex-col gap-0 py-1 leading-tight"
-                      >
-                        <span className="truncate">{s.label}</span>
-                        <span
-                          className={cn(
-                            "text-[10px] font-normal tabular-nums",
-                            on ? "text-primary-foreground/80" : "text-muted-foreground",
-                          )}
-                        >
-                          {s.rows.toLocaleString("en-US")} rows
-                        </span>
-                      </Button>
-                    )
-                  })}
-                </div>
-
-                <div className="grid min-w-0 grid-cols-1 gap-2">
-                  <ColumnPicker selected={cols} onChange={setCols} />
-                  <FormulaDialog />
-                  <div className="grid min-w-0 gap-2">
-                    <Label>Group by</Label>
-                    <Select
-                      ariaLabel="Group by"
-                      value={groupBy}
-                      onChange={setGroupBy}
-                      options={[
-                        { value: "none", label: "None" },
-                        { value: "lawFirm", label: "Law Firm" },
-                        { value: "iso", label: "Referring ISO" },
-                        { value: "status", label: "Status" },
-                      ]}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-1">
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-range">Range</Label>
-                    <Select
-                      id="report-range"
-                      value={range}
-                      onChange={setRange}
-                      options={[
-                        { value: "all", label: "All" },
-                        { value: "today", label: "Today" },
-                        { value: "yesterday", label: "Yesterday" },
-                        { value: "7d", label: "Last 7 days" },
-                        { value: "30d", label: "Last 30 days" },
-                        { value: "month", label: "This month" },
-                        { value: "last-month", label: "Last month" },
-                        { value: "year", label: "This year" },
-                      ]}
-                    />
-                  </div>
-                  <div className="col-span-2 grid grid-cols-2 gap-3 lg:col-span-1 lg:grid-cols-1">
-                    <DateField id="report-from" label="From" value={from} onChange={setFrom} />
-                    <DateField id="report-to" label="To" value={to} onChange={setTo} />
-                  </div>
-                  <ChipsCombobox
-                    id="report-value-lawFirm"
-                    label="Law Firm"
-                    values={lawFirm}
-                    options={lawFirms}
-                    onChange={setLawFirm}
-                  />
-                  <ChipsCombobox
-                    id="report-value-iso"
-                    label="Referring ISO"
-                    values={iso}
-                    options={isos}
-                    onChange={setIso}
-                  />
-                  <ChipsCombobox
-                    id="report-status"
-                    label="Status"
-                    values={status}
-                    options={statuses}
-                    onChange={setStatus}
-                    placeholder="all"
-                  />
-                  <ColumnFilters
-                    filters={colFilters}
-                    onApply={(f) => setColFilters((cur) => [...cur.filter((x) => x.id !== f.id), f])}
-                    onRemove={(id) => setColFilters((cur) => cur.filter((x) => x.id !== id))}
-                  />
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-sort">Sort</Label>
-                    <Select
-                      id="report-sort"
-                      value={sort?.key === "name" ? "name" : sort?.key === "amount" ? "amount" : "date"}
-                      onChange={(v) =>
-                        setSort(
-                          v === "name"
-                            ? { key: "name", dir: "asc" }
-                            : v === "amount"
-                              ? { key: "amount", dir: "desc" }
-                              : null,
-                        )
-                      }
-                      options={[
-                        { value: "date", label: "Date" },
-                        { value: "name", label: "Name" },
-                        { value: "amount", label: "Amount" },
-                      ]}
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="report-page-size">Rows per page</Label>
-                    <Select
-                      id="report-page-size"
-                      value={pageSize}
-                      onChange={setPageSize}
-                      options={["50", "100", "250", "500", "1000"].map((v) => ({
-                        value: v,
-                        label: Number(v).toLocaleString("en-US"),
-                      }))}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div
-                data-slot="card-footer"
-                className="bg-muted/50 flex shrink-0 flex-col items-center gap-2 rounded-b-xl border-t p-(--card-spacing)"
-              >
-                <Button type="button" variant="outline" className="w-full" onClick={() => setChatOpen(true)}>
-                  Chat
-                </Button>
-                {filtersActive ? (
-                  <Button type="button" variant="destructive" size="lg" className="w-full" onClick={reset}>
-                    Reset
-                  </Button>
-                ) : null}
-              </div>
-            </Card>
+    <div className={cn("flex min-w-0 flex-col text-[13px] [&_[data-slot=button]]:text-[13px]", "h-[820px] gap-2")}>
+      <Toolbar>
+        <ToolbarReportLibrary
+          reports={savedReports}
+          categories={reportCategories}
+          activeId={openReport?.id ?? null}
+          modified={!!openReport && !sameView(openReport.view, snapshot)}
+          onSelect={(id) => {
+            const next = savedReports.find((x) => x.id === id)
+            setActiveReport(next?.id ?? "")
+            applyView(next ? next.view : PLAIN_VIEW)
+          }}
+          onSave={({ name, categoryId }) => {
+            const id = `r${Date.now()}`
+            setSavedReports((cur) => [...cur, { id, name, categoryId, view: snapshot }])
+            setActiveReport(id)
+          }}
+          onUpdate={(id) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, view: snapshot } : x)))}
+          onRename={(id, name) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, name } : x)))}
+          onDelete={(id) => {
+            setSavedReports((cur) => cur.filter((x) => x.id !== id))
+            if (id === activeReport) setActiveReport("")
+          }}
+          onCreateCategory={(name) => setReportCategories((cur) => [...cur, { id: `c${Date.now()}`, name }])}
+          onRenameCategory={(id, name) =>
+            setReportCategories((cur) => cur.map((c) => (c.id === id ? { ...c, name } : c)))
+          }
+          onDeleteCategory={(id) => {
+            setReportCategories((cur) => cur.filter((c) => c.id !== id))
+            setSavedReports((cur) => cur.map((x) => (x.categoryId === id ? { ...x, categoryId: null } : x)))
+          }}
+        />
+        <ToolbarSearch
+          placeholder="Search name or funding ID"
+          aria-label="Search the report"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+        />
+        <ToolbarDateRange
+          value={dates}
+          onValueChange={setDates}
+          dataRange={dataRange}
+          fields={DATE_FIELDS}
+          field={dateField}
+          onFieldChange={(f) => setDateField(f as ColKey)}
+        />
+        <ToolbarFilterDialog
+          filters={reportFilters}
+          values={{ source: sources, status, lawFirm, iso, amount: amountBands }}
+          onValuesChange={(v) => {
+            setSources(v.source?.length ? v.source : ["deals"])
+            setStatus(v.status ?? [])
+            setLawFirm(v.lawFirm ?? [])
+            setIso(v.iso ?? [])
+            setAmountBands(v.amount ?? [])
+          }}
+          columns={FILTER_COLUMNS}
+          conditions={conditions}
+          onConditionsChange={setConditions}
+        />
+        <CustomizeMenu
+          label="Columns"
+          itemsLabel="Columns"
+          searchPlaceholder="Search columns"
+          items={COLUMNS.map((c) => ({ key: c.key, label: c.label }))}
+          value={cols}
+          onValueChange={(v) => setCols(v.length ? v : cols)}
+          defaultValue={DEFAULT_COLS}
+        >
+          <CustomizeOption
+            label="Group by"
+            value={groupBy}
+            onValueChange={setGroupBy}
+            options={[
+              { value: "none", label: "None" },
+              { value: "lawFirm", label: "Law firm" },
+              { value: "iso", label: "ISO" },
+              { value: "status", label: "Status" },
+            ]}
+          />
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-muted-foreground text-xs font-medium">Formulas</span>
+            <FormulaDialog />
           </div>
-
-          {/* Top bar */}
-          <div className="flex min-w-0 shrink-0 flex-col gap-2 lg:col-start-2 lg:row-start-1">
-            <div className="flex min-w-0 shrink-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
-              <ReportLibraryMenu active={activeReport} onPick={setActiveReport} />
-              <SfInput
-                id="report-search"
-                className="w-full min-w-0 sm:min-w-[12rem] sm:flex-1"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                aria-label="Search"
-              />
-              <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:shrink-0">
-                <span className="text-muted-foreground text-[13px] tabular-nums">
-                  {filtered.length.toLocaleString("en-US")} rows total
-                </span>
-                <Button type="button" aria-label="Export">
-                  Export
-                </Button>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : null}
+        </CustomizeMenu>
+        <div aria-hidden="true" className="-mr-2 ml-auto" />
+        <Button
+          type="button"
+          variant="outline"
+          size="lg"
+          className="gap-2 font-normal"
+          onClick={() => setChatOpen(true)}
+        >
+          <SparklesIcon aria-hidden="true" />
+          <ToolbarLabel>Chat</ToolbarLabel>
+        </Button>
+        <ToolbarExport onExport={() => {}} onEmail={() => new Promise<void>((done) => setTimeout(done, 600))} />
+      </Toolbar>
 
       {/* Table */}
-      <div className="flex min-w-0 flex-1 flex-col gap-2 overflow-x-hidden lg:col-start-2 lg:row-start-2 lg:h-full lg:min-h-0">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-x-hidden">
         <Card
           className={cn(
             // No padding: the title and Total bands reach the card's edges, and the card's rounded corners clip them.
@@ -1592,28 +870,13 @@ export function SimplyFundingReport({ layout = "panel" }: { layout?: "panel" | "
       </div>
 
       {/* Footer */}
-      {layout === "toolbar" ? (
-        <ListPagination
-          page={current}
-          pageSize={size}
-          total={filtered.length}
-          onPageChange={setPage}
-          onPageSizeChange={(n) => setPageSize(String(n))}
-        />
-      ) : (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:col-start-2 lg:row-start-3">
-          <span className="text-muted-foreground mr-auto text-[13px] tabular-nums">
-            Showing {first.toLocaleString("en-US")}-{last.toLocaleString("en-US")} of{" "}
-            {filtered.length.toLocaleString("en-US")}
-          </span>
-          <Button type="button" variant="outline" disabled={current <= 1} onClick={() => setPage(current - 1)}>
-            Previous
-          </Button>
-          <Button type="button" variant="outline" disabled={current >= pageCount} onClick={() => setPage(current + 1)}>
-            Next
-          </Button>
-        </div>
-      )}
+      <ListPagination
+        page={current}
+        pageSize={size}
+        total={filtered.length}
+        onPageChange={setPage}
+        onPageSizeChange={(n) => setPageSize(String(n))}
+      />
 
       <Dialog open={detail != null} onOpenChange={(o) => !o && setDetail(null)}>
         <DialogContent className="sm:max-w-lg">
