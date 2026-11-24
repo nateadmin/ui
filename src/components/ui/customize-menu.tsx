@@ -16,6 +16,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
  *   - search when the list is long
  *   - Show all, and Reset back to the defaults
  *   - extra settings (row height, labels...) go in as children, under the list
+ *   - sections, when one menu covers more than one list (a report with two
+ *     tables): a switch on top picks the section, and the app passes that
+ *     section's items, value and children
  *
  * Shown rows sit on top in their order; hidden rows follow, in the default
  * order. The value is the ordered list of shown keys. In an app, save it to the
@@ -33,6 +36,10 @@ function CustomizeMenu<K extends string>({
   itemsLabel = "Parts",
   searchPlaceholder = "Search",
   children,
+  sections,
+  section,
+  onSectionChange,
+  disabled,
   align = "start",
   className,
 }: {
@@ -49,6 +56,13 @@ function CustomizeMenu<K extends string>({
   searchPlaceholder?: string
   /** Extra settings shown under the list. Use CustomizeOption for each. */
   children?: React.ReactNode
+  /** Two or more lists in one menu. A switch on top picks one; pass that section's items, value,
+      defaultValue and children. The button counts the open section. */
+  sections?: Array<{ key: string; label: string }>
+  section?: string
+  onSectionChange?: (key: string) => void
+  /** Locks the button, for example while a fixed report decides its columns. */
+  disabled?: boolean
   align?: "start" | "center" | "end"
   className?: string
 }) {
@@ -109,6 +123,7 @@ function CustomizeMenu<K extends string>({
             variant="outline"
             size="lg"
             data-slot="customize-menu-trigger"
+            disabled={disabled}
             className={cn("gap-2 font-normal", className)}
           />
         }
@@ -126,6 +141,27 @@ function CustomizeMenu<K extends string>({
       >
         {/* Two columns side by side, the list on the left and the settings on the
             right, so the menu stays short. On a phone they stack. */}
+        {sections && sections.length > 1 ? (
+          <div className="border-b p-2">
+            <div role="radiogroup" aria-label="Section" className="bg-muted flex rounded-md p-0.5">
+              {sections.map((x) => (
+                <button
+                  key={x.key}
+                  type="button"
+                  role="radio"
+                  aria-checked={section === x.key}
+                  onClick={() => {
+                    setQuery("")
+                    onSectionChange?.(x.key)
+                  }}
+                  className="text-muted-foreground aria-checked:bg-background aria-checked:text-foreground focus-visible:ring-ring/50 h-7 flex-1 cursor-pointer rounded px-3 text-xs font-medium whitespace-nowrap outline-none focus-visible:ring-2 aria-checked:shadow-sm"
+                >
+                  {x.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
         <div className="flex max-h-[min(30rem,calc(var(--available-height)-3rem))] flex-col sm:flex-row">
           <div className="flex min-h-40 min-w-56 flex-1 flex-col sm:min-h-0">
             {items.length > 10 ? (

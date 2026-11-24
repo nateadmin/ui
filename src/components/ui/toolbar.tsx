@@ -659,6 +659,8 @@ type ToolbarFilterGroup = {
   /** Always keeps at least one option, like which data a report reads. No Clear, not counted on the
       Filters button, left as is by Clear all, and its last selected option can't be turned off. */
   required?: boolean
+  /** Shown but locked, for example while a fixed report decides it. */
+  disabled?: boolean
 }
 
 type ToolbarFilterValues = Record<string, string[]>
@@ -849,6 +851,9 @@ function ToolbarFilterDialog({
   columns,
   conditions = {},
   onConditionsChange,
+  children,
+  extraCount = 0,
+  onClearAll,
   className,
 }: {
   filters: ToolbarFilterGroup[]
@@ -859,6 +864,13 @@ function ToolbarFilterDialog({
   /** Each column's condition, by column id. Apply them with matchesCondition. */
   conditions?: ToolbarColumnConditions
   onConditionsChange?: (conditions: ToolbarColumnConditions) => void
+  /** The app's own filter controls, shown after the groups, for filters these parts do not cover yet.
+      Count them with extraCount and clear them in onClearAll. */
+  children?: React.ReactNode
+  /** How many of the app's own filters (children) are applied; added to the number on the button. */
+  extraCount?: number
+  /** Runs after Clear all, so the app can clear its own filters too. */
+  onClearAll?: () => void
   title?: string
   /** Groups with more options than this show a searchable dropdown instead of pills. */
   pillLimit?: number
@@ -868,7 +880,9 @@ function ToolbarFilterDialog({
   const activeConditions = Object.values(conditions).filter(conditionActive).length
   // Each narrowed group counts once; a single-choice group counts its choice.
   const count =
-    filters.reduce((n, f) => n + (f.required ? 0 : Math.min(values[f.id]?.length ?? 0, 1)), 0) + activeConditions
+    filters.reduce((n, f) => n + (f.required ? 0 : Math.min(values[f.id]?.length ?? 0, 1)), 0) +
+    activeConditions +
+    extraCount
   /** Multi-select groups that aren't required start with everything selected. */
   const allByDefault = (g: ToolbarFilterGroup) => g.multiple !== false && !g.required
   const isOn = (g: ToolbarFilterGroup, option: string) => {
@@ -930,7 +944,11 @@ function ToolbarFilterDialog({
         </DialogHeader>
         <div className="-mx-4 max-h-[60vh] flex flex-col gap-5 overflow-y-auto px-4 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {filters.map((group) => (
-            <fieldset key={group.id} className="flex flex-col gap-2">
+            <fieldset
+              key={group.id}
+              disabled={group.disabled}
+              className={cn("flex flex-col gap-2", group.disabled && "opacity-50")}
+            >
               {/* A legend is not a flex item, so the gap above does not reach it; it gets its own margin. */}
               <legend className="mb-2 flex w-full items-center justify-between gap-3 text-sm font-medium">
                 <span>
@@ -1013,6 +1031,7 @@ function ToolbarFilterDialog({
               ))}
             </fieldset>
           ) : null}
+          {children}
         </div>
         <DialogFooter>
           <Button
@@ -1024,6 +1043,7 @@ function ToolbarFilterDialog({
                 Object.fromEntries(filters.filter((f) => f.required).map((f) => [f.id, values[f.id] ?? []])),
               )
               if (showColumns) onConditionsChange!({})
+              onClearAll?.()
             }}
           >
             Clear all
@@ -1303,6 +1323,7 @@ function ToolbarReportLibrary({
   onCreateCategory,
   onRenameCategory,
   onDeleteCategory,
+  deleteCategoryNote = "Its reports are kept and move to Uncategorized.",
   className,
 }: {
   reports: ToolbarReport[]
@@ -1323,6 +1344,8 @@ function ToolbarReportLibrary({
   onCreateCategory?: (name: string) => void
   onRenameCategory?: (id: string, name: string) => void
   onDeleteCategory?: (id: string) => void
+  /** What deleting a category does to its reports, shown in the confirmation. Say it if the app deletes them. */
+  deleteCategoryNote?: string
   className?: string
 }) {
   const [open, setOpen] = React.useState(false)
@@ -1723,7 +1746,7 @@ function ToolbarReportLibrary({
               <DialogHeader>
                 <DialogTitle>Delete category</DialogTitle>
                 <DialogDescription>
-                  Delete "{categoryName(pending.id)}"? Its reports are kept and move to Uncategorized.
+                  Delete "{categoryName(pending.id)}"? {deleteCategoryNote}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
