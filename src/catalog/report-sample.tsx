@@ -1,26 +1,8 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { SparklesIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { CustomizeOption } from "@/components/ui/customize-menu"
+import { Report, type ReportItem } from "@/components/ui/report"
 import {
-  ReportGridCard,
-  ReportGridCell,
-  ReportGridGroupLabel,
-  ReportGridColumns,
-  ReportGridRow,
-  ReportGridScroll,
-  ReportGridTable,
-  ReportGridTotalRow,
-} from "@/components/ui/report-grid"
-import { CustomizeMenu, CustomizeOption } from "@/components/ui/customize-menu"
-import { ListPagination } from "@/components/ui/list-pagination"
-import {
-  Toolbar,
-  ToolbarDateRange,
-  ToolbarExport,
-  ToolbarFilterDialog,
-  ToolbarLabel,
-  ToolbarReportLibrary,
-  ToolbarSearch,
   matchesCondition,
   type ToolbarColumnConditions,
   type ToolbarColumnFilter,
@@ -34,8 +16,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 
 /*
  * The Report page for the Simply Funding Data app, with made-up rows (this
- * repo is public). Its top bar, grid and footer are the library's own components;
- * only the data and a few small pieces live here.
+ * repo is public). The page is the library's Report component: this file only
+ * supplies the data, the filter definitions and what happens on save or export.
  */
 
 /* ---------- Small local pieces ---------- */
@@ -501,6 +483,10 @@ export function SimplyFundingReport() {
   const current = Math.min(page, pageCount)
   const pageRows = filtered.slice((current - 1) * size, current * size)
 
+  const cellText = (c: Col, r: Deal) => {
+    const v = r[c.key]
+    return c.kind === "money" ? money(v as number) : c.kind === "number" ? (v as number).toFixed(2) : String(v)
+  }
   const totalOf = (key: ColKey, rows: Deal[]) => rows.reduce((s, r) => s + (r[key] as number), 0)
   const isNum = (c: Col) => c.kind === "money" || c.kind === "number"
   const cell = (c: Col, r: Deal) => {
@@ -516,259 +502,155 @@ export function SimplyFundingReport() {
     return String(v)
   }
 
-  /* Column widths come from every row in the report (plus the title and the Total), not just the rows on
-     this page, so sorting or paging never moves a column. Text is measured once per distinct value. */
-  const colWidths = useMemo(() => {
-    const ctx = document.createElement("canvas").getContext("2d")
-    const family = getComputedStyle(document.body).fontFamily || "system-ui, sans-serif"
-    const measure = (text: string, font: string, spacing = 0) => {
-      if (!ctx) return text.length * 8
-      ctx.font = font
-      return ctx.measureText(text).width + spacing * text.length
-    }
-    const text = (c: Col, r: Deal) => {
-      const v = r[c.key]
-      return c.kind === "money" ? money(v as number) : c.kind === "number" ? (v as number).toFixed(2) : String(v)
-    }
-    return columns.map((c, i) => {
-      const seen = new Set(filtered.map((r) => text(c, r)))
-      let widest = 0
-      for (const t of seen) widest = Math.max(widest, measure(t, `400 13px ${family}`))
-      const total = i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""
-      widest = Math.max(widest, measure(total, `600 13px ${family}`))
-      // Title: 11px semibold caps with wide letter spacing, then the 11px sort arrows after a 4px gap.
-      widest = Math.max(widest, measure(c.label.toUpperCase(), `600 11px ${family}`, 11 * 0.05) + 15)
-      // Cell padding 8px a side, the first column 16px on the left, a few px for rounding.
-      return Math.ceil(widest + 16 + (i === 0 ? 8 : 0) + 4)
-    })
+  // The widest text of each column over the whole report, so widths are settled before any sort or page.
+  const widest = useMemo(() => {
+    const out: Record<string, string[]> = {}
+    for (const c of columns) out[c.key] = [...new Set(filtered.map((r) => cellText(c, r)))]
+    return out
   }, [columns, filtered])
 
-  // Group by: section header, rows, then a subtotal row per group.
-  const groups = useMemo(() => {
-    if (groupBy === "none") return null
+  // The grid's lines: rows, or groups with their rows and a subtotal.
+  const items = useMemo<ReportItem<Deal>[]>(() => {
+    if (groupBy === "none") return pageRows.map((r) => ({ kind: "row", key: String(r.id), row: r }))
     const key = groupBy as ColKey
     const map = new Map<string, Deal[]>()
-    for (const r of pageRows) {
-      const g = String(r[key])
-      map.set(g, [...(map.get(g) ?? []), r])
+    for (const r of pageRows) map.set(String(r[key]), [...(map.get(String(r[key])) ?? []), r])
+    const out: ReportItem<Deal>[] = []
+    for (const [g, rows] of map) {
+      const isCollapsed = collapsed.includes(g)
+      const units = `(${rows.length} ${rows.length === 1 ? "unit" : "units"})`
+      out.push({
+        kind: "group",
+        key: `g:${g}`,
+        label: g,
+        count: units,
+        collapsed: isCollapsed,
+        onToggle: () => setCollapsed((cur) => (isCollapsed ? cur.filter((x) => x !== g) : [...cur, g])),
+      })
+      if (isCollapsed) continue
+      for (const r of rows) out.push({ kind: "row", key: String(r.id), row: r })
+      out.push({
+        kind: "subtotal",
+        key: `s:${g}`,
+        label: `${g} ${units}`,
+        values: Object.fromEntries(
+          columns.filter((c) => c.kind === "money").map((c) => [c.key, money(totalOf(c.key, rows))]),
+        ),
+      })
     }
-    return [...map.entries()]
-  }, [groupBy, pageRows])
-
-  // The titles' sorting and drag-to-move, with the line that shows where a column lands, are the library's.
-  const head = (
-    <ReportGridColumns
-      columns={columns.map((c) => ({ key: c.key, label: c.label }))}
-      sort={sort}
-      onSort={(key) => sortBy(key as ColKey)}
-      onReorder={(key, target, side) =>
-        setCols((cur) => {
-          const next = cur.filter((k) => k !== key)
-          next.splice(next.indexOf(target as ColKey) + (side === "after" ? 1 : 0), 0, key as ColKey)
-          return next
-        })
-      }
-      headClassName="sticky top-0 z-10"
-    />
-  )
-
-  const row = (r: Deal) => (
-    <ReportGridRow key={r.id} clickable onClick={() => setDetail(r)}>
-      {columns.map((c) => (
-        <ReportGridCell key={c.key} numeric={isNum(c)}>
-          {cell(c, r)}
-        </ReportGridCell>
-      ))}
-    </ReportGridRow>
-  )
-
-  const subtotal = (label: string, rows: Deal[], strong = true) => (
-    <ReportGridRow tone={strong ? "subtotal" : "subtotal-light"}>
-      {columns.map((c, i) => (
-        <ReportGridCell key={c.key} numeric={isNum(c)}>
-          {i === 0
-            ? `${label} (${rows.length} ${rows.length === 1 ? "unit" : "units"})`
-            : c.kind === "money"
-              ? money(totalOf(c.key, rows))
-              : ""}
-        </ReportGridCell>
-      ))}
-    </ReportGridRow>
-  )
+    return out
+  }, [groupBy, pageRows, collapsed, columns])
 
   return (
-    <div className={cn("flex min-w-0 flex-col text-[13px] [&_[data-slot=button]]:text-[13px]", "h-[820px] gap-2")}>
-      <Toolbar>
-        <ToolbarReportLibrary
-          reports={savedReports}
-          categories={reportCategories}
-          activeId={openReport?.id ?? null}
-          modified={!!openReport && !sameView(openReport.view, snapshot)}
-          onSelect={(id) => {
+    <>
+      <Report<Deal>
+        className="h-[820px]"
+        onChat={() => setChatOpen(true)}
+        search={{
+          placeholder: "Search name or funding ID",
+          "aria-label": "Search the report",
+          value: q,
+          onChange: (e) => setQ(e.target.value),
+        }}
+        library={{
+          reports: savedReports,
+          categories: reportCategories,
+          activeId: openReport?.id ?? null,
+          modified: !!openReport && !sameView(openReport.view, snapshot),
+          onSelect: (id) => {
             const next = savedReports.find((x) => x.id === id)
             setActiveReport(next?.id ?? "")
             applyView(next ? next.view : PLAIN_VIEW)
-          }}
-          onSave={({ name, categoryId }) => {
+          },
+          onSave: ({ name, categoryId }) => {
             const id = `r${Date.now()}`
             setSavedReports((cur) => [...cur, { id, name, categoryId, view: snapshot }])
             setActiveReport(id)
-          }}
-          onUpdate={(id) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, view: snapshot } : x)))}
-          onRename={(id, name) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, name } : x)))}
-          onDelete={(id) => {
+          },
+          onUpdate: (id) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, view: snapshot } : x))),
+          onRename: (id, name) => setSavedReports((cur) => cur.map((x) => (x.id === id ? { ...x, name } : x))),
+          onDelete: (id) => {
             setSavedReports((cur) => cur.filter((x) => x.id !== id))
             if (id === activeReport) setActiveReport("")
-          }}
-          onCreateCategory={(name) => setReportCategories((cur) => [...cur, { id: `c${Date.now()}`, name }])}
-          onRenameCategory={(id, name) =>
-            setReportCategories((cur) => cur.map((c) => (c.id === id ? { ...c, name } : c)))
-          }
-          onDeleteCategory={(id) => {
+          },
+          onCreateCategory: (name) => setReportCategories((cur) => [...cur, { id: `c${Date.now()}`, name }]),
+          onRenameCategory: (id, name) =>
+            setReportCategories((cur) => cur.map((c) => (c.id === id ? { ...c, name } : c))),
+          onDeleteCategory: (id) => {
             setReportCategories((cur) => cur.filter((c) => c.id !== id))
             setSavedReports((cur) => cur.map((x) => (x.categoryId === id ? { ...x, categoryId: null } : x)))
-          }}
-        />
-        <ToolbarSearch
-          placeholder="Search name or funding ID"
-          aria-label="Search the report"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <ToolbarDateRange
-          value={dates}
-          onValueChange={setDates}
-          dataRange={dataRange}
-          fields={DATE_FIELDS}
-          field={dateField}
-          onFieldChange={(f) => setDateField(f as ColKey)}
-        />
-        <ToolbarFilterDialog
-          filters={reportFilters}
-          values={{ source: sources, status, lawFirm, iso, amount: amountBands }}
-          onValuesChange={(v) => {
+          },
+        }}
+        columnsMenu={{
+          items: COLUMNS.map((c) => ({ key: c.key, label: c.label })),
+          value: cols,
+          onValueChange: (v) => setCols(v.length ? (v as ColKey[]) : cols),
+          defaultValue: DEFAULT_COLS,
+          children: (
+            <>
+              <CustomizeOption
+                label="Group by"
+                value={groupBy}
+                onValueChange={setGroupBy}
+                options={[
+                  { value: "none", label: "None" },
+                  { value: "lawFirm", label: "Law firm" },
+                  { value: "iso", label: "ISO" },
+                  { value: "status", label: "Status" },
+                ]}
+              />
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-muted-foreground text-xs font-medium">Formulas</span>
+                <FormulaDialog />
+              </div>
+            </>
+          ),
+        }}
+        dateRange={{
+          value: dates,
+          onValueChange: setDates,
+          dataRange,
+          fields: DATE_FIELDS,
+          field: dateField,
+          onFieldChange: (f) => setDateField(f as ColKey),
+        }}
+        filters={{
+          filters: reportFilters,
+          values: { source: sources, status, lawFirm, iso, amount: amountBands },
+          onValuesChange: (v) => {
             setSources(v.source?.length ? v.source : ["deals"])
             setStatus(v.status ?? [])
             setLawFirm(v.lawFirm ?? [])
             setIso(v.iso ?? [])
             setAmountBands(v.amount ?? [])
-          }}
-          columns={FILTER_COLUMNS}
-          conditions={conditions}
-          onConditionsChange={setConditions}
-        />
-        <CustomizeMenu
-          label="Columns"
-          itemsLabel="Columns"
-          searchPlaceholder="Search columns"
-          items={COLUMNS.map((c) => ({ key: c.key, label: c.label }))}
-          value={cols}
-          onValueChange={(v) => setCols(v.length ? v : cols)}
-          defaultValue={DEFAULT_COLS}
-        >
-          <CustomizeOption
-            label="Group by"
-            value={groupBy}
-            onValueChange={setGroupBy}
-            options={[
-              { value: "none", label: "None" },
-              { value: "lawFirm", label: "Law firm" },
-              { value: "iso", label: "ISO" },
-              { value: "status", label: "Status" },
-            ]}
-          />
-          <div className="flex items-center justify-between gap-4">
-            <span className="text-muted-foreground text-xs font-medium">Formulas</span>
-            <FormulaDialog />
-          </div>
-        </CustomizeMenu>
-        <div aria-hidden="true" className="-mr-2 ml-auto" />
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="gap-2 font-normal"
-          onClick={() => setChatOpen(true)}
-        >
-          <SparklesIcon aria-hidden="true" />
-          <ToolbarLabel>Chat</ToolbarLabel>
-        </Button>
-        <ToolbarExport onExport={() => {}} onEmail={() => new Promise<void>((done) => setTimeout(done, 600))} />
-      </Toolbar>
-
-      {/* Table */}
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-x-hidden">
-        <ReportGridCard className="h-full flex-1">
-          <h2 className="sr-only">Report</h2>
-          <div className="min-h-0 flex-1 overflow-hidden">
-            {filtered.length === 0 ? (
-              <div className="text-muted-foreground flex h-full items-center justify-center text-[13px]">
-                No rows match these filters.
-              </div>
-            ) : (
-              <ReportGridScroll>
-                <ReportGridTable
-                  className="min-w-full"
-                  style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0) }}
-                >
-                  <colgroup>
-                    {colWidths.map((w, i) => (
-                      <col key={columns[i]!.key} style={{ width: w }} />
-                    ))}
-                  </colgroup>
-                  <thead>{head}</thead>
-                  <tbody>
-                    {groups
-                      ? groups.map(([g, rows]) => {
-                          const isCollapsed = collapsed.includes(g)
-                          return (
-                            <GroupRows key={g}>
-                              <ReportGridRow
-                                tone="group"
-                                aria-expanded={!isCollapsed}
-                                onClick={() =>
-                                  setCollapsed((cur) => (isCollapsed ? cur.filter((x) => x !== g) : [...cur, g]))
-                                }
-                              >
-                                <ReportGridCell colSpan={columns.length}>
-                                  <ReportGridGroupLabel
-                                    collapsed={isCollapsed}
-                                    count={`(${rows.length} ${rows.length === 1 ? "unit" : "units"})`}
-                                  >
-                                    {g}
-                                  </ReportGridGroupLabel>
-                                </ReportGridCell>
-                              </ReportGridRow>
-                              {isCollapsed ? null : rows.map(row)}
-                              {isCollapsed ? null : subtotal(g, rows)}
-                            </GroupRows>
-                          )
-                        })
-                      : pageRows.map(row)}
-                  </tbody>
-                  <tfoot>
-                    <ReportGridTotalRow className="sticky bottom-0 z-10">
-                      {columns.map((c, i) => (
-                        <ReportGridCell key={c.key} numeric={isNum(c)} className="h-[calc(2rem+var(--hbar,0px))] pb-(--hbar)">
-                          {i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""}
-                        </ReportGridCell>
-                      ))}
-                    </ReportGridTotalRow>
-                  </tfoot>
-                </ReportGridTable>
-              </ReportGridScroll>
-            )}
-          </div>
-        </ReportGridCard>
-      </div>
-
-      {/* Footer */}
-      <ListPagination
-        page={current}
-        pageSize={size}
-        total={filtered.length}
-        onPageChange={setPage}
-        onPageSizeChange={(n) => setPageSize(String(n))}
+          },
+          columns: FILTER_COLUMNS,
+          conditions,
+          onConditionsChange: setConditions,
+        }}
+        exportMenu={{ onExport: () => {}, onEmail: () => new Promise<void>((done) => setTimeout(done, 600)) }}
+        grids={[
+          {
+            columns: columns.map((c) => ({ key: c.key, label: c.label, numeric: isNum(c) })),
+            items,
+            cell: (c, r) => cell(COLUMNS.find((x) => x.key === c.key)!, r),
+            widest,
+            totals: Object.fromEntries(
+              columns.filter((c) => c.kind === "money").map((c) => [c.key, money(totalOf(c.key, filtered))]),
+            ),
+            sort,
+            onSortChange: (next) => setSort(next as typeof sort),
+            onColumnsReorder: (keys) => setCols(keys as ColKey[]),
+            onRowClick: setDetail,
+          },
+        ]}
+        pagination={{
+          page: current,
+          pageSize: size,
+          total: filtered.length,
+          onPageChange: setPage,
+          onPageSizeChange: (n) => setPageSize(String(n)),
+        }}
       />
 
       <Dialog open={detail != null} onOpenChange={(o) => !o && setDetail(null)}>
@@ -790,10 +672,6 @@ export function SimplyFundingReport() {
       </Dialog>
 
       <ChatDialog open={chatOpen} onOpenChange={setChatOpen} />
-    </div>
+    </>
   )
-}
-
-function GroupRows({ children }: { children: ReactNode }) {
-  return <>{children}</>
 }

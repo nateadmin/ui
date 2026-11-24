@@ -318,8 +318,23 @@ const HBAR = 10 // the sideways scrollbar's track
 /** The thin scrollbar a report grid uses. Needs @nateadmin/ui/components.css (or styles.css). */
 const reportGridScrollbarClass = "ui-scrollbar"
 
-function ReportGridScroll({ children, className }: { children: React.ReactNode; className?: string }) {
+function ReportGridScroll({
+  children,
+  className,
+  onViewport,
+}: {
+  children: React.ReactNode
+  className?: string
+  /** Called when the grid scrolls or changes size, so the caller can draw only the rows in view. */
+  onViewport?: (view: { scrollTop: number; height: number }) => void
+}) {
   const box = React.useRef<HTMLDivElement>(null)
+  const onViewportRef = React.useRef(onViewport)
+  onViewportRef.current = onViewport
+  const reportViewport = () => {
+    const el = box.current
+    if (el) onViewportRef.current?.({ scrollTop: el.scrollTop, height: el.clientHeight })
+  }
   const vbar = React.useRef<HTMLDivElement>(null)
   const hbar = React.useRef<HTMLDivElement>(null)
   const [dims, setDims] = React.useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0, vh: 0 })
@@ -327,7 +342,7 @@ function ReportGridScroll({ children, className }: { children: React.ReactNode; 
   React.useEffect(() => {
     const el = box.current
     if (!el) return
-    const measure = () =>
+    const measure = () => {
       setDims({
         sh: el.scrollHeight,
         ch: el.clientHeight,
@@ -337,6 +352,8 @@ function ReportGridScroll({ children, className }: { children: React.ReactNode; 
         foot: el.querySelector("tfoot")?.getBoundingClientRect().height ?? 0,
         vh: vbar.current?.clientHeight ?? 0,
       })
+      reportViewport()
+    }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
@@ -395,6 +412,7 @@ function ReportGridScroll({ children, className }: { children: React.ReactNode; 
     usingBar.current = null
   }
   const onGrid = () => {
+    reportViewport()
     if (usingBar.current) return
     copyTop(box.current, vbar.current)
     copyLeft(box.current, hbar.current)

@@ -36,6 +36,13 @@ Do not import `styles.css` there; it would replace the app's colors. `components
 
 https://ui.wefoundd.com lists every component, built with the library itself. The header has Desktop, Tablet, and Mobile preview sizes and a light/dark switch. The URL keeps the current component, size, and theme, so links can be shared.
 
+## Pages are components
+
+A page type an app builds more than once (the reports page) is one component here, `Report`. It owns everything a person sees and does: the bar and its order, the grid, sorting, column widths, dragging, scrolling, the footer. An app passes data and handlers.
+
+- A catalog page holds placeholder data and handlers only. If a catalog page needs state or markup to make something look or behave right, that belongs in the component.
+- An app never assembles a page from the smaller parts, and never re-creates a behavior. If an app needs something the component does not do, add it to the component.
+
 ## Change a component
 
 1. Edit it under `src/components/ui/`. Add or update its examples in `src/catalog/entries.tsx`.
