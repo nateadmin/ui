@@ -129,11 +129,14 @@ function CustomizeMenu<K extends string>({
         }
       >
         <Settings2Icon aria-hidden="true" />
-        {label}
-        <span className="text-muted-foreground text-xs tabular-nums">
-          {shown.length}/{items.length}
+        {/* Inside a Toolbar that shows icons only, the text and arrow hide like every other part's. */}
+        <span data-toolbar-label="" className="inline-flex items-center gap-2">
+          {label}
+          <span className="text-muted-foreground text-xs tabular-nums">
+            {shown.length}/{items.length}
+          </span>
         </span>
-        <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
+        <ChevronDownIcon aria-hidden="true" data-toolbar-chevron="" className="text-muted-foreground" />
       </PopoverTrigger>
       <PopoverContent
         align={align}
