@@ -19,6 +19,8 @@ import {
  * that is a list of things you open). An app plugs its rows in and gets every
  * rule of the page from here, the same on every page and in every app:
  *
+ *   - filters are multi-select, always: anything a person could want more than
+ *     one of, they can pick more than one of
  *   - the bar, always in this order: Search, the filters, Filters (when there
  *     are more than fit), Export, then the page's actions with the main one
  *     last; icons only on a phone, and every part's icon is its own: two
@@ -48,15 +50,31 @@ type ListPageAction = {
   disabled?: boolean
 }
 
+type ListPageFilter = {
+  key: string
+  /** Shown before the value, as "Status: Active". */
+  label: string
+  /** Unique on the bar. */
+  icon: React.ReactNode
+  options: Array<{ value: string; label: string; color?: string }>
+  /** The picked values. Empty means every value. */
+  values: string[]
+  onValuesChange: (values: string[]) => void
+  /** Shown when nothing is picked. Default "All". */
+  placeholder?: string
+  className?: string
+}
+
 type ListPageProps<T> = {
   /** Search field. Any input props; leave out to hide it. */
   search?: React.ComponentProps<typeof ToolbarSearch>
   /**
    * Filters shown on the bar, each a dropdown ("Status: Active"). Keep it to the few people use most.
+   * Every filter is multi-select: a person can pick any number of values, and none picked means all.
    * Each needs its own `icon`: on a phone the bar shows icons only, so two filters with the same icon
    * cannot be told apart. No two parts of the bar may share an icon.
    */
-  filters?: Array<React.ComponentProps<typeof ToolbarFilter> & { key: string; icon: React.ReactNode }>
+  filters?: ListPageFilter[]
   /** Every other filter, behind one Filters button. */
   filterDialog?: React.ComponentProps<typeof ToolbarFilterDialog>
   /** Export: formats, download and email. */
@@ -157,7 +175,9 @@ function ListPage<T>({
       {notice}
       <Toolbar labels="icons-on-phones">
         {search ? <ToolbarSearch {...search} /> : null}
-        {filters?.map(({ key, ...filter }) => <ToolbarFilter key={key} {...(filter as React.ComponentProps<typeof ToolbarFilter>)} />)}
+        {filters?.map(({ key, placeholder, ...filter }) => (
+          <ToolbarFilter key={key} multiple placeholder={placeholder ?? "All"} {...filter} />
+        ))}
         {filterDialog ? <ToolbarFilterDialog {...filterDialog} /> : null}
         {exportMenu ? <ToolbarExport {...exportMenu} /> : null}
         {actions?.map((action) => (
@@ -202,4 +222,4 @@ function ListPage<T>({
 }
 
 export { ListPage }
-export type { ListPageProps, ListPageAction }
+export type { ListPageProps, ListPageAction, ListPageFilter }
