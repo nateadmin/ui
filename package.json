@@ -22,10 +22,11 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./styles.css": "./dist/styles.css"
+    "./styles.css": "./dist/styles.css",
+    "./components.css": "./dist/components.css"
   },
   "scripts": {
-    "build": "tsup && cp src/styles.css dist/styles.css",
+    "build": "tsup && cp src/styles.css src/components.css dist/",
     "typecheck": "tsc --noEmit",
     "changeset": "changeset",
     "release": "npm run build && changeset publish",

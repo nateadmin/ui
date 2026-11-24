@@ -20,6 +20,18 @@ Shared React UI library for every app. shadcn/ui (base-nova style, Base UI primi
 
 Each app sets its brand color by overriding `--primary`, `--primary-foreground`, `--ring`, and `--sidebar-primary` after the import, in both `:root` and `.dark`.
 
+## Adopt it in an app that has its own theme
+
+An app that already has a shadcn theme (same token names: `--primary`, `--border`, and so on) can take components one at a time and keep its own colors:
+
+```css
+@import "tailwindcss";
+@import "@nateadmin/ui/components.css";
+@source "../node_modules/@nateadmin/ui/dist/index.js";
+```
+
+Do not import `styles.css` there; it would replace the app's colors. `components.css` holds only what components need beyond Tailwind classes. The bundle is marked `"use client"`, so server pages can render components; call helpers such as `cn` only from client code.
+
 ## Catalog
 
 https://ui.wefoundd.com lists every component, built with the library itself. The header has Desktop, Tablet, and Mobile preview sizes and a light/dark switch. The URL keeps the current component, size, and theme, so links can be shared.
