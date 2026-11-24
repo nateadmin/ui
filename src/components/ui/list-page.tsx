@@ -21,7 +21,8 @@ import {
  *
  *   - the bar, always in this order: Search, the filters, Filters (when there
  *     are more than fit), Export, then the page's actions with the main one
- *     last; icons only on a phone
+ *     last; icons only on a phone, and every part's icon is its own: two
+ *     parts of one bar never share an icon, whatever kind of filter they are
  *   - the list: column titles that sort (up, down, then back to the list's own
  *     order), rows that open, bulk select, cards on a phone
  *   - the footer: page size, "Showing x-y of total", Previous, a page number
@@ -50,8 +51,12 @@ type ListPageAction = {
 type ListPageProps<T> = {
   /** Search field. Any input props; leave out to hide it. */
   search?: React.ComponentProps<typeof ToolbarSearch>
-  /** Filters shown on the bar, each a dropdown ("Status: Active"). Keep it to the few people use most. */
-  filters?: Array<React.ComponentProps<typeof ToolbarFilter> & { key: string }>
+  /**
+   * Filters shown on the bar, each a dropdown ("Status: Active"). Keep it to the few people use most.
+   * Each needs its own `icon`: on a phone the bar shows icons only, so two filters with the same icon
+   * cannot be told apart. No two parts of the bar may share an icon.
+   */
+  filters?: Array<React.ComponentProps<typeof ToolbarFilter> & { key: string; icon: React.ReactNode }>
   /** Every other filter, behind one Filters button. */
   filterDialog?: React.ComponentProps<typeof ToolbarFilterDialog>
   /** Export: formats, download and email. */
@@ -103,6 +108,20 @@ function ListPage<T>({
   placeholder,
   className,
 }: ListPageProps<T>) {
+  // Every icon on the bar is unique. Checked while developing, so a page that repeats one is caught at once.
+  if (process.env.NODE_ENV !== "production") {
+    const seen = new Map<unknown, string>()
+    const check = (icon: React.ReactNode, name: string) => {
+      const type = React.isValidElement(icon) ? icon.type : null
+      if (!type) return
+      const other = seen.get(type)
+      if (other) console.error(`ListPage: "${name}" and "${other}" use the same icon. Every part of the bar needs its own icon.`)
+      else seen.set(type, name)
+    }
+    for (const filter of filters ?? []) check(filter.icon, filter.label ?? filter.key)
+    for (const action of actions ?? []) check(action.icon, action.label)
+  }
+
   const served = total != null // the server pages and sorts
   const [ownPage, setOwnPage] = React.useState(1)
   const [ownSort, setOwnSort] = React.useState<ListSort>(null)

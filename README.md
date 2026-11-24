@@ -40,6 +40,7 @@ https://ui.wefoundd.com lists every component, built with the library itself. Th
 
 A page type an app builds more than once (the reports page) is one component here, `Report`. It owns everything a person sees and does: the bar and its order, the grid, sorting, column widths, dragging, scrolling, the footer. An app passes data and handlers.
 
+- Every icon on a bar is unique. A bar shows icons only on a phone, so two parts with the same icon cannot be told apart. This holds for every kind of part: filters, actions, menus. `ListPage` requires an icon on each filter and reports a repeat while developing.
 - A catalog page holds placeholder data and handlers only. If a catalog page needs state or markup to make something look or behave right, that belongs in the component.
 - An app never assembles a page from the smaller parts, and never re-creates a behavior. If an app needs something the component does not do, add it to the component.
 
