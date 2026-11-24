@@ -68,7 +68,8 @@ function PageSizeMenu({
         </span>
         <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" side="top">
+      {/* As wide as its widest size, not as wide as the button. */}
+      <DropdownMenuContent align="start" side="top" className="w-auto min-w-0">
         <DropdownMenuRadioGroup value={String(pageSize)} onValueChange={(v: unknown) => onPageSizeChange(Number(v))}>
           {pageSizes.map((size) => (
             <DropdownMenuRadioItem key={size} value={String(size)} closeOnClick className="tabular-nums">
