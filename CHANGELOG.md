@@ -1,5 +1,13 @@
 # @nateadmin/ui
 
+## 0.3.0
+
+### Minor Changes
+
+- e6e7c2e: CustomizeMenu can be locked with `disabled`. ToolbarReportLibrary takes `deleteCategoryNote`, so an app that deletes a category's reports with it says so in the confirmation.
+- e6e7c2e: CustomizeMenu: sections. One menu can cover more than one list, such as a report with two tables: a switch on top picks the section and the app passes that section's columns and settings.
+- e6e7c2e: ToolbarFilterDialog: an app can add its own filter controls inside the dialog (children, counted with extraCount and cleared through onClearAll), and a filter group can be locked with `disabled`. For apps moving over one page at a time, whose filters these parts do not cover yet.
+
 ## 0.2.0
 
 ### Minor Changes
