@@ -1,12 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { SparklesIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
   ReportGridCard,
   ReportGridCell,
   ReportGridGroupLabel,
-  ReportGridHead,
-  ReportGridHeadRow,
+  ReportGridColumns,
   ReportGridRow,
   ReportGridScroll,
   ReportGridTable,
@@ -411,23 +410,6 @@ export function SimplyFundingReport() {
   const [activeReport, setActiveReport] = useState("")
   const [detail, setDetail] = useState<Deal | null>(null)
   const [collapsed, setCollapsed] = useState<string[]>([])
-  const dragCol = useRef<ColKey | null>(null)
-  // While a column title is dragged: which column it hovers and which half, so a line shows where it lands.
-  const [dragging, setDragging] = useState<ColKey | null>(null)
-  const [drop, setDrop] = useState<{ key: ColKey; side: "before" | "after" } | null>(null)
-  /* The drop line: a 2px bar down the whole column edge where the dragged column will land. */
-  const dropLine = (k: ColKey) =>
-    cn(
-      drop?.key === k && drop.side === "before" && "shadow-[inset_2px_0_0_0_var(--primary)]",
-      drop?.key === k && drop.side === "after" && "shadow-[inset_-2px_0_0_0_var(--primary)]",
-      dragging === k && "opacity-40",
-    )
-  const endDrag = () => {
-    dragCol.current = null
-    setDragging(null)
-    setDrop(null)
-  }
-
   const columns = useMemo(() => cols.map((k) => COLUMNS.find((c) => c.key === k)!), [cols])
 
   const snapshot: ReportView = {
@@ -573,69 +555,27 @@ export function SimplyFundingReport() {
     return [...map.entries()]
   }, [groupBy, pageRows])
 
+  // The titles' sorting and drag-to-move, with the line that shows where a column lands, are the library's.
   const head = (
-    <ReportGridHeadRow>
-      {columns.map((c) => {
-        const active = sort?.key === c.key
-        return (
-          <ReportGridHead
-            key={c.key}
-            draggable
-            movable
-            tabIndex={0}
-            sort={active ? sort!.dir : null}
-            onClick={() => sortBy(c.key)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault()
-                sortBy(c.key)
-              }
-            }}
-            onDragStart={(e) => {
-              dragCol.current = c.key
-              setDragging(c.key)
-              e.dataTransfer.effectAllowed = "move"
-              e.dataTransfer.setData("text/plain", c.key)
-            }}
-            onDragOver={(e) => {
-              const from = dragCol.current
-              if (!from) return
-              e.preventDefault()
-              e.dataTransfer.dropEffect = "move"
-              const box = e.currentTarget.getBoundingClientRect()
-              const side = e.clientX < box.left + box.width / 2 ? "before" : "after"
-              // No line where the column already sits (on itself, or the edge it already touches).
-              const at = cols.indexOf(c.key) + (side === "after" ? 1 : 0)
-              const fromAt = cols.indexOf(from)
-              const same = at === fromAt || at === fromAt + 1
-              setDrop((cur) => (same ? null : cur?.key === c.key && cur.side === side ? cur : { key: c.key, side }))
-            }}
-            onDrop={(e) => {
-              e.preventDefault()
-              const from = dragCol.current
-              const target = drop
-              endDrag()
-              if (!from || !target || from === target.key) return
-              setCols((cur) => {
-                const next = cur.filter((k) => k !== from)
-                next.splice(next.indexOf(target.key) + (target.side === "after" ? 1 : 0), 0, from)
-                return next
-              })
-            }}
-            onDragEnd={endDrag}
-            className={cn(dropLine(c.key), "sticky top-0 z-10")}
-          >
-            {c.label}
-          </ReportGridHead>
-        )
-      })}
-    </ReportGridHeadRow>
+    <ReportGridColumns
+      columns={columns.map((c) => ({ key: c.key, label: c.label }))}
+      sort={sort}
+      onSort={(key) => sortBy(key as ColKey)}
+      onReorder={(key, target, side) =>
+        setCols((cur) => {
+          const next = cur.filter((k) => k !== key)
+          next.splice(next.indexOf(target as ColKey) + (side === "after" ? 1 : 0), 0, key as ColKey)
+          return next
+        })
+      }
+      headClassName="sticky top-0 z-10"
+    />
   )
 
   const row = (r: Deal) => (
     <ReportGridRow key={r.id} clickable onClick={() => setDetail(r)}>
       {columns.map((c) => (
-        <ReportGridCell key={c.key} numeric={isNum(c)} className={dropLine(c.key)}>
+        <ReportGridCell key={c.key} numeric={isNum(c)}>
           {cell(c, r)}
         </ReportGridCell>
       ))}
@@ -645,7 +585,7 @@ export function SimplyFundingReport() {
   const subtotal = (label: string, rows: Deal[], strong = true) => (
     <ReportGridRow tone={strong ? "subtotal" : "subtotal-light"}>
       {columns.map((c, i) => (
-        <ReportGridCell key={c.key} numeric={isNum(c)} className={dropLine(c.key)}>
+        <ReportGridCell key={c.key} numeric={isNum(c)}>
           {i === 0
             ? `${label} (${rows.length} ${rows.length === 1 ? "unit" : "units"})`
             : c.kind === "money"
@@ -812,7 +752,7 @@ export function SimplyFundingReport() {
                         <ReportGridCell
                           key={c.key}
                           numeric={isNum(c)}
-                          className={cn("h-[calc(2rem+var(--hbar,0px))] pb-(--hbar)", dropLine(c.key))}
+                          
                         >
                           {i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""}
                         </ReportGridCell>

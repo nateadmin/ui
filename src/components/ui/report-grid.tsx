@@ -30,6 +30,7 @@ function ReportGridCard({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="report-grid-card"
+      data-report-grid=""
       className={cn(
         "bg-card text-card-foreground ring-foreground/10 relative flex min-h-0 flex-col overflow-hidden rounded-xl text-[13px] ring-1",
         className,
@@ -56,6 +57,7 @@ const reportGridBandClass = "bg-muted"
 function ReportGridHeadRow({ className, ...props }: React.ComponentProps<"tr">) {
   return <tr data-slot="report-grid-head-row" className={cn(reportGridBandClass, className)} {...props} />
 }
+
 
 /**
  * A column title. With `sort` it shows the sort arrows: null when the report is
@@ -95,6 +97,128 @@ function ReportGridHead({
         ) : null}
       </span>
     </th>
+  )
+}
+
+/*
+ * The column-title row with everything a report's titles do, so every report behaves the same:
+ *   - click a title to sort; the app cycles ascending, descending, then back to no sort
+ *   - drag a title to move its column; a line down the whole column shows where it will land,
+ *     and the column being moved fades
+ * The line is drawn on every table inside the nearest [data-report-grid] box (ReportGridCard is
+ * one), so it also works when an app keeps its titles, rows and totals in separate tables.
+ */
+type ReportGridColumn = { key: string; label: React.ReactNode }
+
+let reportGridSeq = 0
+
+function ReportGridColumns({
+  columns,
+  sort,
+  onSort,
+  onReorder,
+  className,
+  headClassName,
+}: {
+  columns: ReportGridColumn[]
+  /** The sorted column, or null when the report is in its own order. */
+  sort?: { key: string; dir: "asc" | "desc" } | null
+  /** A title was clicked. Leave out for a grid that cannot sort. */
+  onSort?: (key: string) => void
+  /** A title was dropped before or after another. Leave out for a grid whose columns stay put. */
+  onReorder?: (key: string, target: string, side: "before" | "after") => void
+  className?: string
+  headClassName?: string
+}) {
+  const rowRef = React.useRef<HTMLTableRowElement>(null)
+  const dragKey = React.useRef<string | null>(null)
+  const [dragging, setDragging] = React.useState<string | null>(null)
+  const [drop, setDrop] = React.useState<{ key: string; side: "before" | "after" } | null>(null)
+  const keys = columns.map((c) => c.key)
+
+  // The line and the fade, as one style rule on the grid's box, so title, row and total cells all follow.
+  React.useEffect(() => {
+    const box = rowRef.current?.closest<HTMLElement>("[data-report-grid]")
+    if (!box) return
+    if (!box.dataset.reportGrid) box.dataset.reportGrid = `g${(reportGridSeq += 1)}`
+    const scope = `[data-report-grid="${box.dataset.reportGrid}"] tr > :not([colspan])`
+    const rules: string[] = []
+    const dragAt = dragging ? keys.indexOf(dragging) : -1
+    if (dragAt >= 0) rules.push(`${scope}:nth-child(${dragAt + 1}) { opacity: 0.4; }`)
+    const dropAt = drop ? keys.indexOf(drop.key) : -1
+    if (drop && dropAt >= 0) {
+      const inset = drop.side === "before" ? "2px" : "-2px"
+      rules.push(`${scope}:nth-child(${dropAt + 1}) { box-shadow: inset ${inset} 0 0 0 var(--primary); }`)
+    }
+    if (!rules.length) return
+    const style = document.createElement("style")
+    style.textContent = rules.join("\n")
+    box.appendChild(style)
+    return () => style.remove()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dragging, drop, keys.join("\u0001")])
+
+  const end = () => {
+    dragKey.current = null
+    setDragging(null)
+    setDrop(null)
+  }
+
+  return (
+    <ReportGridHeadRow ref={rowRef} className={className}>
+      {columns.map((c) => (
+        <ReportGridHead
+          key={c.key}
+          draggable={!!onReorder}
+          movable={!!onReorder}
+          tabIndex={onSort ? 0 : undefined}
+          sort={onSort ? (sort?.key === c.key ? sort.dir : null) : undefined}
+          onClick={onSort ? () => onSort(c.key) : undefined}
+          onKeyDown={
+            onSort
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault()
+                    onSort(c.key)
+                  }
+                }
+              : undefined
+          }
+          onDragStart={(e) => {
+            if (!onReorder) return
+            dragKey.current = c.key
+            setDragging(c.key)
+            e.dataTransfer.effectAllowed = "move"
+            e.dataTransfer.setData("text/plain", c.key)
+          }}
+          onDragOver={(e) => {
+            const from = dragKey.current
+            if (!from) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = "move"
+            const box = e.currentTarget.getBoundingClientRect()
+            const side = e.clientX < box.left + box.width / 2 ? "before" : "after"
+            // No line where the column already sits (on itself, or the edge it already touches).
+            const at = keys.indexOf(c.key) + (side === "after" ? 1 : 0)
+            const fromAt = keys.indexOf(from)
+            const same = at === fromAt || at === fromAt + 1
+            setDrop((cur) => (same ? null : cur?.key === c.key && cur.side === side ? cur : { key: c.key, side }))
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            const from = dragKey.current
+            const target = drop
+            end()
+            if (!from || !target || from === target.key) return
+            onReorder?.(from, target.key, target.side)
+          }}
+          onDragEnd={end}
+          className={headClassName}
+        >
+          {c.label}
+        </ReportGridHead>
+      ))}
+    </ReportGridHeadRow>
   )
 }
 
@@ -381,13 +505,12 @@ function ReportGridScroll({ children, className }: { children: React.ReactNode; 
   const wide = dims.sw > dims.cw + 1
   const band = cn(reportGridBandClass, "shrink-0")
   return (
-    // --hbar: how much the Total row grows while the sideways bar shows, so the bar sits under the text and
-    // the gap from the text to the visible bar matches the space above the text. (The thumb is drawn 2px
-    // inside its 10px track, so the row grows a little less than the track.)
+    // The Total band keeps one height with or without the sideways bar, so its text is always centered
+    // (--hbar stays 0; it is kept for tables that still read it).
     <div
       data-slot="report-grid-scroll"
       className={cn("relative flex h-full min-h-0 flex-col", className)}
-      style={{ ["--hbar" as string]: wide ? `${HBAR - 3}px` : "0px" }}
+      style={{ ["--hbar" as string]: "0px" }}
     >
       <div className="flex min-h-0 flex-1">
         <div
@@ -445,6 +568,7 @@ export {
   ReportGridTable,
   ReportGridHeadRow,
   ReportGridHead,
+  ReportGridColumns,
   ReportGridRow,
   ReportGridCell,
   ReportGridGroupLabel,
@@ -454,3 +578,4 @@ export {
   reportGridScrollbarClass,
   REPORT_GRID_SCROLLBAR_PX,
 }
+export type { ReportGridColumn }
