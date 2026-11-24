@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.4.1
+
+### Patch Changes
+
+- 1c51901: Toolbar: "icons-on-phones" now works on a server-rendered page. The phone check ran before the page loaded in the browser, so a phone kept the desktop labels.
+
 ## 0.4.0
 
 ### Minor Changes
