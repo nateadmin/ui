@@ -1294,7 +1294,7 @@ function ToolbarReportLibrary({
   activeId,
   modified = false,
   canSave = true,
-  noneLabel = "None",
+  noneLabel = "Report",
   onSelect,
   onSave,
   onUpdate,
@@ -1407,13 +1407,14 @@ function ToolbarReportLibrary({
           }
         >
           <FolderOpenIcon aria-hidden="true" />
-          {/* Sized to "Report: None"; longer report names are cut with "..." and shown in full on hover. */}
+          {/* Reads "Report" until one is open, then the report's name. Sized to the word "Report" so the bar
+              stays compact; longer names are cut with "..." and shown in full on hover. */}
           <span data-toolbar-label="" className="relative flex min-w-0 text-left" title={active?.name}>
-            <span aria-hidden="true" className="invisible flex">
-              {withLabel("Report", noneLabel)}
+            <span aria-hidden="true" className="invisible">
+              {noneLabel}
             </span>
-            <span className="absolute inset-0 flex min-w-0 overflow-hidden">
-              {withLabel("Report", active?.name ?? noneLabel)}
+            <span className={cn("absolute inset-0 truncate", !active && "text-muted-foreground")}>
+              {active?.name ?? noneLabel}
             </span>
           </span>
           <Chevron />

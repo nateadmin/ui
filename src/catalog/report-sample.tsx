@@ -447,8 +447,8 @@ const reportFilters: ToolbarFilterGroup[] = [
 ]
 /* The date columns the toolbar's date range can filter (a real deals report has many). */
 const DATE_FIELDS = [
-  { id: "fundedAt", label: "Funding date" },
-  { id: "lastPaidAt", label: "Last payment date" },
+  { id: "fundedAt", label: "Funding Date" },
+  { id: "lastPaidAt", label: "Last Payment Date" },
 ]
 
 /* Every column but the ID can be filtered by a condition in the Filters dialog. */

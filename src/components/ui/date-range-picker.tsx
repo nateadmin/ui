@@ -364,30 +364,19 @@ function DateRangePicker({
             variant="outline"
             size="lg"
             data-slot="date-range-trigger"
+            title={fields?.find((f) => f.id === field)?.label}
             className={cn("max-w-full shrink-0 justify-start gap-2 font-normal tabular-nums", className)}
           />
         }
       >
         <CalendarIcon aria-hidden="true" />
-        {fields?.length ? (
-          // Which date column the range filters, as "Funding date:". As wide as the longest name.
-          <span data-toolbar-label="" className="text-muted-foreground grid shrink-0 text-left max-sm:hidden">
-            {fields.map((f) => (
-              <span
-                key={f.id}
-                aria-hidden={f.id === field ? undefined : true}
-                className={cn("col-start-1 row-start-1 whitespace-nowrap", f.id !== field && "invisible")}
-              >
-                {f.label}:
-              </span>
-            ))}
-          </span>
-        ) : null}
         {/* Every text the field can show sits in one grid cell, so the field is always as wide as the widest
             (a full date range) and never changes width when dates or a period are picked. */}
         <span data-toolbar-label="" className="grid min-w-0 text-left">
           {(() => {
             const shown = active ? `p:${active.id}` : value.from && value.to ? "dates" : "empty"
+            // Until a range is set, the field names the date column it filters ("Funding Date").
+            const fieldLabels = fields?.length ? fields : null
             const layer = (key: string, node: React.ReactNode, extra?: string) => (
               <span
                 key={key}
@@ -405,14 +394,20 @@ function DateRangePicker({
             const from = value.from && value.to ? value.from : sample
             const to = value.from && value.to ? value.to : sample
             return [
-              layer("empty", placeholder, "text-muted-foreground"),
+              ...(fieldLabels
+                ? fieldLabels.map((f) =>
+                    layer(f.id === field ? "empty" : `f:${f.id}`, f.label, "text-muted-foreground"),
+                  )
+                : [layer("empty", placeholder, "text-muted-foreground")]),
+              // A set range is shown a size smaller, so the field stays compact.
               layer(
                 "dates",
                 <>
                   {formatDate(from)}
-                  <ArrowRightIcon aria-label="to" className="text-muted-foreground size-3.5" />
+                  <ArrowRightIcon aria-label="to" className="text-muted-foreground size-3" />
                   {formatDate(to)}
                 </>,
+                "gap-1 text-xs",
               ),
               ...(today ? (presets ?? []).map((p) => layer(`p:${p.id}`, presetLabel(p, today))) : []),
             ]
