@@ -27,7 +27,6 @@ import {
 import { CustomizeMenu, CustomizeOption, CustomizeSwitch } from "@/components/ui/customize-menu"
 import { SimplyFundingList } from "./list-sample"
 import { SimplyFundingReport } from "./report-sample"
-import { UsersListPage } from "./list-page-sample"
 import { SimpleCheckboxDemo, SplashCheckboxDemo } from "./checkbox-samples"
 import { ListBuilder } from "./list-builder"
 
@@ -376,16 +375,6 @@ export const catalog: CatalogEntry[] = [
     id: "list",
     name: "List",
     examples: [
-      {
-        name: "List page: the whole page as one component (placeholder people)",
-        // The page fills the height it is given; here a 640px box stands in for the page.
-        render: () => (
-          <div className="h-[640px]">
-            <UsersListPage />
-          </div>
-        ),
-        minHeight: 640,
-      },
       { name: "Build a list: turn columns and parts on and off", render: () => <ListBuilder />, minHeight: 980 },
       {
         name: "Applications list, current layout (placeholder data)",
