@@ -186,20 +186,12 @@ function StandInIcon({ children }: { children: React.ReactNode }) {
 /* Lays every possible text in one grid cell and shows only the active one,
    so the box is always as wide as the longest text. */
 function StableLabel({ items, active }: { items: Array<{ key: string; node: React.ReactNode }>; active: string }) {
+  // The field is as wide as what it shows now, never padded out to its widest choice. It only gets wider
+  // when its row of the bar has room to fill (the bar justifies every row).
+  const shown = items.find((item) => item.key === active) ?? items[0]
   return (
-    <span data-toolbar-label="" className="grid min-w-0 text-left">
-      {items.map((item) => (
-        <span
-          key={item.key}
-          aria-hidden={item.key === active ? undefined : true}
-          className={cn(
-            "col-start-1 row-start-1 flex min-w-0 items-center gap-2 overflow-hidden",
-            item.key !== active && "invisible",
-          )}
-        >
-          {item.node}
-        </span>
-      ))}
+    <span data-toolbar-label="" className="flex min-w-0 items-center gap-2 overflow-hidden text-left">
+      {shown?.node}
     </span>
   )
 }
@@ -926,13 +918,13 @@ function ToolbarFilterDialog({
       >
         <SlidersHorizontalIcon aria-hidden="true" />
         <ToolbarLabel>Filters</ToolbarLabel>
-        {/* Always takes its space, so the button keeps one width with or without a count. */}
+        {/* No count, no space: the button is as wide as what it shows. */}
         <span
           aria-hidden={count === 0 ? true : undefined}
           data-toolbar-badge=""
           className={cn(
             "bg-primary text-primary-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-xs font-medium tabular-nums",
-            count === 0 && "invisible",
+            count === 0 && "hidden",
           )}
         >
           {count}
