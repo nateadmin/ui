@@ -84,8 +84,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 /* Below 640px. */
 function usePhone() {
   const query = "(max-width: 639px)"
-  const [phone, setPhone] = React.useState(() => typeof window !== "undefined" && window.matchMedia(query).matches)
-  React.useEffect(() => {
+  // Starts false on the server and in the browser's first pass, so a server-rendered page matches;
+  // the real answer is read before the first paint.
+  const [phone, setPhone] = React.useState(false)
+  React.useLayoutEffect(() => {
     const mq = window.matchMedia(query)
     const on = () => setPhone(mq.matches)
     on()
