@@ -1450,7 +1450,9 @@ function ToolbarReportLibrary({
         </PopoverTrigger>
         <PopoverContent
           align="start"
-          className="w-[min(52rem,calc(100vw-2rem))] max-w-[min(52rem,calc(100vw-2rem))] gap-0 p-0"
+          // Opens under its button and takes the room to the right of it, so it never slides away to the left.
+          // On a phone it is as wide as the screen allows.
+          className="w-[min(52rem,max(22rem,var(--available-width)))] max-w-[calc(100vw-2rem)] gap-0 p-0"
         >
           <div className="flex min-h-56 flex-col sm:flex-row">
             <div className="flex shrink-0 flex-col border-b p-2 sm:w-52 sm:border-r sm:border-b-0">
