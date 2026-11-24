@@ -505,12 +505,13 @@ function ReportGridScroll({ children, className }: { children: React.ReactNode; 
   const wide = dims.sw > dims.cw + 1
   const band = cn(reportGridBandClass, "shrink-0")
   return (
-    // The Total band keeps one height with or without the sideways bar, so its text is always centered
-    // (--hbar stays 0; it is kept for tables that still read it).
+    // --hbar: how much the Total row grows while the sideways bar shows, so the bar sits under the text and
+    // the space from the text to the bar equals the space above the text. Without the bar the text is
+    // dead center. The Total row's cells use it: h-[calc(2rem+var(--hbar,0px))] pb-(--hbar).
     <div
       data-slot="report-grid-scroll"
       className={cn("relative flex h-full min-h-0 flex-col", className)}
-      style={{ ["--hbar" as string]: "0px" }}
+      style={{ ["--hbar" as string]: wide ? `${REPORT_GRID_TOTAL_LIFT_PX}px` : "0px" }}
     >
       <div className="flex min-h-0 flex-1">
         <div
@@ -561,6 +562,10 @@ function ReportGridScroll({ children, className }: { children: React.ReactNode; 
   )
 }
 
+/** How far the Total row grows (and its text lifts) while the sideways bar shows. The thumb is drawn 2px
+    inside its 10px track, so the row grows a little less than the track. */
+const REPORT_GRID_TOTAL_LIFT_PX = HBAR - 3
+
 const REPORT_GRID_SCROLLBAR_PX = GUTTER
 
 export {
@@ -577,5 +582,6 @@ export {
   reportGridBandClass,
   reportGridScrollbarClass,
   REPORT_GRID_SCROLLBAR_PX,
+  REPORT_GRID_TOTAL_LIFT_PX,
 }
 export type { ReportGridColumn }

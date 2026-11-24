@@ -749,11 +749,7 @@ export function SimplyFundingReport() {
                   <tfoot>
                     <ReportGridTotalRow className="sticky bottom-0 z-10">
                       {columns.map((c, i) => (
-                        <ReportGridCell
-                          key={c.key}
-                          numeric={isNum(c)}
-                          
-                        >
+                        <ReportGridCell key={c.key} numeric={isNum(c)} className="h-[calc(2rem+var(--hbar,0px))] pb-(--hbar)">
                           {i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""}
                         </ReportGridCell>
                       ))}
