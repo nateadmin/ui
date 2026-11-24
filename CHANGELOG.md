@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.7.1
+
+### Patch Changes
+
+- 7c5296b: Catalog: removed the users example from the List page. The catalog shows components; an app's own pages are built in the app.
+
 ## 0.7.0
 
 ### Minor Changes
