@@ -53,23 +53,15 @@ function PageSizeMenu({
           />
         }
       >
-        {/* Every size sits in one grid cell so the button never changes width. */}
-        <span className="grid text-left">
-          {pageSizes.map((size) => (
-            <span
-              key={size}
-              aria-hidden="true"
-              className={cn("col-start-1 row-start-1 tabular-nums", size !== pageSize && "invisible")}
-            >
-              {name(size)}
-              <span className="max-sm:hidden">{size === allSize ? " rows" : " per page"}</span>
-            </span>
-          ))}
+        {/* As wide as the size in use, no wider. */}
+        <span className="tabular-nums">
+          {name(pageSize)}
+          <span className="max-sm:hidden">{pageSize === allSize ? " rows" : " per page"}</span>
         </span>
         <ChevronDownIcon aria-hidden="true" className="text-muted-foreground" />
       </DropdownMenuTrigger>
-      {/* As wide as its widest size, not as wide as the button. */}
-      <DropdownMenuContent align="start" side="top" className="w-auto min-w-0">
+      {/* The menu is exactly as wide as the field. */}
+      <DropdownMenuContent align="start" side="top" className="w-(--anchor-width) min-w-(--anchor-width)">
         <DropdownMenuRadioGroup value={String(pageSize)} onValueChange={(v: unknown) => onPageSizeChange(Number(v))}>
           {pageSizes.map((size) => (
             <DropdownMenuRadioItem key={size} value={String(size)} closeOnClick className="tabular-nums">

@@ -1359,11 +1359,15 @@ function ToolbarReportLibrary({
   const [category, setCategory] = React.useState<string>(
     (active && categoryOf(active)) || allCategories[0]?.id || UNCATEGORIZED,
   )
-  // Opening the menu shows the open report's category.
+  // Opening the menu shows the open report's category, or the first category when no report is open.
+  // Categories often arrive after the first paint, so the choice is made when the menu opens, not once.
+  const categoryIds = allCategories.map((c) => c.id).join("\u0001")
   React.useEffect(() => {
-    if (open && active) setCategory(categoryOf(active))
+    if (!open) return
+    if (active) setCategory(categoryOf(active))
+    else setCategory((cur) => (allCategories.some((c) => c.id === cur) ? cur : (allCategories[0]?.id ?? UNCATEGORIZED)))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
+  }, [open, categoryIds])
   const inCategory = reports.filter((r) => categoryOf(r) === category)
 
   // Dialogs
