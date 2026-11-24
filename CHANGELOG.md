@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.9.0
+
+### Minor Changes
+
+- 258609e: ListPage filters are multi-select, always: a person can pick any number of values and none picked means all. General rule, now in the README: anything that can be multi-select is multi-select.
+
 ## 0.8.0
 
 ### Minor Changes
