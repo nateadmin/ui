@@ -17,6 +17,10 @@ import {
  * middle, and page controls on the right. The page number is a field: type any
  * page and press Enter (or leave the field) to jump there; the buttons still work.
  *
+ * A list that can only step (it loads the next page from where the last one ended) sets
+ * `stepOnly`: the page number shows as text, and Previous and Next do the moving. `allSize`
+ * names the page size that means "every row" and shows it as "All".
+ *
  * Page size is a user preference. The app saves it to the user's profile
  * (not the browser) and passes it back in, so this component only reports changes.
  */
@@ -28,12 +32,15 @@ const fmt = (n: number) => n.toLocaleString("en-US")
 function PageSizeMenu({
   pageSize,
   pageSizes,
+  allSize,
   onPageSizeChange,
 }: {
   pageSize: number
   pageSizes: number[]
+  allSize?: number
   onPageSizeChange: (size: number) => void
 }) {
+  const name = (size: number) => (size === allSize ? "All" : fmt(size))
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -41,7 +48,7 @@ function PageSizeMenu({
           <Button
             variant="outline"
             size="sm"
-            aria-label={`Rows per page: ${fmt(pageSize)}`}
+            aria-label={`Rows per page: ${name(pageSize)}`}
             className="h-8 gap-1.5 font-normal"
           />
         }
@@ -54,8 +61,8 @@ function PageSizeMenu({
               aria-hidden="true"
               className={cn("col-start-1 row-start-1 tabular-nums", size !== pageSize && "invisible")}
             >
-              {fmt(size)}
-              <span className="max-sm:hidden"> per page</span>
+              {name(size)}
+              <span className="max-sm:hidden">{size === allSize ? " rows" : " per page"}</span>
             </span>
           ))}
         </span>
@@ -65,7 +72,7 @@ function PageSizeMenu({
         <DropdownMenuRadioGroup value={String(pageSize)} onValueChange={(v: unknown) => onPageSizeChange(Number(v))}>
           {pageSizes.map((size) => (
             <DropdownMenuRadioItem key={size} value={String(size)} closeOnClick className="tabular-nums">
-              {fmt(size)}
+              {name(size)}
             </DropdownMenuRadioItem>
           ))}
         </DropdownMenuRadioGroup>
@@ -141,6 +148,11 @@ function ListPagination({
   onPageSizeChange,
   pageSizes = DEFAULT_PAGE_SIZES,
   status,
+  stepOnly = false,
+  hasPrevious,
+  hasNext,
+  allSize,
+  range,
   className,
 }: {
   /** Current page, starting at 1. */
@@ -154,11 +166,23 @@ function ListPagination({
   pageSizes?: number[]
   /** Optional text before "Showing…", such as "3 selected · Clear". */
   status?: React.ReactNode
+  /** The list can only go one page back or forward. The page number shows as text, not a field. */
+  stepOnly?: boolean
+  /** Override whether Previous and Next work, for a list that knows better than the page math. */
+  hasPrevious?: boolean
+  hasNext?: boolean
+  /** The page size that means "every row". Shown as "All". */
+  allSize?: number
+  /** The rows on screen, when that is not the page math (for example a list that loads more as you scroll). */
+  range?: { first: number; last: number }
   className?: string
 }) {
-  const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  const first = total === 0 ? 0 : (page - 1) * pageSize + 1
-  const last = Math.min(page * pageSize, total)
+  const all = allSize != null && pageSize === allSize
+  const pageCount = all ? 1 : Math.max(1, Math.ceil(total / pageSize))
+  const first = range ? range.first : total === 0 ? 0 : (page - 1) * pageSize + 1
+  const last = range ? range.last : all ? total : Math.min(page * pageSize, total)
+  const canPrevious = hasPrevious ?? page > 1
+  const canNext = hasNext ?? page < pageCount
 
   return (
     <div
@@ -173,10 +197,11 @@ function ListPagination({
         <PageSizeMenu
           pageSize={pageSize}
           pageSizes={pageSizes}
+          allSize={allSize}
           onPageSizeChange={(size) => {
             onPageSizeChange(size)
-            // Keep the first visible row in view after the page size changes.
-            onPageChange(Math.floor((first - 1) / size) + 1)
+            // Keep the first visible row in view after the page size changes. A step-only list starts over.
+            if (!stepOnly) onPageChange(size === allSize ? 1 : Math.floor((first - 1) / size) + 1)
           }}
         />
       </div>
@@ -191,19 +216,27 @@ function ListPagination({
           size="sm"
           aria-label="Previous page"
           className="h-8 gap-1 max-sm:w-8 max-sm:px-0"
-          disabled={page <= 1}
+          disabled={!canPrevious}
           onClick={() => onPageChange(page - 1)}
         >
           <ChevronLeftIcon aria-hidden="true" />
           <span className="max-sm:hidden">Previous</span>
         </Button>
-        <PageField page={page} pageCount={pageCount} onPageChange={onPageChange} />
+        {stepOnly ? (
+          <span className="text-muted-foreground text-[11px] tabular-nums">
+            <span className="max-sm:sr-only">Page </span>
+            {fmt(page)}
+            <span className="max-[359px]:hidden"> of {fmt(pageCount)}</span>
+          </span>
+        ) : (
+          <PageField page={page} pageCount={pageCount} onPageChange={onPageChange} />
+        )}
         <Button
           variant="outline"
           size="sm"
           aria-label="Next page"
           className="h-8 gap-1 max-sm:w-8 max-sm:px-0"
-          disabled={page >= pageCount}
+          disabled={!canNext}
           onClick={() => onPageChange(page + 1)}
         >
           <span className="max-sm:hidden">Next</span>

@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { ChevronDownIcon, SparklesIcon } from "lucide-react"
+import { SparklesIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { SortIcon } from "@/components/ui/data-list"
+import {
+  ReportGridCard,
+  ReportGridCell,
+  ReportGridGroupLabel,
+  ReportGridHead,
+  ReportGridHeadRow,
+  ReportGridRow,
+  ReportGridScroll,
+  ReportGridTable,
+  ReportGridTotalRow,
+} from "@/components/ui/report-grid"
 import { CustomizeMenu, CustomizeOption } from "@/components/ui/customize-menu"
 import { ListPagination } from "@/components/ui/list-pagination"
 import {
@@ -25,8 +35,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 
 /*
  * The Report page for the Simply Funding Data app, with made-up rows (this
- * repo is public). Its top bar and footer are the library's own components;
- * only the grid and a few small pieces live here.
+ * repo is public). Its top bar, grid and footer are the library's own components;
+ * only the data and a few small pieces live here.
  */
 
 /* ---------- Small local pieces ---------- */
@@ -46,20 +56,6 @@ function Label({ htmlFor, children }: { htmlFor?: string; children: ReactNode })
     >
       {children}
     </label>
-  )
-}
-
-function Card({ className, children }: { className?: string; children: ReactNode }) {
-  return (
-    <div
-      data-slot="card"
-      className={cn(
-        "group/card bg-card text-card-foreground ring-foreground/10 flex flex-col gap-(--card-spacing) overflow-hidden rounded-xl py-(--card-spacing) text-[13px] ring-1 [--card-spacing:--spacing(4)] has-data-[slot=card-footer]:pb-0",
-        className,
-      )}
-    >
-      {children}
-    </div>
   )
 }
 
@@ -578,15 +574,16 @@ export function SimplyFundingReport() {
   }, [groupBy, pageRows])
 
   const head = (
-    <tr className="bg-muted">
+    <ReportGridHeadRow>
       {columns.map((c) => {
         const active = sort?.key === c.key
         return (
-          <th
+          <ReportGridHead
             key={c.key}
             draggable
+            movable
             tabIndex={0}
-            aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}
+            sort={active ? sort!.dir : null}
             onClick={() => sortBy(c.key)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
@@ -626,56 +623,37 @@ export function SimplyFundingReport() {
               })
             }}
             onDragEnd={endDrag}
-            className={cn(
-              dropLine(c.key),
-              "bg-muted text-foreground sticky top-0 z-10 h-8 cursor-grab px-2 text-left align-middle text-[11px] font-semibold tracking-wider whitespace-nowrap uppercase select-none active:cursor-grabbing",
-            )}
+            className={cn(dropLine(c.key), "sticky top-0 z-10")}
           >
-            <span className="inline-flex items-center gap-1">
-              {c.label}
-              <span aria-hidden className="inline-flex shrink-0 cursor-pointer items-center justify-center">
-                <SortIcon dir={active ? sort!.dir : null} />
-              </span>
-            </span>
-          </th>
+            {c.label}
+          </ReportGridHead>
         )
       })}
-    </tr>
+    </ReportGridHeadRow>
   )
 
   const row = (r: Deal) => (
-    <tr key={r.id} className="hover:bg-muted/50 cursor-pointer border-b transition-colors" onClick={() => setDetail(r)}>
+    <ReportGridRow key={r.id} clickable onClick={() => setDetail(r)}>
       {columns.map((c) => (
-        <td
-          key={c.key}
-          className={cn("px-2 py-1.5 align-middle whitespace-nowrap", isNum(c) && "tabular-nums", dropLine(c.key))}
-        >
+        <ReportGridCell key={c.key} numeric={isNum(c)} className={dropLine(c.key)}>
           {cell(c, r)}
-        </td>
+        </ReportGridCell>
       ))}
-    </tr>
+    </ReportGridRow>
   )
 
   const subtotal = (label: string, rows: Deal[], strong = true) => (
-    <tr className={cn("border-b", strong ? "bg-muted/60 hover:bg-muted/60" : "bg-muted/30 hover:bg-muted/30")}>
+    <ReportGridRow tone={strong ? "subtotal" : "subtotal-light"}>
       {columns.map((c, i) => (
-        <td
-          key={c.key}
-          className={cn(
-            "px-2 py-1.5 align-middle whitespace-nowrap",
-            strong ? "font-semibold" : "font-medium",
-            isNum(c) && "tabular-nums",
-            dropLine(c.key),
-          )}
-        >
+        <ReportGridCell key={c.key} numeric={isNum(c)} className={dropLine(c.key)}>
           {i === 0
             ? `${label} (${rows.length} ${rows.length === 1 ? "unit" : "units"})`
             : c.kind === "money"
               ? money(totalOf(c.key, rows))
               : ""}
-        </td>
+        </ReportGridCell>
       ))}
-    </tr>
+    </ReportGridRow>
   )
 
   return (
@@ -780,12 +758,7 @@ export function SimplyFundingReport() {
 
       {/* Table */}
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-x-hidden">
-        <Card
-          className={cn(
-            // No padding: the title and Total bands reach the card's edges, and the card's rounded corners clip them.
-            "relative h-full min-h-0 flex-1 gap-0 overflow-hidden py-0",
-          )}
-        >
+        <ReportGridCard className="h-full flex-1">
           <h2 className="sr-only">Report</h2>
           <div className="min-h-0 flex-1 overflow-hidden">
             {filtered.length === 0 ? (
@@ -793,10 +766,9 @@ export function SimplyFundingReport() {
                 No rows match these filters.
               </div>
             ) : (
-              <CanvasScroll>
-                {/* 16px before the first column, so the text lines up with the band edges. */}
-                <table
-                  className="min-w-full caption-bottom text-[13px] [&_tr>*:first-child]:pl-4"
+              <ReportGridScroll>
+                <ReportGridTable
+                  className="min-w-full"
                   style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0) }}
                 >
                   <colgroup>
@@ -811,34 +783,22 @@ export function SimplyFundingReport() {
                           const isCollapsed = collapsed.includes(g)
                           return (
                             <GroupRows key={g}>
-                              <tr
-                                className="hover:bg-muted/50 cursor-pointer border-b"
+                              <ReportGridRow
+                                tone="group"
                                 aria-expanded={!isCollapsed}
                                 onClick={() =>
                                   setCollapsed((cur) => (isCollapsed ? cur.filter((x) => x !== g) : [...cur, g]))
                                 }
                               >
-                                <td
-                                  colSpan={columns.length}
-                                  className="px-2 py-1.5 align-middle font-medium whitespace-nowrap"
-                                >
-                                  <span className="inline-flex items-center gap-2">
-                                    <ChevronDownIcon
-                                      className={cn(
-                                        "size-4 shrink-0 transition-transform",
-                                        isCollapsed && "-rotate-90",
-                                      )}
-                                      aria-hidden
-                                    />
-                                    <span>
-                                      {g}
-                                      <span className="text-muted-foreground ml-2 font-normal tabular-nums">
-                                        ({rows.length} {rows.length === 1 ? "unit" : "units"})
-                                      </span>
-                                    </span>
-                                  </span>
-                                </td>
-                              </tr>
+                                <ReportGridCell colSpan={columns.length}>
+                                  <ReportGridGroupLabel
+                                    collapsed={isCollapsed}
+                                    count={`(${rows.length} ${rows.length === 1 ? "unit" : "units"})`}
+                                  >
+                                    {g}
+                                  </ReportGridGroupLabel>
+                                </ReportGridCell>
+                              </ReportGridRow>
                               {isCollapsed ? null : rows.map(row)}
                               {isCollapsed ? null : subtotal(g, rows)}
                             </GroupRows>
@@ -847,26 +807,23 @@ export function SimplyFundingReport() {
                       : pageRows.map(row)}
                   </tbody>
                   <tfoot>
-                    <tr className="bg-muted sticky bottom-0 z-10">
+                    <ReportGridTotalRow className="sticky bottom-0 z-10">
                       {columns.map((c, i) => (
-                        <td
+                        <ReportGridCell
                           key={c.key}
-                          className={cn(
-                            "h-[calc(2rem+var(--hbar,0px))] px-2 pt-0 pb-(--hbar) align-middle font-semibold whitespace-nowrap",
-                            isNum(c) && "tabular-nums",
-                            dropLine(c.key),
-                          )}
+                          numeric={isNum(c)}
+                          className={cn("h-[calc(2rem+var(--hbar,0px))] pb-(--hbar)", dropLine(c.key))}
                         >
                           {i === 0 ? "Total" : c.kind === "money" ? money(totalOf(c.key, filtered)) : ""}
-                        </td>
+                        </ReportGridCell>
                       ))}
-                    </tr>
+                    </ReportGridTotalRow>
                   </tfoot>
-                </table>
-              </CanvasScroll>
+                </ReportGridTable>
+              </ReportGridScroll>
             )}
           </div>
-        </Card>
+        </ReportGridCard>
       </div>
 
       {/* Footer */}
@@ -903,260 +860,4 @@ export function SimplyFundingReport() {
 
 function GroupRows({ children }: { children: ReactNode }) {
   return <>{children}</>
-}
-
-/*
- * The grid scrolls like a canvas, the way the Data app's table does. The
- * column-title band and the Total band run edge to edge across the card as
- * fixed anchors; only the rows between them scroll.
- *   - the table's own scrollbars are hidden; a separate vertical bar runs only
- *     beside the rows (below the column titles, above the Total row), so it
- *     never sits under the expand icon, and a horizontal bar sits at the bottom
- *     when the columns are wider than the card
- *   - press and drag anywhere on the rows to move around, sideways and up and
- *     down; links, buttons and column titles still click as usual, and a drag
- *     never opens a row
- */
-const GUTTER = 10 // the vertical scrollbar's track (ui-scrollbar draws a thin thumb in it)
-const HBAR = 10 // the sideways scrollbar's track
-
-function CanvasScroll({ children }: { children: ReactNode }) {
-  const box = useRef<HTMLDivElement>(null)
-  const vbar = useRef<HTMLDivElement>(null)
-  const hbar = useRef<HTMLDivElement>(null)
-  const [dims, setDims] = useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0, vh: 0 })
-
-  useEffect(() => {
-    const el = box.current
-    if (!el) return
-    const measure = () =>
-      setDims({
-        sh: el.scrollHeight,
-        ch: el.clientHeight,
-        sw: el.scrollWidth,
-        cw: el.clientWidth,
-        head: el.querySelector("thead")?.getBoundingClientRect().height ?? 0,
-        foot: el.querySelector("tfoot")?.getBoundingClientRect().height ?? 0,
-        vh: vbar.current?.clientHeight ?? 0,
-      })
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    if (vbar.current) ro.observe(vbar.current)
-    const table = el.firstElementChild
-    if (table) ro.observe(table)
-    return () => ro.disconnect()
-  }, [])
-
-  /* Keep the grid and the two bars in step. Each bar's spacer is sized so the bar scrolls exactly as far
-     as the grid (bar size + the grid's overflow), so both reach their ends together. A copy only moves
-     when it differs from its source, so the two never pull against each other and scrolling keeps its
-     full speed all the way to the top and bottom. */
-  const copyTop = (from: HTMLElement | null, to: HTMLElement | null) => {
-    if (from && to && Math.abs(to.scrollTop - from.scrollTop) >= 1) to.scrollTop = from.scrollTop
-  }
-  const copyLeft = (from: HTMLElement | null, to: HTMLElement | null) => {
-    if (from && to && Math.abs(to.scrollLeft - from.scrollLeft) >= 1) to.scrollLeft = from.scrollLeft
-  }
-  /* A bar only moves the grid while the person is using that bar (pressing on it or wheeling over it).
-     Its scroll events that come from following the grid are never sent back, so nothing writes to the
-     grid while it scrolls and the browser's smooth scrolling runs at full speed to the very end. */
-  const usingBar = useRef<"v" | "h" | null>(null)
-  const idle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const useBar = (which: "v" | "h") => {
-    usingBar.current = which
-    clearTimeout(idle.current)
-  }
-  const leaveBar = () => {
-    clearTimeout(idle.current)
-    idle.current = setTimeout(() => (usingBar.current = null), 200)
-  }
-  const barHandlers = (which: "v" | "h") => ({
-    onPointerDown: () => useBar(which),
-    onPointerUp: leaveBar,
-    onPointerCancel: leaveBar,
-    onWheel: () => {
-      useBar(which)
-      leaveBar()
-    },
-    onKeyDown: () => {
-      useBar(which)
-      leaveBar()
-    },
-  })
-  // Chrome doesn't always send pointerup to a scrollbar, so a release anywhere ends using it.
-  useEffect(() => {
-    const up = () => leaveBar()
-    window.addEventListener("pointerup", up)
-    return () => window.removeEventListener("pointerup", up)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  // Any wheel or press on the grid itself hands control back to the grid.
-  const useGrid = () => {
-    clearTimeout(idle.current)
-    usingBar.current = null
-  }
-  const onGrid = () => {
-    if (usingBar.current) return
-    copyTop(box.current, vbar.current)
-    copyLeft(box.current, hbar.current)
-  }
-
-  /* At the top or bottom of the grid, the wheel goes on to the page right away. Browsers keep a wheel
-     gesture on the box it started in until the mouse moves, so without this the page only scrolls after
-     a nudge of the mouse. */
-  useEffect(() => {
-    const el = box.current
-    if (!el) return
-    let target: { node: HTMLElement; top: number } | null = null
-    let settle: ReturnType<typeof setTimeout> | undefined
-    /* The nearest box that can still move that way: a scrolling parent, the page, or (when the report sits
-       in a frame, like the catalog preview) the page around the frame. */
-    const canMove = (n: Element, dy: number) =>
-      dy > 0 ? n.scrollTop < n.scrollHeight - n.clientHeight - 1 : n.scrollTop > 0
-    const outer = (dy: number): HTMLElement | null => {
-      let win: Window = window
-      let n: HTMLElement | null = el.parentElement
-      for (;;) {
-        for (; n; n = n.parentElement) {
-          const oy = win.getComputedStyle(n).overflowY
-          if ((oy === "auto" || oy === "scroll") && canMove(n, dy)) return n
-        }
-        const root = win.document.scrollingElement as HTMLElement | null
-        if (root && canMove(root, dy)) return root
-        let frame: Element | null = null
-        try {
-          frame = win.frameElement
-        } catch {
-          frame = null // a frame from another site: leave it to the browser
-        }
-        if (!frame || !win.parent || win.parent === win) return null
-        win = win.parent
-        n = frame.parentElement
-      }
-    }
-    const onWheel = (e: WheelEvent) => {
-      if (e.ctrlKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
-      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * el.clientHeight : e.deltaY
-      if (canMove(el, dy)) return
-      const node = target && canMove(target.node, dy) ? target.node : outer(dy)
-      if (!node) return
-      e.preventDefault()
-      const max = node.scrollHeight - node.clientHeight
-      const from = target && target.node === node ? target.top : node.scrollTop
-      const top = Math.min(max, Math.max(0, from + dy))
-      // Mouse wheels step in big notches, so glide; trackpads send small steps, so follow them exactly.
-      const glide = Math.abs(dy) >= 40
-      target = glide ? { node, top } : null
-      node.scrollTo({ top, behavior: glide ? "smooth" : "instant" })
-      clearTimeout(settle)
-      settle = setTimeout(() => (target = null), 300)
-    }
-    el.addEventListener("wheel", onWheel, { passive: false })
-    return () => {
-      el.removeEventListener("wheel", onWheel)
-      clearTimeout(settle)
-    }
-  }, [])
-
-  // Drag to pan.
-  const drag = useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(null)
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (e.button !== 0) return
-    if ((e.target as HTMLElement).closest("a, button, input, select, textarea, label, th, [role=button]")) return
-    const el = box.current!
-    drag.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, id: e.pointerId, moved: false }
-  }
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    const d = drag.current
-    const el = box.current
-    if (!d || !el) return
-    const dx = e.clientX - d.x
-    const dy = e.clientY - d.y
-    if (!d.moved) {
-      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
-      d.moved = true
-      el.setPointerCapture(d.id)
-      el.style.cursor = "grabbing"
-      el.style.userSelect = "none"
-    }
-    el.scrollLeft = d.left - dx
-    el.scrollTop = d.top - dy
-  }
-  const endDrag = () => {
-    const d = drag.current
-    const el = box.current
-    drag.current = null
-    if (!d || !el) return
-    el.style.cursor = ""
-    el.style.userSelect = ""
-    if (el.hasPointerCapture(d.id)) el.releasePointerCapture(d.id)
-    if (d.moved) {
-      // The drag ends in a click on whatever row is under the pointer; swallow it.
-      const stop = (ev: Event) => {
-        ev.stopPropagation()
-        ev.preventDefault()
-      }
-      el.addEventListener("click", stop, { capture: true, once: true })
-      setTimeout(() => el.removeEventListener("click", stop, { capture: true }), 0)
-    }
-  }
-
-  const wide = dims.sw > dims.cw + 1
-  const band = "bg-muted shrink-0"
-  return (
-    // --hbar: how much the Total row grows while the sideways bar shows, so the bar sits under the text and
-    // the gap from the text to the visible bar matches the space above the text. (The thumb is drawn 2px
-    // inside its 10px track, so the row grows a little less than the track.)
-    <div
-      className="relative flex h-full min-h-0 flex-col"
-      style={{ ["--hbar" as string]: wide ? `${HBAR - 3}px` : "0px" }}
-    >
-      <div className="flex min-h-0 flex-1">
-        <div
-          ref={box}
-          onScroll={onGrid}
-          onWheel={useGrid}
-          onPointerDown={(e) => {
-            useGrid()
-            onPointerDown(e)
-          }}
-          onPointerMove={onPointerMove}
-          onPointerUp={endDrag}
-          onPointerCancel={endDrag}
-          className="min-h-0 min-w-0 flex-1 cursor-grab overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {children}
-        </div>
-        {/* Right edge: the title band, the vertical scrollbar flush to the edge, then the Total band. */}
-        <div className="flex shrink-0 flex-col" style={{ width: GUTTER }}>
-          <div className={band} style={{ height: dims.head }} />
-          <div
-            ref={vbar}
-            aria-hidden
-            onScroll={() => usingBar.current === "v" && copyTop(vbar.current, box.current)}
-            {...barHandlers("v")}
-            className="ui-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto"
-          >
-            <div style={{ height: dims.vh + Math.max(0, dims.sh - dims.ch) }} />
-          </div>
-          <div className={band} style={{ height: dims.foot }} />
-        </div>
-      </div>
-      {wide ? (
-        // The sideways scrollbar lies along the bottom edge of the Total band, over it, so the band keeps
-        // its own height and its text stays centered.
-        <div
-          ref={hbar}
-          aria-hidden
-          onScroll={() => usingBar.current === "h" && copyLeft(hbar.current, box.current)}
-          {...barHandlers("h")}
-          className="ui-scrollbar absolute bottom-0 left-0 z-30 overflow-x-auto overflow-y-hidden"
-          style={{ right: GUTTER, height: HBAR }}
-        >
-          <div className="h-px" style={{ width: dims.sw }} />
-        </div>
-      ) : null}
-    </div>
-  )
 }

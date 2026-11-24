@@ -1,0 +1,456 @@
+"use client"
+
+import * as React from "react"
+import { ChevronDownIcon } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { SortIcon } from "@/components/ui/data-list"
+
+/*
+ * The parts of a report's grid: the wide table under a report's toolbar, with a
+ * column-title band on top, a Total band at the bottom, groups that fold, and
+ * subtotals. Every report draws its table with these, so they all look the same
+ * and a change here reaches all of them.
+ *
+ *   <ReportGridCard>
+ *     <ReportGridScroll>            (or the app's own scrolling, for very long reports)
+ *       <ReportGridTable>
+ *         <thead><ReportGridHeadRow><ReportGridHead .../></ReportGridHeadRow></thead>
+ *         <tbody><ReportGridRow><ReportGridCell .../></ReportGridRow></tbody>
+ *         <tfoot><ReportGridTotalRow><ReportGridCell .../></ReportGridTotalRow></tfoot>
+ *       </ReportGridTable>
+ *     </ReportGridScroll>
+ *   </ReportGridCard>
+ *
+ * The parts only carry the look. The app owns the data, sorting, column order
+ * and which rows are drawn.
+ */
+
+/** Frame around a report grid. No padding: the title and Total bands reach its edges. */
+function ReportGridCard({ className, ...props }: React.ComponentProps<"div">) {
+  return (
+    <div
+      data-slot="report-grid-card"
+      className={cn(
+        "bg-card text-card-foreground ring-foreground/10 relative flex min-h-0 flex-col overflow-hidden rounded-xl text-[13px] ring-1",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+/** The table itself. 16px before the first column, so text lines up with the band edges. */
+function ReportGridTable({ className, ...props }: React.ComponentProps<"table">) {
+  return (
+    <table
+      data-slot="report-grid-table"
+      className={cn("caption-bottom text-[13px] [&_tr>*:first-child]:pl-4", className)}
+      {...props}
+    />
+  )
+}
+
+/** The band a grid's column titles or totals sit on. For an app that scrolls its own panes. */
+const reportGridBandClass = "bg-muted"
+
+function ReportGridHeadRow({ className, ...props }: React.ComponentProps<"tr">) {
+  return <tr data-slot="report-grid-head-row" className={cn(reportGridBandClass, className)} {...props} />
+}
+
+/**
+ * A column title. With `sort` it shows the sort arrows: null when the report is
+ * not sorted by this column. Dragging and clicking are the app's handlers, passed
+ * straight through.
+ */
+function ReportGridHead({
+  className,
+  children,
+  sort,
+  movable,
+  ...props
+}: React.ComponentProps<"th"> & {
+  /** "asc" or "desc" when sorted by this column, null when it can sort but is not, undefined when it cannot sort. */
+  sort?: "asc" | "desc" | null
+  /** The column can be dragged to a new place. */
+  movable?: boolean
+}) {
+  const sortable = sort !== undefined
+  return (
+    <th
+      data-slot="report-grid-head"
+      aria-sort={sortable ? (sort === "asc" ? "ascending" : sort === "desc" ? "descending" : "none") : undefined}
+      className={cn(
+        "bg-muted text-foreground h-8 px-2 text-left align-middle text-[11px] font-semibold tracking-wider whitespace-nowrap uppercase select-none",
+        movable ? "cursor-grab active:cursor-grabbing" : sortable && "cursor-pointer",
+        className,
+      )}
+      {...props}
+    >
+      <span className="inline-flex items-center gap-1">
+        {children}
+        {sortable ? (
+          <span aria-hidden className="inline-flex shrink-0 cursor-pointer items-center justify-center">
+            <SortIcon dir={sort ?? null} />
+          </span>
+        ) : null}
+      </span>
+    </th>
+  )
+}
+
+/**
+ * A body row. tone: "row" (default), "group" (a group's heading), "subtotal"
+ * (a group's total), "subtotal-light" (a sub-group's total).
+ */
+function ReportGridRow({
+  className,
+  tone = "row",
+  clickable,
+  ...props
+}: React.ComponentProps<"tr"> & {
+  tone?: "row" | "group" | "subtotal" | "subtotal-light"
+  /** The row opens something when clicked. */
+  clickable?: boolean
+}) {
+  return (
+    <tr
+      data-slot="report-grid-row"
+      data-tone={tone}
+      className={cn(
+        "border-b transition-colors",
+        tone === "row" && "hover:bg-muted/50",
+        tone === "group" && "hover:bg-muted/50 cursor-pointer font-medium",
+        tone === "subtotal" && "bg-muted/60 font-semibold",
+        tone === "subtotal-light" && "bg-muted/30 font-medium",
+        clickable && "cursor-pointer",
+        className,
+      )}
+      {...props}
+    />
+  )
+}
+
+/** A cell. `numeric` lines digits up. Every row is one height, so long reports can draw only the rows in view. */
+function ReportGridCell({
+  className,
+  numeric,
+  ...props
+}: React.ComponentProps<"td"> & { numeric?: boolean }) {
+  return (
+    <td
+      data-slot="report-grid-cell"
+      className={cn("h-8 px-2 py-0 align-middle whitespace-nowrap", numeric && "tabular-nums", className)}
+      {...props}
+    />
+  )
+}
+
+/** The arrow and label inside a group's heading row. */
+function ReportGridGroupLabel({
+  collapsed,
+  count,
+  children,
+  className,
+}: {
+  collapsed?: boolean
+  /** Shown in gray after the label, for example "(12 units)". */
+  count?: React.ReactNode
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <span className={cn("inline-flex items-center gap-2", className)}>
+      <ChevronDownIcon aria-hidden className={cn("size-4 shrink-0 transition-transform", collapsed && "-rotate-90")} />
+      <span>
+        {children}
+        {count != null ? <span className="text-muted-foreground ml-2 font-normal tabular-nums">{count}</span> : null}
+      </span>
+    </span>
+  )
+}
+
+/** The Total row at the bottom of the grid. */
+function ReportGridTotalRow({ className, ...props }: React.ComponentProps<"tr">) {
+  return (
+    <tr data-slot="report-grid-total-row" className={cn(reportGridBandClass, "font-semibold", className)} {...props} />
+  )
+}
+
+/*
+ * Scrolls a grid like a canvas. The column-title band and the Total band run
+ * edge to edge across the card as fixed anchors; only the rows between them
+ * scroll.
+ *   - the table's own scrollbars are hidden; a separate vertical bar runs only
+ *     beside the rows (below the column titles, above the Total row), and a
+ *     horizontal bar sits at the bottom when the columns are wider than the card
+ *   - press and drag anywhere on the rows to move around, sideways and up and
+ *     down; links, buttons and column titles still click as usual, and a drag
+ *     never opens a row
+ * The table inside needs a sticky thead (top-0) and tfoot (bottom-0).
+ */
+const GUTTER = 10 // the vertical scrollbar's track (ui-scrollbar draws a thin thumb in it)
+const HBAR = 10 // the sideways scrollbar's track
+
+/** The thin scrollbar a report grid uses. Needs @nateadmin/ui/components.css (or styles.css). */
+const reportGridScrollbarClass = "ui-scrollbar"
+
+function ReportGridScroll({ children, className }: { children: React.ReactNode; className?: string }) {
+  const box = React.useRef<HTMLDivElement>(null)
+  const vbar = React.useRef<HTMLDivElement>(null)
+  const hbar = React.useRef<HTMLDivElement>(null)
+  const [dims, setDims] = React.useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0, vh: 0 })
+
+  React.useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const measure = () =>
+      setDims({
+        sh: el.scrollHeight,
+        ch: el.clientHeight,
+        sw: el.scrollWidth,
+        cw: el.clientWidth,
+        head: el.querySelector("thead")?.getBoundingClientRect().height ?? 0,
+        foot: el.querySelector("tfoot")?.getBoundingClientRect().height ?? 0,
+        vh: vbar.current?.clientHeight ?? 0,
+      })
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    if (vbar.current) ro.observe(vbar.current)
+    const table = el.firstElementChild
+    if (table) ro.observe(table)
+    return () => ro.disconnect()
+  }, [])
+
+  /* Keep the grid and the two bars in step. Each bar's spacer is sized so the bar scrolls exactly as far
+     as the grid (bar size + the grid's overflow), so both reach their ends together. A copy only moves
+     when it differs from its source, so the two never pull against each other and scrolling keeps its
+     full speed all the way to the top and bottom. */
+  const copyTop = (from: HTMLElement | null, to: HTMLElement | null) => {
+    if (from && to && Math.abs(to.scrollTop - from.scrollTop) >= 1) to.scrollTop = from.scrollTop
+  }
+  const copyLeft = (from: HTMLElement | null, to: HTMLElement | null) => {
+    if (from && to && Math.abs(to.scrollLeft - from.scrollLeft) >= 1) to.scrollLeft = from.scrollLeft
+  }
+  /* A bar only moves the grid while the person is using that bar (pressing on it or wheeling over it).
+     Its scroll events that come from following the grid are never sent back, so nothing writes to the
+     grid while it scrolls and the browser's smooth scrolling runs at full speed to the very end. */
+  const usingBar = React.useRef<"v" | "h" | null>(null)
+  const idle = React.useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const useBar = (which: "v" | "h") => {
+    usingBar.current = which
+    clearTimeout(idle.current)
+  }
+  const leaveBar = () => {
+    clearTimeout(idle.current)
+    idle.current = setTimeout(() => (usingBar.current = null), 200)
+  }
+  const barHandlers = (which: "v" | "h") => ({
+    onPointerDown: () => useBar(which),
+    onPointerUp: leaveBar,
+    onPointerCancel: leaveBar,
+    onWheel: () => {
+      useBar(which)
+      leaveBar()
+    },
+    onKeyDown: () => {
+      useBar(which)
+      leaveBar()
+    },
+  })
+  // Chrome doesn't always send pointerup to a scrollbar, so a release anywhere ends using it.
+  React.useEffect(() => {
+    const up = () => leaveBar()
+    window.addEventListener("pointerup", up)
+    return () => window.removeEventListener("pointerup", up)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // Any wheel or press on the grid itself hands control back to the grid.
+  const useGrid = () => {
+    clearTimeout(idle.current)
+    usingBar.current = null
+  }
+  const onGrid = () => {
+    if (usingBar.current) return
+    copyTop(box.current, vbar.current)
+    copyLeft(box.current, hbar.current)
+  }
+
+  /* At the top or bottom of the grid, the wheel goes on to the page right away. Browsers keep a wheel
+     gesture on the box it started in until the mouse moves, so without this the page only scrolls after
+     a nudge of the mouse. */
+  React.useEffect(() => {
+    const el = box.current
+    if (!el) return
+    let target: { node: HTMLElement; top: number } | null = null
+    let settle: ReturnType<typeof setTimeout> | undefined
+    /* The nearest box that can still move that way: a scrolling parent, the page, or (when the report sits
+       in a frame, like the catalog preview) the page around the frame. */
+    const canMove = (n: Element, dy: number) =>
+      dy > 0 ? n.scrollTop < n.scrollHeight - n.clientHeight - 1 : n.scrollTop > 0
+    const outer = (dy: number): HTMLElement | null => {
+      let win: Window = window
+      let n: HTMLElement | null = el.parentElement
+      for (;;) {
+        for (; n; n = n.parentElement) {
+          const oy = win.getComputedStyle(n).overflowY
+          if ((oy === "auto" || oy === "scroll") && canMove(n, dy)) return n
+        }
+        const root = win.document.scrollingElement as HTMLElement | null
+        if (root && canMove(root, dy)) return root
+        let frame: Element | null = null
+        try {
+          frame = win.frameElement
+        } catch {
+          frame = null // a frame from another site: leave it to the browser
+        }
+        if (!frame || !win.parent || win.parent === win) return null
+        win = win.parent
+        n = frame.parentElement
+      }
+    }
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return
+      const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * el.clientHeight : e.deltaY
+      if (canMove(el, dy)) return
+      const node = target && canMove(target.node, dy) ? target.node : outer(dy)
+      if (!node) return
+      e.preventDefault()
+      const max = node.scrollHeight - node.clientHeight
+      const from = target && target.node === node ? target.top : node.scrollTop
+      const top = Math.min(max, Math.max(0, from + dy))
+      // Mouse wheels step in big notches, so glide; trackpads send small steps, so follow them exactly.
+      const glide = Math.abs(dy) >= 40
+      target = glide ? { node, top } : null
+      node.scrollTo({ top, behavior: glide ? "smooth" : "instant" })
+      clearTimeout(settle)
+      settle = setTimeout(() => (target = null), 300)
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => {
+      el.removeEventListener("wheel", onWheel)
+      clearTimeout(settle)
+    }
+  }, [])
+
+  // Drag to pan.
+  const drag = React.useRef<{ x: number; y: number; left: number; top: number; id: number; moved: boolean } | null>(
+    null,
+  )
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return
+    if ((e.target as HTMLElement).closest("a, button, input, select, textarea, label, th, [role=button]")) return
+    const el = box.current!
+    drag.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop, id: e.pointerId, moved: false }
+  }
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    const el = box.current
+    if (!d || !el) return
+    const dx = e.clientX - d.x
+    const dy = e.clientY - d.y
+    if (!d.moved) {
+      if (Math.abs(dx) < 4 && Math.abs(dy) < 4) return
+      d.moved = true
+      el.setPointerCapture(d.id)
+      el.style.cursor = "grabbing"
+      el.style.userSelect = "none"
+    }
+    el.scrollLeft = d.left - dx
+    el.scrollTop = d.top - dy
+  }
+  const endDrag = () => {
+    const d = drag.current
+    const el = box.current
+    drag.current = null
+    if (!d || !el) return
+    el.style.cursor = ""
+    el.style.userSelect = ""
+    if (el.hasPointerCapture(d.id)) el.releasePointerCapture(d.id)
+    if (d.moved) {
+      // The drag ends in a click on whatever row is under the pointer; swallow it.
+      const stop = (ev: Event) => {
+        ev.stopPropagation()
+        ev.preventDefault()
+      }
+      el.addEventListener("click", stop, { capture: true, once: true })
+      setTimeout(() => el.removeEventListener("click", stop, { capture: true }), 0)
+    }
+  }
+
+  const wide = dims.sw > dims.cw + 1
+  const band = cn(reportGridBandClass, "shrink-0")
+  return (
+    // --hbar: how much the Total row grows while the sideways bar shows, so the bar sits under the text and
+    // the gap from the text to the visible bar matches the space above the text. (The thumb is drawn 2px
+    // inside its 10px track, so the row grows a little less than the track.)
+    <div
+      data-slot="report-grid-scroll"
+      className={cn("relative flex h-full min-h-0 flex-col", className)}
+      style={{ ["--hbar" as string]: wide ? `${HBAR - 3}px` : "0px" }}
+    >
+      <div className="flex min-h-0 flex-1">
+        <div
+          ref={box}
+          onScroll={onGrid}
+          onWheel={useGrid}
+          onPointerDown={(e) => {
+            useGrid()
+            onPointerDown(e)
+          }}
+          onPointerMove={onPointerMove}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+          className="min-h-0 min-w-0 flex-1 cursor-grab overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {children}
+        </div>
+        {/* Right edge: the title band, the vertical scrollbar flush to the edge, then the Total band. */}
+        <div className="flex shrink-0 flex-col" style={{ width: GUTTER }}>
+          <div className={band} style={{ height: dims.head }} />
+          <div
+            ref={vbar}
+            aria-hidden
+            onScroll={() => usingBar.current === "v" && copyTop(vbar.current, box.current)}
+            {...barHandlers("v")}
+            className={cn(reportGridScrollbarClass, "min-h-0 flex-1 overflow-x-hidden overflow-y-auto")}
+          >
+            <div style={{ height: dims.vh + Math.max(0, dims.sh - dims.ch) }} />
+          </div>
+          <div className={band} style={{ height: dims.foot }} />
+        </div>
+      </div>
+      {wide ? (
+        // The sideways scrollbar lies along the bottom edge of the Total band, over it, so the band keeps
+        // its own height and its text stays centered.
+        <div
+          ref={hbar}
+          aria-hidden
+          onScroll={() => usingBar.current === "h" && copyLeft(hbar.current, box.current)}
+          {...barHandlers("h")}
+          className={cn(reportGridScrollbarClass, "absolute bottom-0 left-0 z-30 overflow-x-auto overflow-y-hidden")}
+          style={{ right: GUTTER, height: HBAR }}
+        >
+          <div className="h-px" style={{ width: dims.sw }} />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+const REPORT_GRID_SCROLLBAR_PX = GUTTER
+
+export {
+  ReportGridCard,
+  ReportGridTable,
+  ReportGridHeadRow,
+  ReportGridHead,
+  ReportGridRow,
+  ReportGridCell,
+  ReportGridGroupLabel,
+  ReportGridTotalRow,
+  ReportGridScroll,
+  reportGridBandClass,
+  reportGridScrollbarClass,
+  REPORT_GRID_SCROLLBAR_PX,
+}
