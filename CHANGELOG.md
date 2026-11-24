@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.5.2
+
+### Patch Changes
+
+- b7c2c44: ListPagination: the page size menu is as wide as its widest size, no longer stretched to the button's width.
+
 ## 0.5.1
 
 ### Patch Changes
