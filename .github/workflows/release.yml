@@ -32,12 +32,16 @@ jobs:
       # Apps without a registry token install the package file from the public GitHub Release:
       # https://github.com/nateadmin/ui/releases/download/v<version>/nateadmin-ui-<version>.tgz
       - name: Attach the package file to the GitHub Release
-        if: steps.changesets.outputs.published == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="$(node -p "require('./package.json').version")"
           tag="v${version}"
+          file="nateadmin-ui-${version}.tgz"
+          # Changesets still waiting: this version is not the released one yet.
+          if ls .changeset/*.md 2>/dev/null | grep -qv README.md; then echo "Changesets pending; nothing to attach."; exit 0; fi
+          if gh release view "$tag" --json assets --jq '.assets[].name' 2>/dev/null | grep -qx "$file"; then echo "$file is already attached."; exit 0; fi
+          npm run build
           npm pack
           gh release view "$tag" >/dev/null 2>&1 || gh release create "$tag" --title "$tag" --notes "See CHANGELOG.md"
-          gh release upload "$tag" "nateadmin-ui-${version}.tgz" --clobber
+          gh release upload "$tag" "$file" --clobber
