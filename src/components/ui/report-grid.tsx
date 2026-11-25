@@ -318,6 +318,35 @@ const HBAR = 10 // the sideways scrollbar's track
 /** The thin scrollbar a report grid uses. Needs @nateadmin/ui/components.css (or styles.css). */
 const reportGridScrollbarClass = "ui-scrollbar"
 
+const HBAR_THUMB = 5 // how thick the sideways thumb is drawn
+const HBAR_EDGE = 3 // from the thumb down to the band's bottom edge
+
+/**
+ * How much taller the Total band gets while the sideways bar shows, so the gap from the Total text down
+ * to the bar's thumb equals the gap from the band's top edge down to the text. Measured from the text as
+ * drawn (its real font and size), not assumed: letters and digits sit on the baseline, so the text's
+ * bottom is the baseline (a comma's tail hangs a little under it and is not counted).
+ */
+function totalLift(scrollBox: HTMLElement): number {
+  const cell = scrollBox.querySelector<HTMLElement>("tfoot td, tfoot th")
+  if (!cell || typeof document === "undefined") return REPORT_GRID_TOTAL_LIFT_PX
+  const ctx = document.createElement("canvas").getContext("2d")
+  if (!ctx) return REPORT_GRID_TOTAL_LIFT_PX
+  const cs = getComputedStyle(cell)
+  ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
+  const caps = ctx.measureText("T0")
+  if (!caps.actualBoundingBoxAscent) return REPORT_GRID_TOTAL_LIFT_PX
+  // The text is centered in the band's first 32px (the lift is all padding under it). With the text's
+  // height h centered there, the gap above it is (32 - h) / 2 and its bottom is at (32 + h) / 2. The thumb's
+  // top must be that same gap further down: at 32. The band then ends a thumb and an edge below that.
+  const line = Number.parseFloat(cs.lineHeight) || Number.parseFloat(cs.fontSize) * 1.5
+  const font = caps.fontBoundingBoxAscent + caps.fontBoundingBoxDescent
+  const baseline = (32 - line) / 2 + (line - font) / 2 + caps.fontBoundingBoxAscent
+  const above = baseline - caps.actualBoundingBoxAscent
+  const thumbTop = baseline + above
+  return Math.max(0, Math.round(thumbTop + HBAR_THUMB + HBAR_EDGE - 32))
+}
+
 function ReportGridScroll({
   children,
   className,
@@ -337,7 +366,8 @@ function ReportGridScroll({
   }
   const vbar = React.useRef<HTMLDivElement>(null)
   const hbar = React.useRef<HTMLDivElement>(null)
-  const [dims, setDims] = React.useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0, vh: 0 })
+  const hthumb = React.useRef<HTMLDivElement>(null)
+  const [dims, setDims] = React.useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0, vh: 0, lift: REPORT_GRID_TOTAL_LIFT_PX })
 
   React.useEffect(() => {
     const el = box.current
@@ -351,6 +381,7 @@ function ReportGridScroll({
         head: el.querySelector("thead")?.getBoundingClientRect().height ?? 0,
         foot: el.querySelector("tfoot")?.getBoundingClientRect().height ?? 0,
         vh: vbar.current?.clientHeight ?? 0,
+        lift: totalLift(el),
       })
       reportViewport()
     }
@@ -415,7 +446,7 @@ function ReportGridScroll({
     reportViewport()
     if (usingBar.current) return
     copyTop(box.current, vbar.current)
-    copyLeft(box.current, hbar.current)
+    placeThumb()
   }
 
   /* At the top or bottom of the grid, the wheel goes on to the page right away. Browsers keep a wheel
@@ -521,15 +552,59 @@ function ReportGridScroll({
   }
 
   const wide = dims.sw > dims.cw + 1
+
+  /* The sideways thumb: as long as the share of the columns in view, placed by how far the grid is scrolled. */
+  const trackWidth = Math.max(0, dims.cw)
+  const thumbWidth = wide ? Math.max(32, Math.round((dims.cw / dims.sw) * trackWidth)) : 0
+  const placeThumb = () => {
+    const el = box.current
+    const thumb = hthumb.current
+    if (!el || !thumb) return
+    const max = el.scrollWidth - el.clientWidth
+    const room = el.clientWidth - thumb.offsetWidth
+    thumb.style.transform = `translateX(${max > 0 ? (el.scrollLeft / max) * room : 0}px)`
+  }
+  React.useLayoutEffect(placeThumb)
+  const barDrag = React.useRef<{ x: number; left: number } | null>(null)
+  const onBarDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = box.current
+    const thumb = hthumb.current
+    if (!el || !thumb) return
+    const max = el.scrollWidth - el.clientWidth
+    const room = el.clientWidth - thumb.offsetWidth
+    const rect = thumb.getBoundingClientRect()
+    // A press off the thumb jumps the thumb's middle to the pointer, then the drag carries on from there.
+    if (e.clientX < rect.left || e.clientX > rect.right) {
+      const track = e.currentTarget.getBoundingClientRect()
+      const at = Math.min(room, Math.max(0, e.clientX - track.left - thumb.offsetWidth / 2))
+      el.scrollLeft = room > 0 ? (at / room) * max : 0
+    }
+    barDrag.current = { x: e.clientX, left: el.scrollLeft }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onBarMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = box.current
+    const thumb = hthumb.current
+    const d = barDrag.current
+    if (!el || !thumb || !d) return
+    const max = el.scrollWidth - el.clientWidth
+    const room = el.clientWidth - thumb.offsetWidth
+    el.scrollLeft = d.left + (room > 0 ? ((e.clientX - d.x) / room) * max : 0)
+  }
+  const onBarUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    barDrag.current = null
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+  }
   const band = cn(reportGridBandClass, "shrink-0")
   return (
-    // --hbar: how much the Total row grows while the sideways bar shows, so the bar sits under the text and
-    // the space from the text to the bar equals the space above the text. Without the bar the text is
-    // dead center. The Total row's cells use it: h-[calc(2rem+var(--hbar,0px))] pb-(--hbar).
+    // --hbar: how much the Total row grows while the sideways bar shows. It is worked out from where the
+    // Total text really is (see totalLift), so the space from the text down to the bar equals the space
+    // above the text. Without the bar the text is dead center. The Total row's cells use it:
+    // h-[calc(2rem+var(--hbar,0px))] pb-(--hbar).
     <div
       data-slot="report-grid-scroll"
       className={cn("relative flex h-full min-h-0 flex-col", className)}
-      style={{ ["--hbar" as string]: wide ? `${REPORT_GRID_TOTAL_LIFT_PX}px` : "0px" }}
+      style={{ ["--hbar" as string]: wide ? `${dims.lift}px` : "0px" }}
     >
       <div className="flex min-h-0 flex-1">
         <div
@@ -563,17 +638,28 @@ function ReportGridScroll({
         </div>
       </div>
       {wide ? (
-        // The sideways scrollbar lies along the bottom edge of the Total band, over it, so the band keeps
-        // its own height and its text stays centered.
+        // The sideways scrollbar, drawn here rather than by the browser, so it is the same on every machine:
+        // a thin thumb whose top edge is as far under the Total text as the band's top edge is above it.
         <div
           ref={hbar}
           aria-hidden
-          onScroll={() => usingBar.current === "h" && copyLeft(hbar.current, box.current)}
-          {...barHandlers("h")}
-          className={cn(reportGridScrollbarClass, "absolute bottom-0 left-0 z-30 overflow-x-auto overflow-y-hidden")}
-          style={{ right: GUTTER, height: HBAR }}
+          onPointerDown={onBarDown}
+          onPointerMove={onBarMove}
+          onPointerUp={onBarUp}
+          onPointerCancel={onBarUp}
+          // The wheel over the bar moves the grid sideways.
+          onWheel={(e) => {
+            if (box.current) box.current.scrollLeft += e.deltaX || e.deltaY
+          }}
+          className="group/hbar absolute left-0 z-30 cursor-pointer touch-none"
+          // 3px of hit area above and below the 5px thumb.
+          style={{ right: GUTTER, bottom: HBAR_EDGE - 3, height: HBAR_THUMB + 6 }}
         >
-          <div className="h-px" style={{ width: dims.sw }} />
+          <div
+            ref={hthumb}
+            className="bg-muted-foreground/35 group-hover/hbar:bg-muted-foreground/60 absolute top-[3px] rounded-full"
+            style={{ height: HBAR_THUMB, width: thumbWidth }}
+          />
         </div>
       ) : null}
     </div>
