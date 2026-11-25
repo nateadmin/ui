@@ -1,9 +1,11 @@
 "use client"
 
 import * as React from "react"
-import { SparklesIcon } from "lucide-react"
+import { PinIcon, PinOffIcon, SparklesIcon } from "lucide-react"
+import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { CustomizeMenu } from "@/components/ui/customize-menu"
 import { ListPagination } from "@/components/ui/list-pagination"
 import {
@@ -40,6 +42,9 @@ import {
  *   - column widths settled from the whole report (the widest value of each
  *     column, its title and its total), so sorting or paging never moves a
  *     column
+ *   - right-click (or long-press) a column or a row to freeze it: a frozen column stays at the
+ *     left while the rest scroll sideways, a frozen row stays under the titles while the rest
+ *     scroll up and down; the same menu unfreezes
  *   - only the rows in view are drawn, so a report of tens of thousands of
  *     rows stays fast
  *   - the footer: page size, "Showing x-y of total", Previous, a page number
@@ -58,6 +63,9 @@ type ReportColumn = {
 }
 
 type ReportSort = { key: string; dir: "asc" | "desc" } | null
+
+/** What is frozen in a grid: column keys (kept at the left) and row keys (kept under the titles). */
+type ReportFrozen = { columns: string[]; rows: string[] }
 
 /** One line of the grid, top to bottom. The app decides the lines; the grid decides how they look. */
 type ReportItem<Row> =
@@ -119,6 +127,12 @@ type ReportGridProps<Row> = {
   pendingColumns?: string[]
   /** Shown instead of the grid when there are no items. */
   empty?: React.ReactNode
+  /**
+   * Freezing works on every grid with nothing passed: the grid remembers what is frozen while it is
+   * open. Pass both of these only to keep that somewhere, for example saved with a report.
+   */
+  frozen?: ReportFrozen
+  onFrozenChange?: (frozen: ReportFrozen) => void
 }
 
 const ROW = 32 // every line of the grid; the reason only the rows in view need drawing
@@ -126,6 +140,15 @@ const GAP = 16
 const OVERSCAN = 12
 
 const itemHeight = (item: { kind: string }) => (item.kind === "gap" ? GAP : ROW)
+
+/* A frozen cell rides over the cells scrolling under it, so its background is solid: the same
+   color its row would show, mixed over the card instead of see-through. */
+const mix = (pct: number) => `color-mix(in oklab, var(--muted) ${pct}%, var(--card))`
+const FROZEN_BG = {
+  row: "bg-card [tr:hover>&]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--card))]",
+  band: "bg-muted",
+}
+const NO_FROZEN: ReportFrozen = { columns: [], rows: [] }
 
 /** Text widths, measured once per distinct string in the page's own font. */
 function useTextWidth() {
@@ -149,8 +172,8 @@ function useTextWidth() {
 
 function ReportGrid<Row>({
   title,
-  columns,
-  items,
+  columns: givenColumns,
+  items: allItems,
   cell,
   widest,
   cellText,
@@ -163,10 +186,32 @@ function ReportGrid<Row>({
   refreshing,
   pendingColumns,
   empty,
+  frozen: frozenProp,
+  onFrozenChange,
   className,
 }: ReportGridProps<Row> & { className?: string }) {
   const textWidth = useTextWidth()
+
+  /* Frozen columns and rows. Frozen columns are drawn first, in their own order, and stay at the
+     left. Frozen rows are drawn under the titles and stay there. */
+  const [ownFrozen, setOwnFrozen] = React.useState<ReportFrozen>(NO_FROZEN)
+  const frozen = frozenProp ?? ownFrozen
+  const setFrozen = (next: ReportFrozen) => {
+    if (!frozenProp) setOwnFrozen(next)
+    onFrozenChange?.(next)
+  }
+  const frozenColumns = givenColumns.filter((c) => frozen.columns.includes(c.key))
+  const frozenCount = frozenColumns.length
+  const columns = frozenCount
+    ? [...frozenColumns, ...givenColumns.filter((c) => !frozen.columns.includes(c.key))]
+    : givenColumns
   const keys = columns.map((c) => c.key)
+  const frozenRowSet = new Set(frozen.rows)
+  const isFrozenRow = (item: ReportItem<Row>) => item.kind === "row" && frozenRowSet.has(item.key)
+  const frozenItems = frozenRowSet.size ? allItems.filter(isFrozenRow) : []
+  const items = frozenItems.length ? allItems.filter((item) => !isFrozenRow(item)) : allItems
+  /** What was right-clicked: the menu offers to freeze or unfreeze exactly that. */
+  const [target, setTarget] = React.useState<{ col?: string; row?: string }>({})
 
   /* Column widths. Settled from the whole report where the app says what is widest; otherwise from
      the rows loaded so far, kept in a ref so a column only ever grows and never jumps back. */
@@ -179,7 +224,7 @@ function ReportGrid<Row>({
         for (const t of known) w = Math.max(w, textWidth(t, 400, 13))
       } else if (cellText) {
         const seen = new Set<string>()
-        for (const item of items) if (item.kind === "row") seen.add(cellText(c, item.row))
+        for (const item of allItems) if (item.kind === "row") seen.add(cellText(c, item.row))
         for (const t of seen) w = Math.max(w, textWidth(t, 400, 13))
         w = Math.max(w, grown.current[c.key] ?? 0)
         grown.current[c.key] = w
@@ -192,7 +237,30 @@ function ReportGrid<Row>({
       return Math.ceil(w + 16 + (i === 0 ? 8 : 0) + 4)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keys.join("\u0001"), widest, totals, items, textWidth, !!onSortChange])
+  }, [keys.join("\u0001"), widest, totals, allItems, textWidth, !!onSortChange])
+
+  /* Where each frozen column sits: after the frozen columns before it. */
+  const lefts: number[] = []
+  for (let i = 0, x = 0; i < frozenCount; i += 1) {
+    lefts.push(x)
+    x += colWidths[i] ?? 0
+  }
+  const edge = "inset -1px 0 0 var(--border)" // the line down the last frozen column
+  const under = "inset 0 -1px 0 var(--border)" // the line under a frozen row
+  /** Pins a cell: `col` its column's place, `frozenRow` its place among the frozen rows (or none). */
+  const pin = (col: number, z: number, frozenRow?: number, background?: string): React.CSSProperties | undefined => {
+    const inColumn = col < frozenCount
+    if (!inColumn && frozenRow == null) return undefined
+    const shadows = [inColumn && col === frozenCount - 1 ? edge : "", frozenRow != null ? under : ""].filter(Boolean)
+    return {
+      position: "sticky",
+      left: inColumn ? lefts[col] : undefined,
+      top: frozenRow != null ? ROW * (1 + frozenRow) : undefined,
+      zIndex: z + (inColumn ? 1 : 0),
+      boxShadow: shadows.join(", ") || undefined,
+      background,
+    }
+  }
 
   /* Only the lines in view are drawn. Every line has a known height, so the rest is two spacers. */
   const [view, setView] = React.useState({ scrollTop: 0, height: 0 })
@@ -240,7 +308,7 @@ function ReportGrid<Row>({
       </tr>
     ) : null
 
-  const line = (item: ReportItem<Row>) => {
+  const line = (item: ReportItem<Row>, frozenRow?: number) => {
     if (item.kind === "gap") return pad(GAP, item.key)
     if (item.kind === "group") {
       return (
@@ -257,7 +325,13 @@ function ReportGrid<Row>({
       return (
         <ReportGridRow key={item.key} tone={item.strong === false ? "subtotal-light" : "subtotal"}>
           {columns.map((c, i) => (
-            <ReportGridCell key={c.key} numeric={c.numeric} className={cn(i === 0 && item.depth ? "pl-8!" : null)}>
+            <ReportGridCell
+              key={c.key}
+              data-col={c.key}
+              numeric={c.numeric}
+              className={cn(i === 0 && item.depth ? "pl-8!" : null)}
+              style={pin(i, 4, undefined, mix(item.strong === false ? 30 : 60))}
+            >
               {i === 0 ? item.label : (item.values[c.key] ?? "")}
             </ReportGridCell>
           ))}
@@ -267,11 +341,18 @@ function ReportGrid<Row>({
     return (
       <ReportGridRow
         key={item.key}
+        data-row={item.key}
         clickable={!!onRowClick}
         onClick={onRowClick ? () => onRowClick(item.row) : undefined}
       >
-        {columns.map((c) => (
-          <ReportGridCell key={c.key} numeric={c.numeric}>
+        {columns.map((c, i) => (
+          <ReportGridCell
+            key={c.key}
+            data-col={c.key}
+            numeric={c.numeric}
+            className={i < frozenCount || frozenRow != null ? FROZEN_BG.row : undefined}
+            style={pin(i, frozenRow != null ? 7 : 4, frozenRow)}
+          >
             {pendingColumns?.includes(c.key) && cell(c, item.row) == null ? (
               <span className="bg-muted inline-block h-3 w-12 animate-pulse rounded" aria-label="Loading" />
             ) : (
@@ -287,15 +368,32 @@ function ReportGrid<Row>({
     <ReportGridCard className={cn("h-full flex-1", className)}>
       {title ? <h2 className="shrink-0 px-4 pt-3 pb-2 text-sm font-medium">{title}</h2> : <h2 className="sr-only">Report</h2>}
       <div className="min-h-0 flex-1 overflow-hidden">
-        {items.length === 0 ? (
+        {allItems.length === 0 ? (
           <div className="text-muted-foreground flex h-full min-h-24 items-center justify-center text-[13px]">
             {empty ?? "No rows match these filters."}
           </div>
         ) : (
           <ReportGridScroll onViewport={setView}>
-            <ReportGridTable
-              className="min-w-full"
-              style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0) }}
+           <ContextMenu>
+            <ContextMenuPrimitive.Trigger
+              render={
+                <ReportGridTable
+                  className="min-w-full"
+                  style={{ tableLayout: "fixed", width: colWidths.reduce((a, b) => a + b, 0) }}
+                />
+              }
+              // Runs before the menu opens: note what was pressed. A link keeps the browser's own menu,
+              // and so does anything that is neither a column nor a row (a group's heading).
+              onContextMenuCapture={(e) => {
+                const el = e.target as HTMLElement
+                const col = el.closest<HTMLElement>("[data-col]")?.dataset.col
+                const row = el.closest<HTMLElement>("tr[data-row]")?.dataset.row
+                if (el.closest("a") || (!col && !row)) {
+                  e.stopPropagation()
+                  return
+                }
+                setTarget({ col, row })
+              }}
             >
               <colgroup>
                 {colWidths.map((w, i) => (
@@ -317,11 +415,13 @@ function ReportGrid<Row>({
                       : undefined
                   }
                   headClassName="sticky top-0 z-10"
+                  headProps={(c, i) => ({ "data-col": c.key, style: i < frozenCount ? pin(i, 20) : undefined })}
                 />
+                {frozenItems.map((item, i) => line(item, i))}
               </thead>
               <tbody className={cn("transition-opacity duration-300", refreshing && "opacity-40")} aria-busy={refreshing || undefined}>
                 {pad(padTop, "pad-top")}
-                {items.slice(start, end).map(line)}
+                {items.slice(start, end).map((item) => line(item))}
                 {pad(padBottom, "pad-bottom")}
               </tbody>
               {totals ? (
@@ -330,8 +430,10 @@ function ReportGrid<Row>({
                     {columns.map((c, i) => (
                       <ReportGridCell
                         key={c.key}
+                        data-col={c.key}
                         numeric={c.numeric}
-                        className="h-[calc(2rem+var(--hbar,0px))] pb-(--hbar-pad)"
+                        className={cn("h-[calc(2rem+var(--hbar,0px))] pb-(--hbar-pad)", i < frozenCount && FROZEN_BG.band)}
+                        style={pin(i, 4)}
                       >
                         {i === 0 ? "Total" : (totals[c.key] ?? "")}
                       </ReportGridCell>
@@ -339,7 +441,42 @@ function ReportGrid<Row>({
                   </ReportGridTotalRow>
                 </tfoot>
               ) : null}
-            </ReportGridTable>
+            </ContextMenuPrimitive.Trigger>
+            <ContextMenuContent className="min-w-44">
+              {target.col ? (
+                frozen.columns.includes(target.col) ? (
+                  <ContextMenuItem
+                    onClick={() => setFrozen({ ...frozen, columns: frozen.columns.filter((k) => k !== target.col) })}
+                  >
+                    <PinOffIcon aria-hidden /> Unfreeze column
+                  </ContextMenuItem>
+                ) : (
+                  <ContextMenuItem onClick={() => setFrozen({ ...frozen, columns: [...frozen.columns, target.col!] })}>
+                    <PinIcon aria-hidden /> Freeze column
+                  </ContextMenuItem>
+                )
+              ) : null}
+              {target.row ? (
+                frozen.rows.includes(target.row) ? (
+                  <ContextMenuItem onClick={() => setFrozen({ ...frozen, rows: frozen.rows.filter((k) => k !== target.row) })}>
+                    <PinOffIcon aria-hidden /> Unfreeze row
+                  </ContextMenuItem>
+                ) : (
+                  <ContextMenuItem onClick={() => setFrozen({ ...frozen, rows: [...frozen.rows, target.row!] })}>
+                    <PinIcon aria-hidden /> Freeze row
+                  </ContextMenuItem>
+                )
+              ) : null}
+              {frozen.columns.length + frozen.rows.length > 0 ? (
+                <>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem onClick={() => setFrozen(NO_FROZEN)}>
+                    <PinOffIcon aria-hidden /> Unfreeze all
+                  </ContextMenuItem>
+                </>
+              ) : null}
+            </ContextMenuContent>
+           </ContextMenu>
           </ReportGridScroll>
         )}
       </div>
@@ -453,4 +590,4 @@ function Report<Row>({
 }
 
 export { Report, ReportGrid }
-export type { ReportProps, ReportGridProps, ReportColumn, ReportItem, ReportSort }
+export type { ReportProps, ReportGridProps, ReportColumn, ReportItem, ReportSort, ReportFrozen }

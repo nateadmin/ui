@@ -119,6 +119,7 @@ function ReportGridColumns({
   onReorder,
   className,
   headClassName,
+  headProps,
 }: {
   columns: ReportGridColumn[]
   /** The sorted column, or null when the report is in its own order. */
@@ -129,6 +130,8 @@ function ReportGridColumns({
   onReorder?: (key: string, target: string, side: "before" | "after") => void
   className?: string
   headClassName?: string
+  /** Extra props for one title cell, for example to pin a frozen column. */
+  headProps?: (column: ReportGridColumn, index: number) => React.ComponentProps<"th"> & Record<`data-${string}`, string>
 }) {
   const rowRef = React.useRef<HTMLTableRowElement>(null)
   const dragKey = React.useRef<string | null>(null)
@@ -166,8 +169,11 @@ function ReportGridColumns({
 
   return (
     <ReportGridHeadRow ref={rowRef} className={className}>
-      {columns.map((c) => (
+      {columns.map((c, index) => {
+        const extra = headProps?.(c, index)
+        return (
         <ReportGridHead
+          {...extra}
           key={c.key}
           draggable={!!onReorder}
           movable={!!onReorder}
@@ -213,11 +219,12 @@ function ReportGridColumns({
             onReorder?.(from, target.key, target.side)
           }}
           onDragEnd={end}
-          className={headClassName}
+          className={cn(headClassName, extra?.className)}
         >
           {c.label}
         </ReportGridHead>
-      ))}
+        )
+      })}
     </ReportGridHeadRow>
   )
 }
