@@ -171,7 +171,7 @@ function ListPage<T>({
   }
 
   return (
-    <div data-slot="list-page" className={cn("flex h-full min-h-0 min-w-0 flex-col gap-2", className)}>
+    <div data-slot="list-page" className={cn("flex h-full min-h-0 min-w-0 flex-col gap-3", className)}>
       {notice}
       <Toolbar labels="icons-on-phones">
         {search ? <ToolbarSearch {...search} /> : null}

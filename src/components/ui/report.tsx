@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { PinIcon, PinOffIcon, SparklesIcon } from "lucide-react"
+import { PinIcon, PinOffIcon, RotateCcwIcon, SparklesIcon } from "lucide-react"
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,8 @@ import { DateRangePicker, defaultDatePresets } from "@/components/ui/date-range-
 import {
   Toolbar,
   ToolbarTabs,
+  ToolbarDateRange,
+  ToolbarTreeFilter,
   ToolbarExport,
   ToolbarFilter,
   ToolbarFilterDialog,
@@ -35,8 +37,8 @@ import {
  * and gets every rule of the page from here, the same on every page and in
  * every app:
  *
- *   - the bar, always in this order: Chat, Search, Reports, tabs (Table, Charts), the view's
- *     own choices, Columns, Filters, Export; icons only on a phone. Everything a person chooses
+ *   - the bar, always in this order: tabs (Table, Charts), Chat, Search, Reports, the period,
+ *     the report's own choices, Columns, Filters (or the date range alone), Reset, Export; icons only on a phone. Everything a person chooses
  *     is on the bar: nothing is picked from inside the page
  *   - the grid: column titles that sort (up, down, then back to the report's
  *     own order) and drag to a new place with a line showing where they land;
@@ -538,7 +540,8 @@ type ReportProps<Row> = {
   /** The Filters dialog. Leave out to hide it. */
   filters?: React.ComponentProps<typeof ToolbarFilterDialog>
   /**
-   * The report's date range. It sits at the top of the Filters dialog on every report, with the
+   * The report's date range. It sits at the top of the Filters dialog (on the bar itself when the
+   * report has no Filters dialog), with the
    * library's periods (days, weeks, months, quarters, years), and counts as one applied filter.
    */
   dateRange?: Omit<React.ComponentProps<typeof DateRangePicker>, "value" | "onChange"> & {
@@ -551,12 +554,19 @@ type ReportProps<Row> = {
   exportMenu?: React.ComponentProps<typeof ToolbarExport>
   /** One grid, or two for a report with a summary over its rows. */
   grids: ReportGridProps<Row>[]
-  /** Switches what the report shows, for example Table and Charts. On the bar, after Reports. */
+  /** Switches what the report shows, for example Table and Charts. First on the bar. */
   tabs?: React.ComponentProps<typeof ToolbarTabs>
   /**
-   * Choices that belong to what is showing, for example a chart's type and its metrics. On the bar,
-   * after the tabs. Each needs its own icon (a phone shows icons only) and a key.
+   * The report's own choices as dropdowns on the bar: a filter with a short list, a chart's type
+   * and its metrics. Each needs its own icon (a phone shows icons only) and a key.
    */
+  /**
+   * The report's period as a dropdown of checkboxes in groups (months under years, week endings
+   * under months), named for what it picks ("Week Ending"). On the bar, after Reports.
+   */
+  period?: React.ComponentProps<typeof ToolbarTreeFilter>
+  /** Puts every choice back to the report's own. Shows a Reset button before Export. */
+  onReset?: () => void
   controls?: Array<React.ComponentProps<typeof ToolbarFilter> & { key: string; icon: React.ReactNode }>
   /** Shown over the grids: the report's headline figures or charts. */
   summary?: React.ReactNode
@@ -588,6 +598,8 @@ function Report<Row>({
   grids,
   tabs,
   controls,
+  period,
+  onReset,
   summary,
   footnote,
   stacked,
@@ -604,10 +616,11 @@ function Report<Row>({
   return (
     <div
       data-slot="report"
-      className={cn("flex min-h-0 min-w-0 flex-col gap-2 text-[13px] [&_[data-slot=button]]:text-[13px]", className)}
+      className={cn("flex min-h-0 min-w-0 flex-col gap-3 text-[13px] [&_[data-slot=button]]:text-[13px]", className)}
     >
       {notice}
       <Toolbar labels="icons-on-phones">
+        {tabs ? <ToolbarTabs aria-label="View" {...tabs} /> : null}
         {onChat ? (
           <Button type="button" variant="outline" size="lg" className="gap-2 font-normal" aria-label="Chat" onClick={onChat}>
             <SparklesIcon aria-hidden="true" />
@@ -616,7 +629,7 @@ function Report<Row>({
         ) : null}
         {search ? <ToolbarSearch {...search} /> : null}
         {library ? <ToolbarReportLibrary fill={!search} {...library} /> : null}
-        {tabs ? <ToolbarTabs aria-label="View" {...tabs} /> : null}
+        {period ? <ToolbarTreeFilter {...period} /> : null}
         {controls?.map(({ key, ...control }) => <ToolbarFilter key={key} {...control} />)}
         {columnsMenu ? (
           <CustomizeMenu label="Columns" itemsLabel="Columns" searchPlaceholder="Search columns" {...columnsMenu} />
@@ -646,13 +659,20 @@ function Report<Row>({
             {filters.children}
           </ToolbarFilterDialog>
         ) : null}
+        {dateRange && !filters ? <ToolbarDateRange {...datePicker} value={dateValue} onValueChange={onDateChange} /> : null}
+        {onReset ? (
+          <Button type="button" variant="outline" size="lg" className="gap-2 font-normal" aria-label="Reset" onClick={onReset}>
+            <RotateCcwIcon aria-hidden="true" />
+            <ToolbarLabel>Reset</ToolbarLabel>
+          </Button>
+        ) : null}
         {exportMenu ? <ToolbarExport {...exportMenu} /> : null}
       </Toolbar>
-      <div className={cn("flex min-w-0 flex-col overflow-x-hidden", stacked ? "gap-4" : "min-h-0 flex-1 gap-2")}>
+      <div className={cn("flex min-w-0 flex-col overflow-x-hidden", stacked ? "gap-3" : "min-h-0 flex-1 gap-3")}>
         {summary}
         {placeholder ??
           (stacked ? (
-            <div className="grid grid-cols-6 gap-4">
+            <div className="grid grid-cols-6 gap-3">
               {grids.map(({ span, ...grid }, i) => (
                 <div
                   key={grid.title ?? i}

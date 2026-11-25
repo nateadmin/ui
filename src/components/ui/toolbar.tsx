@@ -18,6 +18,7 @@ import {
   SlidersHorizontalIcon,
   XIcon,
 } from "lucide-react"
+import { CalendarRangeIcon, CheckIcon as TreeCheckIcon, ChevronRightIcon as TreeChevronIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -627,6 +628,157 @@ function ToolbarFilter(props: ToolbarFilterProps) {
         )}
       </DropdownMenuContent>
     </DropdownMenu>
+  )
+}
+
+/* ---------- Tree filter ---------- */
+
+type ToolbarTreeGroup = { key: string; label: string; items: ToolbarFilterOption[] }
+
+/** A box that is on, off, or partly on (some of its group picked). */
+function TreeCheck({
+  state,
+  label,
+  onToggle,
+  className,
+}: {
+  state: "on" | "off" | "partial"
+  label: React.ReactNode
+  onToggle: () => void
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      role="checkbox"
+      aria-checked={state === "partial" ? "mixed" : state === "on"}
+      onClick={onToggle}
+      className={cn(
+        "hover:bg-muted focus-visible:bg-muted flex min-w-0 flex-1 cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm outline-none",
+        className,
+      )}
+    >
+      <span
+        aria-hidden="true"
+        className={cn(
+          "border-input flex size-4 shrink-0 items-center justify-center rounded-sm border",
+          state !== "off" && "border-primary bg-primary text-primary-foreground",
+        )}
+      >
+        {state === "on" ? <TreeCheckIcon className="size-3" /> : null}
+        {state === "partial" ? <span className="block h-0.5 w-2 rounded-full bg-current" /> : null}
+      </span>
+      <span className="truncate">{label}</span>
+    </button>
+  )
+}
+
+/*
+ * A dropdown of checkboxes in groups that fold, for a choice with two levels: months under years,
+ * week endings under months. A group's box picks or clears the whole group and shows a dash when
+ * only part of it is picked; the first row picks or clears everything. The button reads
+ * "Label: All", the one picked item, or how many are picked.
+ */
+function ToolbarTreeFilter({
+  label,
+  icon,
+  groups,
+  values,
+  onValuesChange,
+  onGroupToggle,
+  defaultOpen = [],
+  className,
+}: {
+  label: string
+  /** Its own icon: a phone shows icons only. Default: a calendar. */
+  icon?: React.ReactNode
+  groups: ToolbarTreeGroup[]
+  values: string[]
+  onValuesChange: (values: string[]) => void
+  /** Decides what picking a whole group does, when it is more than "all of its items". */
+  onGroupToggle?: (group: ToolbarTreeGroup) => void
+  /** Group keys that start unfolded. */
+  defaultOpen?: string[]
+  className?: string
+}) {
+  const [open, setOpen] = React.useState<string[]>(defaultOpen)
+  const picked = React.useMemo(() => new Set(values), [values])
+  const all = React.useMemo(() => groups.flatMap((g) => g.items), [groups])
+  const pickedCount = all.reduce((n, item) => n + (picked.has(item.value) ? 1 : 0), 0)
+  const stateOf = (items: ToolbarFilterOption[]) => {
+    const hit = items.reduce((n, item) => n + (picked.has(item.value) ? 1 : 0), 0)
+    return hit === 0 ? "off" : hit === items.length ? "on" : "partial"
+  }
+  const allOn = all.length > 0 && pickedCount === all.length
+  const text =
+    allOn ? "All" : pickedCount === 0 ? "None" : pickedCount === 1 ? (all.find((i) => picked.has(i.value))?.label ?? "1 selected") : `${pickedCount} selected`
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={<Button variant="outline" size="lg" data-slot="toolbar-tree-filter" className={cn(triggerClass, className)} />}
+      >
+        {icon ?? <CalendarRangeIcon aria-hidden="true" />}
+        <span data-toolbar-label="" className="min-w-0">
+          {withLabel(label, text)}
+        </span>
+        <Chevron />
+      </PopoverTrigger>
+      <PopoverContent align="start" className="max-h-[min(24rem,var(--available-height))] w-64 gap-0 overflow-y-auto p-1">
+        <TreeCheck
+          state={stateOf(all)}
+          label={allOn ? "Unselect" : "Select all"}
+          onToggle={() => onValuesChange(allOn ? [] : all.map((i) => i.value))}
+          className="w-full"
+        />
+        {groups.map((group) => {
+          const unfolded = open.includes(group.key)
+          const groupValues = group.items.map((i) => i.value)
+          const state = stateOf(group.items)
+          return (
+            <div key={group.key}>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  aria-expanded={unfolded}
+                  aria-label={group.label}
+                  onClick={() => setOpen((cur) => (unfolded ? cur.filter((k) => k !== group.key) : [...cur, group.key]))}
+                  className="text-muted-foreground hover:text-foreground flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-md"
+                >
+                  <TreeChevronIcon className={cn("size-4 transition-transform", unfolded && "rotate-90")} />
+                </button>
+                <TreeCheck
+                  state={state}
+                  label={group.label}
+                  onToggle={() => {
+                    if (onGroupToggle) return onGroupToggle(group)
+                    onValuesChange(
+                      state === "on"
+                        ? values.filter((v) => !groupValues.includes(v))
+                        : Array.from(new Set([...values, ...groupValues])),
+                    )
+                  }}
+                />
+              </div>
+              {unfolded
+                ? group.items.map((item) => (
+                    <div key={item.value} className="flex pl-7">
+                      <TreeCheck
+                        state={picked.has(item.value) ? "on" : "off"}
+                        label={item.label}
+                        onToggle={() =>
+                          onValuesChange(
+                            picked.has(item.value) ? values.filter((v) => v !== item.value) : [...values, item.value],
+                          )
+                        }
+                      />
+                    </div>
+                  ))
+                : null}
+            </div>
+          )
+        })}
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -1986,6 +2138,7 @@ function ToolbarActions({ className, ...props }: React.ComponentProps<"div">) {
 }
 
 export {
+  ToolbarTreeFilter,
   Toolbar,
   ToolbarReportLibrary,
   ToolbarLabel,
@@ -2005,6 +2158,7 @@ export {
   matchesCondition,
 }
 export type {
+  ToolbarTreeGroup,
   ToolbarReport,
   ToolbarReportCategory,
   ToolbarActiveFilter,
