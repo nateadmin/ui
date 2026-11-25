@@ -1,5 +1,15 @@
 # @nateadmin/ui
 
+## 0.14.0
+
+### Minor Changes
+
+- f35268b: Report: the tabs are first on the bar. New ToolbarTreeFilter, a dropdown of checkboxes in groups that fold (months under years, week endings under months), used by Report's `period`. A report with no Filters dialog shows its date range on the bar. `onReset` adds a Reset button.
+
+### Patch Changes
+
+- f35268b: Report and ListPage: one 12px space between the bar, the content and the footer, and between a stacked report's blocks.
+
 ## 0.13.0
 
 ### Minor Changes
