@@ -337,6 +337,12 @@ function DataList<T>({
   const allPicked = rows.length > 0 && pickedHere === rows.length
   const toggleAll = () =>
     onSelectedChange?.(allPicked ? picked.filter((id) => !ids.includes(id)) : [...new Set([...picked, ...ids])])
+  /* Every row across all pages (sizeFrom). Once the page's rows are all picked and there are more
+     beyond it, a line under the titles offers to select every one of them (owner rule, 11/25/2026). */
+  const everyId = React.useMemo(() => (sizeFrom ?? rows).map(getRowId), [sizeFrom, rows, getRowId])
+  const everyPicked = everyId.length > 0 && everyId.every((id) => picked.includes(id))
+  const offerAll = selectable && allPicked && everyId.length > rows.length
+  const selectEveryRow = () => onSelectedChange?.([...new Set([...picked, ...everyId])])
 
   const sortBy = (column: string) => {
     if (!onSortChange) return
@@ -639,6 +645,28 @@ function DataList<T>({
       }
     >
       {header}
+      {offerAll ? (
+        <div
+          role="row"
+          className="bg-primary/5 text-muted-foreground col-span-full border-b border-border/40 px-3 py-1.5 text-center text-[12px]"
+        >
+          {everyPicked ? (
+            <span>
+              All {everyId.length.toLocaleString("en-US")} selected.{" "}
+              <button type="button" className="text-foreground underline-offset-2 hover:underline" onClick={() => onSelectedChange?.([])}>
+                Clear
+              </button>
+            </span>
+          ) : (
+            <span>
+              {pickedHere.toLocaleString("en-US")} on this page selected.{" "}
+              <button type="button" className="text-foreground underline-offset-2 hover:underline" onClick={selectEveryRow}>
+                Select all {everyId.length.toLocaleString("en-US")}
+              </button>
+            </span>
+          )}
+        </div>
+      ) : null}
       {body}
     </div>
   )
