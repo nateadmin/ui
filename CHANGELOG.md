@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.20.0
+
+### Minor Changes
+
+- f4263c8: DataList: when the page's rows are all selected and more rows lie beyond the page (sizeFrom), a line under the titles offers "Select all N" across every page, then "All N selected · Clear".
+
 ## 0.19.0
 
 ### Minor Changes
