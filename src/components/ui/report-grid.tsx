@@ -321,30 +321,40 @@ const reportGridScrollbarClass = "ui-scrollbar"
 const HBAR_THUMB = 5 // how thick the sideways thumb is drawn
 const HBAR_EDGE = 3 // from the thumb down to the band's bottom edge
 
+const TOTAL_GAP_ABOVE = 12 // from the band's top edge down to the Total text
+const TOTAL_GAP_BELOW = 9 // from the Total text down to the sideways bar
+
 /**
- * How much taller the Total band gets while the sideways bar shows, so the gap from the Total text down
- * to the bar's thumb equals the gap from the band's top edge down to the text. Measured from the text as
- * drawn (its real font and size), not assumed: letters and digits sit on the baseline, so the text's
- * bottom is the baseline (a comma's tail hangs a little under it and is not counted).
+ * The Total band while the sideways bar shows (owner, 11/25/2026): 12px above the text and 9px from the
+ * text down to the bar. The text's bottom is its baseline; a comma's tail hangs under it, which is why
+ * the gap below is the smaller one: with equal gaps the row reads as sitting high. Worked out from the
+ * text as drawn (its real font and size), not assumed.
+ *   lift: how much taller than 32px the band is
+ *   pad: the padding under the text that puts its top exactly 12px down
  */
-function totalLift(scrollBox: HTMLElement): number {
+function totalBand(scrollBox: HTMLElement): { lift: number; pad: number } {
+  const fallback = { lift: REPORT_GRID_TOTAL_LIFT_PX, pad: REPORT_GRID_TOTAL_LIFT_PX }
   const cell = scrollBox.querySelector<HTMLElement>("tfoot td, tfoot th")
-  if (!cell || typeof document === "undefined") return REPORT_GRID_TOTAL_LIFT_PX
+  if (!cell || typeof document === "undefined") return fallback
   const ctx = document.createElement("canvas").getContext("2d")
-  if (!ctx) return REPORT_GRID_TOTAL_LIFT_PX
+  if (!ctx) return fallback
   const cs = getComputedStyle(cell)
   ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
-  const caps = ctx.measureText("T0")
-  if (!caps.actualBoundingBoxAscent) return REPORT_GRID_TOTAL_LIFT_PX
-  // The text is centered in the band's first 32px (the lift is all padding under it). With the text's
-  // height h centered there, the gap above it is (32 - h) / 2 and its bottom is at (32 + h) / 2. The thumb's
-  // top must be that same gap further down: at 32. The band then ends a thumb and an edge below that.
+  // The word people look at is the band's own label ("Total"): its tallest letter down to the baseline.
+  const caps = ctx.measureText((cell.textContent || "").trim() || "Total")
+  if (!caps.actualBoundingBoxAscent) return fallback
+  const height = caps.actualBoundingBoxAscent
+  // The band: gap above, the text, gap below, the thumb, the edge under the thumb.
+  const band = TOTAL_GAP_ABOVE + height + TOTAL_GAP_BELOW + HBAR_THUMB + HBAR_EDGE
+  const lift = Math.max(0, Math.round((band - 32) * 2) / 2) // to the half pixel, so the gaps are exact
+  // The cell centers its line of text in the room above the padding. Where the text's top lands inside
+  // a line depends on the font; `inLine` is that offset.
   const line = Number.parseFloat(cs.lineHeight) || Number.parseFloat(cs.fontSize) * 1.5
   const font = caps.fontBoundingBoxAscent + caps.fontBoundingBoxDescent
-  const baseline = (32 - line) / 2 + (line - font) / 2 + caps.fontBoundingBoxAscent
-  const above = baseline - caps.actualBoundingBoxAscent
-  const thumbTop = baseline + above
-  return Math.max(0, Math.round(thumbTop + HBAR_THUMB + HBAR_EDGE - 32))
+  const inLine = (line - font) / 2 + caps.fontBoundingBoxAscent - height
+  // top of text = (32 + lift - pad - line) / 2 + inLine, and it must equal the gap above.
+  const pad = 32 + lift - line - 2 * (TOTAL_GAP_ABOVE - inLine)
+  return { lift, pad: Math.max(0, Math.round(pad * 2) / 2) }
 }
 
 function ReportGridScroll({
@@ -367,7 +377,7 @@ function ReportGridScroll({
   const vbar = React.useRef<HTMLDivElement>(null)
   const hbar = React.useRef<HTMLDivElement>(null)
   const hthumb = React.useRef<HTMLDivElement>(null)
-  const [dims, setDims] = React.useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0, vh: 0, lift: REPORT_GRID_TOTAL_LIFT_PX })
+  const [dims, setDims] = React.useState({ sh: 0, ch: 0, sw: 0, cw: 0, head: 0, foot: 0, vh: 0, lift: REPORT_GRID_TOTAL_LIFT_PX, pad: REPORT_GRID_TOTAL_LIFT_PX })
 
   React.useEffect(() => {
     const el = box.current
@@ -381,7 +391,7 @@ function ReportGridScroll({
         head: el.querySelector("thead")?.getBoundingClientRect().height ?? 0,
         foot: el.querySelector("tfoot")?.getBoundingClientRect().height ?? 0,
         vh: vbar.current?.clientHeight ?? 0,
-        lift: totalLift(el),
+        ...totalBand(el),
       })
       reportViewport()
     }
@@ -391,7 +401,20 @@ function ReportGridScroll({
     if (vbar.current) ro.observe(vbar.current)
     const table = el.firstElementChild
     if (table) ro.observe(table)
-    return () => ro.disconnect()
+    // Text is measured in the page's font. Measure again once that font has loaded, or the first pass
+    // would have sized the Total band for a stand-in font.
+    let alive = true
+    const fonts = typeof document !== "undefined" ? document.fonts : undefined
+    const again = () => {
+      if (alive) measure()
+    }
+    void fonts?.ready.then(again)
+    fonts?.addEventListener?.("loadingdone", again)
+    return () => {
+      alive = false
+      fonts?.removeEventListener?.("loadingdone", again)
+      ro.disconnect()
+    }
   }, [])
 
   /* Keep the grid and the two bars in step. Each bar's spacer is sized so the bar scrolls exactly as far
@@ -598,13 +621,16 @@ function ReportGridScroll({
   const band = cn(reportGridBandClass, "shrink-0")
   return (
     // --hbar: how much the Total row grows while the sideways bar shows. It is worked out from where the
-    // Total text really is (see totalLift), so the space from the text down to the bar equals the space
-    // above the text. Without the bar the text is dead center. The Total row's cells use it:
-    // h-[calc(2rem+var(--hbar,0px))] pb-(--hbar).
+    // Total text really is (see totalBand): 12px above the text, 9px from the text down to the bar.
+    // Without the bar the text is dead center. The Total row's cells use it:
+    // h-[calc(2rem+var(--hbar,0px))] pb-(--hbar-pad). --hbar-pad is the padding under the text.
     <div
       data-slot="report-grid-scroll"
       className={cn("relative flex h-full min-h-0 flex-col", className)}
-      style={{ ["--hbar" as string]: wide ? `${dims.lift}px` : "0px" }}
+      style={{
+        ["--hbar" as string]: wide ? `${dims.lift}px` : "0px",
+        ["--hbar-pad" as string]: wide ? `${dims.pad}px` : "0px",
+      }}
     >
       <div className="flex min-h-0 flex-1">
         <div

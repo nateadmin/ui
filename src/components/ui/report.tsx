@@ -331,7 +331,7 @@ function ReportGrid<Row>({
                       <ReportGridCell
                         key={c.key}
                         numeric={c.numeric}
-                        className="h-[calc(2rem+var(--hbar,0px))] pb-(--hbar)"
+                        className="h-[calc(2rem+var(--hbar,0px))] pb-(--hbar-pad)"
                       >
                         {i === 0 ? "Total" : (totals[c.key] ?? "")}
                       </ReportGridCell>
