@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.22.1
+
+### Patch Changes
+
+- 85bcdfc: StatStrip: the closed row spreads its numbers evenly across the width.
+
 ## 0.22.0
 
 ### Minor Changes
