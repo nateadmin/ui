@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.22.4
+
+### Patch Changes
+
+- 1705cc6: DataList sub-rows: the tree guide uses the sidebar's border ink at 70%, the same as a sidebar's sub-items.
+
 ## 0.22.3
 
 ### Patch Changes
