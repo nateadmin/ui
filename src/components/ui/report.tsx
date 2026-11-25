@@ -4,6 +4,7 @@ import * as React from "react"
 import { PinIcon, PinOffIcon, SparklesIcon } from "lucide-react"
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
 import { cn } from "@/lib/utils"
+import { useTextWidth } from "@/lib/text-width"
 import { Button } from "@/components/ui/button"
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu"
 import { CustomizeMenu } from "@/components/ui/customize-menu"
@@ -182,24 +183,6 @@ const TONE = {
 }
 
 /** Text widths, measured once per distinct string in the page's own font. */
-function useTextWidth() {
-  const ctx = React.useMemo(
-    () => (typeof document === "undefined" ? null : document.createElement("canvas").getContext("2d")),
-    [],
-  )
-  const family = React.useMemo(
-    () => (typeof document === "undefined" ? "sans-serif" : getComputedStyle(document.body).fontFamily || "sans-serif"),
-    [],
-  )
-  return React.useCallback(
-    (text: string, weight: number, size: number, spacing = 0) => {
-      if (!ctx) return text.length * size * 0.6
-      ctx.font = `${weight} ${size}px ${family}`
-      return ctx.measureText(text).width + spacing * text.length
-    },
-    [ctx, family],
-  )
-}
 
 function ReportGrid<Row>({
   title,

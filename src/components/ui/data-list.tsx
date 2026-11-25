@@ -3,6 +3,7 @@
 import * as React from "react"
 import { CheckIcon, ChevronRightIcon, MinusIcon, MoreVerticalIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { useTextWidth } from "@/lib/text-width"
 import { Button } from "@/components/ui/button"
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@/components/ui/context-menu"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -52,14 +53,21 @@ type DataListColumn<T> = {
    * "fit": text. As wide as its widest value up to maxWidth (14rem by default);
    * when the list runs short of room it squeezes down to minWidth (6rem by
    * default) and cuts the text with "...".
-   * "grow": text that takes the free room, and squeezes like "fit".
+   * "grow": text that takes free room up to maxWidth (24rem by default), and squeezes like "fit".
    * Text never wraps, so every row keeps one height.
    */
   width?: "auto" | "fit" | "grow"
   /** Narrowest a "fit" or "grow" column gets before the list turns into cards. */
   minWidth?: string
-  /** Widest a "fit" column gets. */
+  /** Widest the column gets. Every column has one: 14rem for "fit", 24rem for "grow", 20rem for "auto". */
   maxWidth?: string
+  /**
+   * The cell's plain text, for sizing. A column's width is fixed from the widest text over EVERY row
+   * the list can show (`sizeFrom`, or the rows given) and its title, capped at maxWidth, so a page turn
+   * or a sort never moves a column (owner rule, 11/25/2026). Give it to every column; one without it is
+   * sized from the rows on screen and can shift, which the list reports while developing.
+   */
+  text?: (row: T) => string
   align?: "start" | "end" | "center"
   /** Clicks inside this cell don't open the row (inputs, dropdowns, buttons). */
   interactive?: boolean
@@ -76,6 +84,8 @@ type DataListProps<T> = {
   rows: T[]
   columns: DataListColumn<T>[]
   getRowId: (row: T) => string
+  /** Every row the list can show, across all pages, so column widths are settled once. Default: rows. */
+  sizeFrom?: T[]
   "aria-label"?: string
 
   /** Round checkboxes for bulk select. */
@@ -271,6 +281,7 @@ function DataList<T>({
   rows,
   columns,
   getRowId,
+  sizeFrom,
   "aria-label": ariaLabel = "List",
   selected,
   onSelectedChange,
@@ -340,8 +351,49 @@ function DataList<T>({
      the left edge, the row end stays at the right edge, and every gap in
      between is the same. */
   const leadCount = (renderExpanded ? 1 : 0) + (selectable ? 1 : 0)
+  /* Column widths, settled once from every row the list can show (owner rule, 11/25/2026): the widest
+     text of each column and its title, capped at the column's maxWidth. A page turn or a sort never
+     moves a column. A column without `text` keeps the browser's max-content width and can shift. */
+  const textWidth = useTextWidth()
+  const sizeRows = sizeFrom ?? rows
+  const shapeKey = columns.map((c) => `${c.id}:${c.width ?? "auto"}:${c.maxWidth ?? ""}:${c.minWidth ?? ""}:${!!c.text}`).join("|")
+  const widths = React.useMemo(() => {
+    const out: Record<string, number | null> = {}
+    for (const c of columns) {
+      if (!c.text) {
+        out[c.id] = null
+        continue
+      }
+      const title = typeof c.header === "string" ? c.header : ""
+      let w = textWidth(title, 600, 11, 0.5) + (c.sortable ? 20 : 0)
+      for (const row of sizeRows) w = Math.max(w, textWidth(c.text(row), c.primary ? 500 : 400, 13))
+      out[c.id] = Math.ceil(w) + 2
+    }
+    return out
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapeKey, sizeRows, textWidth])
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === "production") return
+    for (const c of columns) {
+      if (!c.text) console.warn(`DataList: column "${c.id}" has no text(), so its width comes from the rows on screen and can move on a page turn or a sort. Give every column a text().`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapeKey])
+  const capOf = (c: DataListColumn<never>) => c.maxWidth ?? (c.width === "grow" ? "24rem" : c.width === "fit" ? "14rem" : "20rem")
+  const fixedTrack = (c: DataListColumn<never>, lead: string) => {
+    const w = widths[c.id]
+    if (w == null) return track(c, lead)
+    const cap = capOf(c)
+    const size = `min(calc(${w}px + ${lead}), calc(${cap} + ${lead}))`
+    if (c.width === "fit" || c.width === "grow") {
+      const min = `calc(${c.minWidth ?? "6rem"} + ${lead})`
+      // Squeezes toward minWidth when room runs short; otherwise exactly its settled width.
+      return `minmax(min(${min}, ${size}), ${size})`
+    }
+    return size
+  }
   const template = [
-    ...columns.map((c, i) => track(c as DataListColumn<never>, i === 0 && leadCount ? "var(--lead)" : "0px")),
+    ...columns.map((c, i) => fixedTrack(c as DataListColumn<never>, i === 0 && leadCount ? "var(--lead)" : "0px")),
     ...(showEnd ? ["max-content"] : []),
   ].join(" ")
 
@@ -505,11 +557,11 @@ function DataList<T>({
               role={lead ? undefined : "cell"}
               onClick={c.interactive ? (e) => e.stopPropagation() : undefined}
               onKeyDown={c.interactive ? (e) => e.stopPropagation() : undefined}
-              style={text && c.width === "fit" ? { maxWidth: c.maxWidth ?? "14rem" } : undefined}
+              style={{ maxWidth: capOf(c as DataListColumn<never>) }}
               className={cn(
                 "min-w-0 whitespace-nowrap",
                 // Text columns cut what doesn't fit with "...". Other columns line their parts up in a row.
-                text ? "truncate" : "flex items-center gap-1.5",
+                text ? "truncate" : "flex items-center gap-1.5 overflow-hidden",
                 text && c.align === "end" && "text-right",
                 !text && alignClass(c.align),
                 lead && "flex-1",
