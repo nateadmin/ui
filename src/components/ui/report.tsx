@@ -21,6 +21,7 @@ import {
 import { DateRangePicker, defaultDatePresets } from "@/components/ui/date-range-picker"
 import {
   Toolbar,
+  ToolbarTabs,
   ToolbarExport,
   ToolbarFilterDialog,
   ToolbarLabel,
@@ -50,6 +51,9 @@ import {
  *     scroll up and down; the same menu unfreezes
  *   - only the rows in view are drawn, so a report of tens of thousands of
  *     rows stays fast
+ *   - a report with more than a grid: tabs to switch what it shows (Table, Charts), a summary
+ *     over the grids (figures, charts) and a note under them, each in its set place
+ *   - a cell can be marked good or bad (green, red); the grid colors it
  *   - the footer: page size, "Showing x-y of total", Previous, a page number
  *     you can type, Next
  *
@@ -100,6 +104,8 @@ type ReportItem<Row> =
 type ReportGridProps<Row> = {
   /** Heading over the grid, when a report shows more than one. */
   title?: string
+  /** In a stacked report on a wide screen: how much of the row the grid takes. Default "full". */
+  span?: "full" | "half" | "third"
   /** Shown columns, in order. */
   columns: ReportColumn[]
   items: ReportItem<Row>[]
@@ -116,6 +122,14 @@ type ReportGridProps<Row> = {
   cellText?: (column: ReportColumn, row: Row) => string
   /** The Total band, by column key. The first column says "Total". Leave out for no Total band. */
   totals?: Record<string, string>
+  /** The first column's text in the Total band. Default "Total". */
+  totalLabel?: string
+  /** What a Total cell shows when it is more than its text, for example a link. `totals` still sizes the column. */
+  totalCell?: (column: ReportColumn) => React.ReactNode
+  /** Marks a cell good (green) or bad (red), for example a figure over or under its target. */
+  cellTone?: (column: ReportColumn, row: Row) => "good" | "bad" | undefined
+  /** Frozen when the grid first shows, for example the first column of a wide grid. People can still unfreeze it. */
+  defaultFrozen?: ReportFrozen
   sort?: ReportSort
   /** Leave out for a grid that cannot sort. Gets the next state of the cycle: up, down, none. */
   onSortChange?: (sort: ReportSort) => void
@@ -152,6 +166,12 @@ const FROZEN_BG = {
   band: "bg-muted",
 }
 const NO_FROZEN: ReportFrozen = { columns: [], rows: [] }
+/* A marked cell: solid, so it also reads right on a frozen column. */
+const TONE = {
+  none: null,
+  good: "bg-[color-mix(in_oklab,var(--color-emerald-500)_15%,var(--card))]! text-emerald-800 dark:text-emerald-300",
+  bad: "bg-[color-mix(in_oklab,var(--destructive)_15%,var(--card))]! text-destructive",
+}
 
 /** Text widths, measured once per distinct string in the page's own font. */
 function useTextWidth() {
@@ -175,12 +195,17 @@ function useTextWidth() {
 
 function ReportGrid<Row>({
   title,
+  span: _span,
   columns: givenColumns,
   items: allItems,
   cell,
   widest,
   cellText,
   totals,
+  totalLabel = "Total",
+  totalCell,
+  cellTone,
+  defaultFrozen,
   sort = null,
   onSortChange,
   onColumnsReorder,
@@ -197,7 +222,7 @@ function ReportGrid<Row>({
 
   /* Frozen columns and rows. Frozen columns are drawn first, in their own order, and stay at the
      left. Frozen rows are drawn under the titles and stay there. */
-  const [ownFrozen, setOwnFrozen] = React.useState<ReportFrozen>(NO_FROZEN)
+  const [ownFrozen, setOwnFrozen] = React.useState<ReportFrozen>(defaultFrozen ?? NO_FROZEN)
   const frozen = frozenProp ?? ownFrozen
   const setFrozen = (next: ReportFrozen) => {
     if (!frozenProp) setOwnFrozen(next)
@@ -232,7 +257,7 @@ function ReportGrid<Row>({
         w = Math.max(w, grown.current[c.key] ?? 0)
         grown.current[c.key] = w
       }
-      const total = i === 0 && totals ? "Total" : (totals?.[c.key] ?? "")
+      const total = i === 0 && totals ? totalLabel : (totals?.[c.key] ?? "")
       w = Math.max(w, textWidth(total, 600, 13))
       // Title: 11px semibold caps with wide letter spacing, then the 11px sort arrows after a 4px gap.
       w = Math.max(w, textWidth(c.label.toUpperCase(), 600, 11, 11 * 0.05) + (onSortChange ? 15 : 0))
@@ -240,7 +265,7 @@ function ReportGrid<Row>({
       return Math.ceil(w + 16 + (i === 0 ? 8 : 0) + 4)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keys.join("\u0001"), widest, totals, allItems, textWidth, !!onSortChange])
+  }, [keys.join("\u0001"), widest, totals, totalLabel, allItems, textWidth, !!onSortChange])
 
   /* Widths a person set by dragging a title's edge. For viewing only: kept while the grid is open. */
   const [sized, setSized] = React.useState<Record<string, number>>({})
@@ -357,7 +382,7 @@ function ReportGrid<Row>({
             key={c.key}
             data-col={c.key}
             numeric={c.numeric}
-            className={i < frozenCount || frozenRow != null ? FROZEN_BG.row : undefined}
+            className={cn(i < frozenCount || frozenRow != null ? FROZEN_BG.row : null, TONE[cellTone?.(c, item.row) ?? "none"])}
             style={pin(i, frozenRow != null ? 7 : 4, frozenRow)}
           >
             {pendingColumns?.includes(c.key) && cell(c, item.row) == null ? (
@@ -450,7 +475,7 @@ function ReportGrid<Row>({
                         className={cn("h-[calc(2rem+var(--hbar,0px))] pb-(--hbar-pad)", i < frozenCount && FROZEN_BG.band)}
                         style={pin(i, 4)}
                       >
-                        {i === 0 ? "Total" : (totals[c.key] ?? "")}
+                        {totalCell?.(c) ?? (i === 0 ? totalLabel : (totals[c.key] ?? ""))}
                       </ReportGridCell>
                     ))}
                   </ReportGridTotalRow>
@@ -517,11 +542,25 @@ type ReportProps<Row> = {
   dateRange?: Omit<React.ComponentProps<typeof DateRangePicker>, "value" | "onChange"> & {
     value: { from?: Date; to?: Date }
     onValueChange: (value: { from?: Date; to?: Date }) => void
+    /** What the dates are of, when "Date range" is not enough, for example "Funding month". */
+    label?: string
   }
   /** Export: formats, download and email. Leave out to hide it. */
   exportMenu?: React.ComponentProps<typeof ToolbarExport>
   /** One grid, or two for a report with a summary over its rows. */
   grids: ReportGridProps<Row>[]
+  /** Switches what the report shows, for example Table and Charts. Sits under the bar. */
+  tabs?: React.ComponentProps<typeof ToolbarTabs>
+  /** Shown over the grids: the report's headline figures or charts. */
+  summary?: React.ReactNode
+  /** Small print under the grids, for example when the data was last refreshed. */
+  footnote?: React.ReactNode
+  /**
+   * A report that is a page of several things (figures, charts, more than one grid): the page
+   * scrolls, and each grid is as tall as its rows up to most of the screen. Without it the report
+   * fills its box and the grid scrolls inside.
+   */
+  stacked?: boolean
   /** The footer. Leave out while there is nothing to page. */
   pagination?: React.ComponentProps<typeof ListPagination>
   /** Shown above the bar, for example an error. */
@@ -540,13 +579,17 @@ function Report<Row>({
   dateRange,
   exportMenu,
   grids,
+  tabs,
+  summary,
+  footnote,
+  stacked,
   pagination,
   notice,
   placeholder,
   className,
 }: ReportProps<Row>) {
   const dated = !!(dateRange?.value.from || dateRange?.value.to)
-  const { value: dateValue, onValueChange: onDateChange, ...datePicker } = dateRange ?? {
+  const { value: dateValue, onValueChange: onDateChange, label: dateLabel = "Date range", ...datePicker } = dateRange ?? {
     value: {},
     onValueChange: () => {},
   }
@@ -564,7 +607,7 @@ function Report<Row>({
           </Button>
         ) : null}
         {search ? <ToolbarSearch {...search} /> : null}
-        {library ? <ToolbarReportLibrary {...library} /> : null}
+        {library ? <ToolbarReportLibrary fill={!search} {...library} /> : null}
         {columnsMenu ? (
           <CustomizeMenu label="Columns" itemsLabel="Columns" searchPlaceholder="Search columns" {...columnsMenu} />
         ) : null}
@@ -579,7 +622,7 @@ function Report<Row>({
           >
             {dateRange ? (
               <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium">Date range</span>
+                <span className="text-sm font-medium">{dateLabel}</span>
                 <DateRangePicker
                   presets={defaultDatePresets}
                   timeZone="America/New_York"
@@ -595,9 +638,29 @@ function Report<Row>({
         ) : null}
         {exportMenu ? <ToolbarExport {...exportMenu} /> : null}
       </Toolbar>
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2 overflow-x-hidden">
+      {tabs ? <ToolbarTabs aria-label="View" {...tabs} /> : null}
+      <div className={cn("flex min-w-0 flex-col overflow-x-hidden", stacked ? "gap-4" : "min-h-0 flex-1 gap-2")}>
+        {summary}
         {placeholder ??
-          grids.map((grid, i) => <ReportGrid key={grid.title ?? i} {...grid} />)}
+          (stacked ? (
+            <div className="grid grid-cols-6 gap-4">
+              {grids.map(({ span, ...grid }, i) => (
+                <div
+                  key={grid.title ?? i}
+                  className={cn(
+                    "col-span-6 flex min-w-0 flex-col",
+                    span === "half" && "lg:col-span-3",
+                    span === "third" && "md:col-span-3 lg:col-span-2",
+                  )}
+                >
+                  <ReportGrid {...grid} className="h-auto max-h-[max(20rem,calc(100svh-12rem))] flex-none" />
+                </div>
+              ))}
+            </div>
+          ) : (
+            grids.map(({ span: _span, ...grid }, i) => <ReportGrid key={grid.title ?? i} {...grid} />)
+          ))}
+        {footnote ? <p className="text-muted-foreground text-xs">{footnote}</p> : null}
       </div>
       {pagination ? <ListPagination {...pagination} /> : null}
     </div>

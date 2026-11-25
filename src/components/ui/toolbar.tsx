@@ -1318,8 +1318,14 @@ function ToolbarReportLibrary({
   onRenameCategory,
   onDeleteCategory,
   deleteCategoryNote = "Its reports are kept and move to Uncategorized.",
+  fill = false,
   className,
 }: {
+  /**
+   * The menu is the bar's main field (a bar with no search): it takes the free room on its row and
+   * shows the open report's name in full, like a select.
+   */
+  fill?: boolean
   reports: ToolbarReport[]
   categories: ToolbarReportCategory[]
   /** The open report, or null when none is open. */
@@ -1331,7 +1337,8 @@ function ToolbarReportLibrary({
   /** Trigger text when no report is open. */
   noneLabel?: string
   onSelect: (id: string | null) => void
-  onSave: (report: { name: string; categoryId: string | null }) => void
+  /** Leave out for a fixed set of reports that people pick from but cannot save to. */
+  onSave?: (report: { name: string; categoryId: string | null }) => void
   onUpdate?: (id: string) => void
   onRename?: (id: string, name: string) => void
   onDelete?: (id: string) => void
@@ -1390,7 +1397,7 @@ function ToolbarReportLibrary({
   const categoryTaken = (exceptId?: string) =>
     categories.some((c) => c.id !== exceptId && c.name.trim().toLowerCase() === trimmed.toLowerCase())
 
-  const saveActions =
+  const saveActions = !onSave ? null :
     active && modified ? (
       <>
         {onUpdate ? (
@@ -1423,21 +1430,29 @@ function ToolbarReportLibrary({
               variant="outline"
               size="lg"
               data-slot="toolbar-report-library"
-              className={cn(triggerClass, className)}
+              data-toolbar-fill={fill ? "" : undefined}
+              className={cn(triggerClass, fill && "max-w-none min-w-0 shrink grow-[999] basis-48 justify-start", className)}
             />
           }
         >
           <FolderOpenIcon aria-hidden="true" />
           {/* Reads "Report" until one is open, then the report's name. Sized to the word "Report" so the bar
               stays compact; longer names are cut with "..." and shown in full on hover. */}
-          <span data-toolbar-label="" className="relative flex min-w-0 text-left" title={active?.name}>
-            <span aria-hidden="true" className="invisible">
-              {noneLabel}
-            </span>
-            <span className={cn("absolute inset-0 truncate", !active && "text-muted-foreground")}>
+          {fill ? (
+            // Not a label the bar hides on a phone: here the name says which report is open.
+            <span className={cn("min-w-0 flex-1 truncate text-left", !active && "text-muted-foreground")}>
               {active?.name ?? noneLabel}
             </span>
-          </span>
+          ) : (
+            <span data-toolbar-label="" className="relative flex min-w-0 text-left" title={active?.name}>
+              <span aria-hidden="true" className="invisible">
+                {noneLabel}
+              </span>
+              <span className={cn("absolute inset-0 truncate", !active && "text-muted-foreground")}>
+                {active?.name ?? noneLabel}
+              </span>
+            </span>
+          )}
           <Chevron />
         </PopoverTrigger>
         <PopoverContent
@@ -1562,9 +1577,9 @@ function ToolbarReportLibrary({
               )}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 border-t p-2">
+          <div className="flex flex-wrap items-center gap-2 border-t p-2 empty:hidden">
             {saveActions}
-            {active ? (
+            {active && onSave ? (
               <Button
                 size="sm"
                 variant="ghost"
@@ -1611,7 +1626,7 @@ function ToolbarReportLibrary({
                     : "Rename category"
             const submit = () => {
               if (!ok) return
-              if (pending.kind === "save") onSave({ name: trimmed, categoryId: saveCategory })
+              if (pending.kind === "save") onSave?.({ name: trimmed, categoryId: saveCategory })
               if (pending.kind === "rename") onRename?.(pending.id, trimmed)
               if (pending.kind === "newCategory") onCreateCategory?.(trimmed)
               if (pending.kind === "renameCategory") onRenameCategory?.(pending.id, trimmed)
