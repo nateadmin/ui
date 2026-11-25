@@ -593,7 +593,7 @@ function DataList<T>({
           sub && "bg-muted/20 hover:bg-muted/40",
           // The line runs under the parent's name (past its select circle and marker), as a sidebar's
           // sub-items hang under their parent's label.
-          sub && "before:bg-muted-foreground/40 after:border-muted-foreground/40 before:absolute before:top-0 before:bottom-0 before:left-[4.1rem] before:w-px after:absolute after:top-0 after:left-[4.1rem] after:h-1/2 after:w-3 after:rounded-bl-sm after:border-b after:border-l",
+          sub && "before:bg-muted-foreground/40 after:border-muted-foreground/40 before:absolute before:top-0 before:bottom-0 before:left-[4.1rem] before:w-px after:absolute after:top-0 after:left-[4.1rem] after:h-1/2 after:w-3 after:border-b after:border-l",
           sub && last && "before:bottom-1/2",
         )}
       >
@@ -616,7 +616,8 @@ function DataList<T>({
                 lead && "flex-1",
                 muted && !c.interactive && "opacity-50",
                 // Under the tick: the text starts just past it.
-                sub && i === 0 && "pl-[4.9rem]",
+                // Right after the tick: the tick ends at 4.85rem from the row's edge; the cell starts after the row's padding and the lead slots.
+                sub && i === 0 && "pl-[calc(4.35rem-var(--lead))]",
               )}
             >
               {c.cell(row)}
