@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { PinIcon, PinOffIcon, RotateCcwIcon, SparklesIcon } from "lucide-react"
+import { PinIcon, PinOffIcon, SparklesIcon } from "lucide-react"
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -38,7 +38,7 @@ import {
  * every app:
  *
  *   - the bar, always in this order: tabs (Table, Charts), Chat, Search, Reports, the period,
- *     the report's own choices, Columns, Filters (or the date range alone), Reset, Export; icons only on a phone. Everything a person chooses
+ *     the report's own choices, Columns, Filters (or the date range alone), Export; icons only on a phone. Everything a person chooses
  *     is on the bar: nothing is picked from inside the page
  *   - the grid: column titles that sort (up, down, then back to the report's
  *     own order) and drag to a new place with a line showing where they land;
@@ -565,8 +565,6 @@ type ReportProps<Row> = {
    * under months), named for what it picks ("Week Ending"). On the bar, after Reports.
    */
   period?: React.ComponentProps<typeof ToolbarTreeFilter>
-  /** Puts every choice back to the report's own. Shows a Reset button before Export. */
-  onReset?: () => void
   controls?: Array<React.ComponentProps<typeof ToolbarFilter> & { key: string; icon: React.ReactNode }>
   /** Shown over the grids: the report's headline figures or charts. */
   summary?: React.ReactNode
@@ -599,7 +597,6 @@ function Report<Row>({
   tabs,
   controls,
   period,
-  onReset,
   summary,
   footnote,
   stacked,
@@ -660,12 +657,6 @@ function Report<Row>({
           </ToolbarFilterDialog>
         ) : null}
         {dateRange && !filters ? <ToolbarDateRange {...datePicker} value={dateValue} onValueChange={onDateChange} /> : null}
-        {onReset ? (
-          <Button type="button" variant="outline" size="lg" className="gap-2 font-normal" aria-label="Reset" onClick={onReset}>
-            <RotateCcwIcon aria-hidden="true" />
-            <ToolbarLabel>Reset</ToolbarLabel>
-          </Button>
-        ) : null}
         {exportMenu ? <ToolbarExport {...exportMenu} /> : null}
       </Toolbar>
       <div className={cn("flex min-w-0 flex-col overflow-x-hidden", stacked ? "gap-3" : "min-h-0 flex-1 gap-3")}>

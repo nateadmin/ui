@@ -45,7 +45,8 @@ A page type an app builds more than once (the reports page) is one component her
 - Every report can freeze columns and rows. Right-click (or long-press) a column title or a cell: a frozen column stays at the left, a frozen row stays under the titles, and the same menu unfreezes. `Report` does this on its own; an app passes `frozen` and `onFrozenChange` only to save the choice.
 - Every report can change a column's width. Drag the right edge of a column title, as in a spreadsheet; double-click the edge to give the width back. The widths are for viewing only and are not kept.
 - One space everywhere on a page: 12px between the bar, the figures, the charts, the grids and the footer. The app gives the page the same 12px above the bar.
-- Everything a person chooses is on the bar: the tabs first, then the report, its period (`period`, a dropdown of checkboxes in groups), its other choices (`controls`), then Reset and Export. Nothing is picked from inside the page.
+- Everything a person chooses is on the bar: the tabs first, then the report, its period (`period`, a dropdown of checkboxes in groups), its other choices (`controls`), then Export. Nothing is picked from inside the page.
+- Nothing on the bar moves after a choice. A dropdown is as wide as its widest choice from the start (up to its limit), and a part of the bar never appears or disappears while data loads: it is disabled instead.
 - A catalog page holds placeholder data and handlers only. If a catalog page needs state or markup to make something look or behave right, that belongs in the component.
 - An app never assembles a page from the smaller parts, and never re-creates a behavior. If an app needs something the component does not do, add it to the component.
 

@@ -187,12 +187,21 @@ function StandInIcon({ children }: { children: React.ReactNode }) {
 /* Lays every possible text in one grid cell and shows only the active one,
    so the box is always as wide as the longest text. */
 function StableLabel({ items, active }: { items: Array<{ key: string; node: React.ReactNode }>; active: string }) {
-  // The field is as wide as what it shows now, never padded out to its widest choice. It only gets wider
-  // when its row of the bar has room to fill (the bar justifies every row).
-  const shown = items.find((item) => item.key === active) ?? items[0]
+  // Nothing on the bar moves when a choice is made: the field is as wide as its widest choice from the
+  // start (up to the field's limit), so picking another never changes its width. Every choice is laid in
+  // the same spot; only the one in use shows.
+  const current = items.some((item) => item.key === active) ? active : items[0]?.key
   return (
-    <span data-toolbar-label="" className="flex min-w-0 items-center gap-2 overflow-hidden text-left">
-      {shown?.node}
+    <span data-toolbar-label="" className="grid min-w-0 overflow-hidden text-left">
+      {items.map((item) => (
+        <span
+          key={item.key}
+          aria-hidden={item.key === current ? undefined : true}
+          className={cn("col-start-1 row-start-1 flex min-w-0 items-center gap-2", item.key !== current && "invisible")}
+        >
+          {item.node}
+        </span>
+      ))}
     </span>
   )
 }
@@ -662,11 +671,12 @@ function TreeCheck({
         aria-hidden="true"
         className={cn(
           "border-input flex size-4 shrink-0 items-center justify-center rounded-sm border",
-          state !== "off" && "border-primary bg-primary text-primary-foreground",
+          // Filled only when everything under it is picked. Part picked: an empty box with a gray dash.
+          state === "on" && "border-primary bg-primary text-primary-foreground",
         )}
       >
         {state === "on" ? <TreeCheckIcon className="size-3" /> : null}
-        {state === "partial" ? <span className="block h-0.5 w-2 rounded-full bg-current" /> : null}
+        {state === "partial" ? <span className="bg-muted-foreground block h-0.5 w-2 rounded-full" /> : null}
       </span>
       <span className="truncate">{label}</span>
     </button>
@@ -675,8 +685,8 @@ function TreeCheck({
 
 /*
  * A dropdown of checkboxes in groups that fold, for a choice with two levels: months under years,
- * week endings under months. A group's box picks or clears the whole group and shows a dash when
- * only part of it is picked; the first row picks or clears everything. The button reads
+ * week endings under months. A group's box picks or clears the whole group; it is filled only when
+ * the whole group is picked, and shows a gray dash in an empty box when only part of it is; the first row picks or clears everything. The button reads
  * "Label: All", the one picked item, or how many are picked.
  */
 function ToolbarTreeFilter({
@@ -710,6 +720,8 @@ function ToolbarTreeFilter({
     return hit === 0 ? "off" : hit === items.length ? "on" : "partial"
   }
   const allOn = all.length > 0 && pickedCount === all.length
+  // The widest thing the button can say, so its width is settled before anything is picked.
+  const longest = all.reduce((widest, item) => (item.label.length > widest.length ? item.label : widest), "")
   const text =
     allOn ? "All" : pickedCount === 0 ? "None" : pickedCount === 1 ? (all.find((i) => picked.has(i.value))?.label ?? "1 selected") : `${pickedCount} selected`
   return (
@@ -718,9 +730,13 @@ function ToolbarTreeFilter({
         render={<Button variant="outline" size="lg" data-slot="toolbar-tree-filter" className={cn(triggerClass, className)} />}
       >
         {icon ?? <CalendarRangeIcon aria-hidden="true" />}
-        <span data-toolbar-label="" className="min-w-0">
-          {withLabel(label, text)}
-        </span>
+        <StableLabel
+          active={text}
+          items={Array.from(new Set(["All", "None", `${all.length} selected`, longest, text])).map((t) => ({
+            key: t,
+            node: withLabel(label, t),
+          }))}
+        />
         <Chevron />
       </PopoverTrigger>
       <PopoverContent align="start" className="max-h-[min(24rem,var(--available-height))] w-64 gap-0 overflow-y-auto p-1">
@@ -1957,8 +1973,11 @@ function ToolbarExport({
   onEmail,
   formats = DEFAULT_EXPORT_FORMATS,
   label = "Export",
+  disabled = false,
   className,
 }: {
+  /** Nothing to export yet (the report is loading). The button stays in its place, switched off. */
+  disabled?: boolean
   onExport: (format: string) => void
   /** Sends the export by email. Return a promise to show "Sending..." until it settles. */
   onEmail?: (email: ToolbarExportEmail) => void | Promise<void>
@@ -1971,7 +1990,7 @@ function ToolbarExport({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={<Button size="lg" data-slot="toolbar-export" className={cn("shrink-0 gap-2", className)} />}
+          render={<Button size="lg" disabled={disabled} data-slot="toolbar-export" className={cn("shrink-0 gap-2", className)} />}
         >
           <DownloadIcon aria-hidden="true" />
           <ToolbarLabel>{label}</ToolbarLabel>
