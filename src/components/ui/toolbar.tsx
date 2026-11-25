@@ -211,10 +211,13 @@ function Dot({ color }: { color?: string }) {
   return <span aria-hidden="true" className="size-2 shrink-0 rounded-full" style={{ background: color }} />
 }
 
-/* Every dropdown trigger on the toolbar follows one rule: same height, sized to
-   its longest possible text so it never jumps when the selection changes, and
-   never wider than 15rem (no cap when the toolbar wraps and each row is
-   stretched to full width). Longer text is cut with "…". */
+/* Every dropdown trigger on the toolbar follows one rule: same height, and as
+   small as it can be. A single-choice field is sized to its longest choice so it
+   never jumps; a multi-choice field is sized to its short states ("All",
+   "N selected") and grows only while exactly one value is picked, never to its
+   longest option name (owner, 11/25/2026). Never wider than 15rem (no cap when
+   the toolbar wraps and each row is stretched to full width). Longer text is
+   cut with "…". */
 const triggerClass = "min-w-0 max-w-60 shrink-0 gap-2 font-normal in-data-wrapped:max-w-none"
 
 /* ---------- Views ---------- */
@@ -530,9 +533,11 @@ function ToolbarFilter(props: ToolbarFilterProps) {
   let active: string
   if (props.multiple) {
     const picked = options.filter((o) => props.values.includes(o.value))
+    // As small as it can be (owner, 11/25/2026): sized to its short states ("All", "N selected"),
+    // not to the longest option name. It only grows while exactly one option is picked.
     items = [
       { key: "__none", node: withLabel(label, props.placeholder) },
-      ...options.map((o) => ({
+      ...picked.slice(0, picked.length === 1 ? 1 : 0).map((o) => ({
         key: o.value,
         node: (
           <>
@@ -720,8 +725,7 @@ function ToolbarTreeFilter({
     return hit === 0 ? "off" : hit === items.length ? "on" : "partial"
   }
   const allOn = all.length > 0 && pickedCount === all.length
-  // The widest thing the button can say, so its width is settled before anything is picked.
-  const longest = all.reduce((widest, item) => (item.label.length > widest.length ? item.label : widest), "")
+  // Sized to its short states only (owner, 11/25/2026): it grows while exactly one item is picked.
   const text =
     allOn ? "All" : pickedCount === 0 ? "None" : pickedCount === 1 ? (all.find((i) => picked.has(i.value))?.label ?? "1 selected") : `${pickedCount} selected`
   return (
@@ -732,7 +736,7 @@ function ToolbarTreeFilter({
         {icon ?? <CalendarRangeIcon aria-hidden="true" />}
         <StableLabel
           active={text}
-          items={Array.from(new Set(["All", "None", `${all.length} selected`, longest, text])).map((t) => ({
+          items={Array.from(new Set(["All", "None", `${all.length} selected`, text])).map((t) => ({
             key: t,
             node: withLabel(label, t),
           }))}

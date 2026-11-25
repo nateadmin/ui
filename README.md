@@ -100,7 +100,7 @@ Toolbar parts:
 | `ToolbarActions` | Buttons pinned to the right edge. |
 | `ToolbarActiveFilters` | Applied filters as removable chips under the bar, with Clear all. Hidden when nothing is applied. |
 
-All dropdown triggers on the toolbar follow one width rule: as wide as their longest possible text so they never jump on select, capped at 15rem with "…" for longer text.
+All dropdown triggers on the toolbar follow one width rule: as small as they can be. A single-choice field is as wide as its longest choice so it never jumps on select. A multi-choice field is as wide as its short states ("All", "N selected") and grows only while exactly one value is picked, never to its longest option name. Capped at 15rem with "…" for longer text.
 
 In the catalog, the Toolbar page is a builder: switch parts on and off, then drag them (or focus one and use the arrow keys) to set their order. "Push right" is a spacer: parts after it sit at the right edge. Every toolbar dropdown opens left-aligned under its button.
 
