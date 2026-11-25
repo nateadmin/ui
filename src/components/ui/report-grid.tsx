@@ -82,7 +82,7 @@ function ReportGridHead({
       data-slot="report-grid-head"
       aria-sort={sortable ? (sort === "asc" ? "ascending" : sort === "desc" ? "descending" : "none") : undefined}
       className={cn(
-        "bg-muted text-foreground h-8 px-2 text-left align-middle text-[11px] font-semibold tracking-wider whitespace-nowrap uppercase select-none",
+        "bg-muted text-foreground relative h-8 overflow-hidden px-2 text-left align-middle text-[11px] font-semibold tracking-wider whitespace-nowrap uppercase select-none",
         movable ? "cursor-grab active:cursor-grabbing" : sortable && "cursor-pointer",
         className,
       )}
@@ -120,6 +120,7 @@ function ReportGridColumns({
   className,
   headClassName,
   headProps,
+  onResize,
 }: {
   columns: ReportGridColumn[]
   /** The sorted column, or null when the report is in its own order. */
@@ -130,6 +131,11 @@ function ReportGridColumns({
   onReorder?: (key: string, target: string, side: "before" | "after") => void
   className?: string
   headClassName?: string
+  /**
+   * The right edge of a title was dragged: the column's new width in px. null: the edge was
+   * double-clicked, so the column goes back to the width the grid gives it. Leave out for fixed widths.
+   */
+  onResize?: (key: string, width: number | null) => void
   /** Extra props for one title cell, for example to pin a frozen column. */
   headProps?: (column: ReportGridColumn, index: number) => React.ComponentProps<"th"> & Record<`data-${string}`, string>
 }) {
@@ -138,6 +144,7 @@ function ReportGridColumns({
   const [dragging, setDragging] = React.useState<string | null>(null)
   const [drop, setDrop] = React.useState<{ key: string; side: "before" | "after" } | null>(null)
   const keys = columns.map((c) => c.key)
+  const sizing = React.useRef<{ key: string; x: number; width: number } | null>(null)
 
   // The line and the fade, as one style rule on the grid's box, so title, row and total cells all follow.
   React.useEffect(() => {
@@ -222,6 +229,40 @@ function ReportGridColumns({
           className={cn(headClassName, extra?.className)}
         >
           {c.label}
+          {onResize ? (
+            // The column's right edge: drag it to set the width, double-click to give the width back to the grid.
+            <span
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Change column width"
+              draggable={false}
+              className="hover:bg-foreground/20 active:bg-primary absolute top-0 right-0 z-10 h-full w-1.5 cursor-col-resize touch-none"
+              onMouseDown={(e) => e.preventDefault() /* not the start of a column move */}
+              onClick={(e) => e.stopPropagation() /* not a sort */}
+              onDoubleClick={(e) => {
+                e.stopPropagation()
+                onResize(c.key, null)
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                const th = e.currentTarget.closest("th")
+                if (!th) return
+                sizing.current = { key: c.key, x: e.clientX, width: th.getBoundingClientRect().width }
+                e.currentTarget.setPointerCapture(e.pointerId)
+              }}
+              onPointerMove={(e) => {
+                const s = sizing.current
+                if (s) onResize(s.key, Math.max(40, Math.round(s.width + e.clientX - s.x)))
+              }}
+              onPointerUp={(e) => {
+                sizing.current = null
+                if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId)
+              }}
+              onPointerCancel={() => {
+                sizing.current = null
+              }}
+            />
+          ) : null}
         </ReportGridHead>
         )
       })}
@@ -270,7 +311,7 @@ function ReportGridCell({
   return (
     <td
       data-slot="report-grid-cell"
-      className={cn("h-8 px-2 py-0 align-middle whitespace-nowrap", numeric && "tabular-nums", className)}
+      className={cn("h-8 overflow-hidden px-2 py-0 align-middle text-ellipsis whitespace-nowrap", numeric && "tabular-nums", className)}
       {...props}
     />
   )

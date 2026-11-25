@@ -43,6 +43,7 @@ A page type an app builds more than once (the reports page) is one component her
 - Filters are multi-select. Anything a person could want more than one of, they can pick more than one of; nothing picked means all. A single-choice filter is the exception and needs a reason (the choices exclude each other, like a sort order).
 - Every icon on a bar is unique. A bar shows icons only on a phone, so two parts with the same icon cannot be told apart. This holds for every kind of part: filters, actions, menus. `ListPage` requires an icon on each filter and reports a repeat while developing.
 - Every report can freeze columns and rows. Right-click (or long-press) a column title or a cell: a frozen column stays at the left, a frozen row stays under the titles, and the same menu unfreezes. `Report` does this on its own; an app passes `frozen` and `onFrozenChange` only to save the choice.
+- Every report can change a column's width. Drag the right edge of a column title, as in a spreadsheet; double-click the edge to give the width back. The widths are for viewing only and are not kept.
 - A catalog page holds placeholder data and handlers only. If a catalog page needs state or markup to make something look or behave right, that belongs in the component.
 - An app never assembles a page from the smaller parts, and never re-creates a behavior. If an app needs something the component does not do, add it to the component.
 

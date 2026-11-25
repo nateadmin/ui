@@ -42,6 +42,9 @@ import {
  *   - column widths settled from the whole report (the widest value of each
  *     column, its title and its total), so sorting or paging never moves a
  *     column
+ *   - drag the right edge of a column title to make the column wider or narrower, as in a
+ *     spreadsheet; double-click the edge to give the width back; the widths are for viewing only
+ *     and are not kept
  *   - right-click (or long-press) a column or a row to freeze it: a frozen column stays at the
  *     left while the rest scroll sideways, a frozen row stays under the titles while the rest
  *     scroll up and down; the same menu unfreezes
@@ -216,7 +219,7 @@ function ReportGrid<Row>({
   /* Column widths. Settled from the whole report where the app says what is widest; otherwise from
      the rows loaded so far, kept in a ref so a column only ever grows and never jumps back. */
   const grown = React.useRef<Record<string, number>>({})
-  const colWidths = React.useMemo(() => {
+  const autoWidths = React.useMemo(() => {
     return columns.map((c, i) => {
       let w = 0
       const known = widest?.[c.key]
@@ -238,6 +241,10 @@ function ReportGrid<Row>({
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keys.join("\u0001"), widest, totals, allItems, textWidth, !!onSortChange])
+
+  /* Widths a person set by dragging a title's edge. For viewing only: kept while the grid is open. */
+  const [sized, setSized] = React.useState<Record<string, number>>({})
+  const colWidths = autoWidths.map((w, i) => sized[columns[i]!.key] ?? w)
 
   /* Where each frozen column sits: after the frozen columns before it. */
   const lefts: number[] = []
@@ -415,6 +422,14 @@ function ReportGrid<Row>({
                       : undefined
                   }
                   headClassName="sticky top-0 z-10"
+                  onResize={(key, width) =>
+                    setSized((cur) => {
+                      const next = { ...cur }
+                      if (width == null) delete next[key]
+                      else next[key] = width
+                      return next
+                    })
+                  }
                   headProps={(c, i) => ({ "data-col": c.key, style: i < frozenCount ? pin(i, 20) : undefined })}
                 />
                 {frozenItems.map((item, i) => line(item, i))}
