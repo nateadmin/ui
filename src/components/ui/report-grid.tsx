@@ -680,7 +680,10 @@ function ReportGridScroll({
         ["--hbar-pad" as string]: wide ? `${dims.pad}px` : "0px",
       }}
     >
-      <div className="flex min-h-0 flex-1">
+      {/* The gutter lies over the box's right padding instead of sitting beside it, so a grid that is as
+          tall as its rows (stacked reports) gets its height from the table alone. Beside it, the gutter's
+          spacer (sized from the gutter's own height) would set the row's height and feed itself. */}
+      <div className="relative flex min-h-0 flex-1">
         <div
           ref={box}
           onScroll={onGrid}
@@ -693,11 +696,12 @@ function ReportGridScroll({
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
           className="min-h-0 min-w-0 flex-1 cursor-grab overflow-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{ paddingRight: GUTTER }}
         >
           {children}
         </div>
         {/* Right edge: the title band, the vertical scrollbar flush to the edge, then the Total band. */}
-        <div className="flex shrink-0 flex-col" style={{ width: GUTTER }}>
+        <div className="absolute inset-y-0 right-0 flex flex-col" style={{ width: GUTTER }}>
           <div className={band} style={{ height: dims.head }} />
           <div
             ref={vbar}
