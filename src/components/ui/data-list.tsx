@@ -593,7 +593,7 @@ function DataList<T>({
           sub && "bg-muted/20 hover:bg-muted/40",
           // The line runs under the parent's name (past its select circle and marker), as a sidebar's
           // sub-items hang under their parent's label.
-          sub && "before:bg-muted-foreground/40 after:border-muted-foreground/40 before:absolute before:top-0 before:bottom-0 before:left-[4.1rem] before:w-px after:absolute after:top-0 after:left-[4.1rem] after:h-1/2 after:w-3 after:border-b after:border-l",
+          sub && "before:bg-sidebar-border/70 after:border-sidebar-border/70 before:absolute before:top-0 before:bottom-0 before:left-[4.1rem] before:w-px after:absolute after:top-0 after:left-[4.1rem] after:h-1/2 after:w-3 after:border-b after:border-l",
           sub && last && "before:bottom-1/2",
         )}
       >
