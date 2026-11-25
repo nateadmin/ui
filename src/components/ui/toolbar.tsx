@@ -493,7 +493,7 @@ function ToolbarFoldAll({
       className={cn("shrink-0 gap-2 font-normal", className)}
     >
       {open ? <ChevronsDownUpIcon aria-hidden="true" /> : <ChevronsUpDownIcon aria-hidden="true" />}
-      <ToolbarLabel>{open ? "Collapse all" : "Expand all"}</ToolbarLabel>
+      <ToolbarLabel>{open ? "Collapse All" : "Expand All"}</ToolbarLabel>
     </Button>
   )
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon, ChevronRightIcon, CornerDownRightIcon, MinusIcon, MoreVerticalIcon } from "lucide-react"
+import { CheckIcon, ChevronRightIcon, MinusIcon, MoreVerticalIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTextWidth } from "@/lib/text-width"
 import { Button } from "@/components/ui/button"
@@ -550,7 +550,7 @@ function DataList<T>({
       </div>
     )
 
-  const renderRow = (row: T, depth: number) => {
+  const renderRow = (row: T, depth: number, last = false) => {
     const id = getRowId(row)
     const kids = depth === 0 ? kidsOf(row) : []
     const hasKids = kids.length > 0
@@ -583,13 +583,18 @@ function DataList<T>({
         }
         onContextMenu={() => onRowContext(id)}
         className={cn(
-          "group col-span-full grid grid-cols-subgrid items-center px-3 text-[13px] transition-colors outline-none",
+          "group relative col-span-full grid grid-cols-subgrid items-center px-3 text-[13px] transition-colors outline-none",
           rowHeight[density],
           cards ? "bg-card border-border/60 rounded-lg border" : "border-border/40 border-b last:border-b-0",
           "hover:bg-muted/30 data-[state=selected]:bg-primary/5 focus-visible:bg-muted/40",
           clickable && "cursor-pointer",
-          // A sub-row: a shade darker, so the parent reads as the line that speaks for it.
+          // A sub-row: a shade darker, so the parent reads as the line that speaks for it, with the
+          // tree guide a sidebar draws for its sub-items: a line down from the parent and a tick in.
           sub && "bg-muted/20 hover:bg-muted/40",
+          // The line runs under the parent's name (past its select circle and marker), as a sidebar's
+          // sub-items hang under their parent's label.
+          sub && "before:bg-muted-foreground/40 after:border-muted-foreground/40 before:absolute before:top-0 before:bottom-0 before:left-[4.1rem] before:w-px after:absolute after:top-0 after:left-[4.1rem] after:h-1/2 after:w-3 after:rounded-bl-sm after:border-b after:border-l",
+          sub && last && "before:bottom-1/2",
         )}
       >
         {columns.map((c, i) => {
@@ -610,9 +615,10 @@ function DataList<T>({
                 !text && alignClass(c.align),
                 lead && "flex-1",
                 muted && !c.interactive && "opacity-50",
+                // Under the tick: the text starts just past it.
+                sub && i === 0 && "pl-[4.9rem]",
               )}
             >
-              {sub && i === 0 ? <CornerDownRightIcon aria-hidden="true" className="text-muted-foreground/60 mr-1 ml-5 inline size-3.5 shrink-0 align-[-2px]" /> : null}
               {c.cell(row)}
             </div>
           )
@@ -671,7 +677,7 @@ function DataList<T>({
     const parent = renderRow(row, 0)
     const kids = kidsOf(row)
     if (!kids.length || !openRows.includes(getRowId(row))) return [parent]
-    return [parent, ...kids.map((kid) => renderRow(kid, 1))]
+    return [parent, ...kids.map((kid, k) => renderRow(kid, 1, k === kids.length - 1))]
   })
 
   const grid = (
