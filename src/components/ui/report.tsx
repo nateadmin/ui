@@ -23,6 +23,7 @@ import {
   Toolbar,
   ToolbarTabs,
   ToolbarExport,
+  ToolbarFilter,
   ToolbarFilterDialog,
   ToolbarLabel,
   ToolbarReportLibrary,
@@ -34,8 +35,9 @@ import {
  * and gets every rule of the page from here, the same on every page and in
  * every app:
  *
- *   - the bar, always in this order: Chat, Search, Reports, Columns, Filters,
- *     Export; icons only on a phone
+ *   - the bar, always in this order: Chat, Search, Reports, tabs (Table, Charts), the view's
+ *     own choices, Columns, Filters, Export; icons only on a phone. Everything a person chooses
+ *     is on the bar: nothing is picked from inside the page
  *   - the grid: column titles that sort (up, down, then back to the report's
  *     own order) and drag to a new place with a line showing where they land;
  *     groups that fold; subtotals; a Total band with equal space above and
@@ -549,8 +551,13 @@ type ReportProps<Row> = {
   exportMenu?: React.ComponentProps<typeof ToolbarExport>
   /** One grid, or two for a report with a summary over its rows. */
   grids: ReportGridProps<Row>[]
-  /** Switches what the report shows, for example Table and Charts. Sits under the bar. */
+  /** Switches what the report shows, for example Table and Charts. On the bar, after Reports. */
   tabs?: React.ComponentProps<typeof ToolbarTabs>
+  /**
+   * Choices that belong to what is showing, for example a chart's type and its metrics. On the bar,
+   * after the tabs. Each needs its own icon (a phone shows icons only) and a key.
+   */
+  controls?: Array<React.ComponentProps<typeof ToolbarFilter> & { key: string; icon: React.ReactNode }>
   /** Shown over the grids: the report's headline figures or charts. */
   summary?: React.ReactNode
   /** Small print under the grids, for example when the data was last refreshed. */
@@ -580,6 +587,7 @@ function Report<Row>({
   exportMenu,
   grids,
   tabs,
+  controls,
   summary,
   footnote,
   stacked,
@@ -608,6 +616,8 @@ function Report<Row>({
         ) : null}
         {search ? <ToolbarSearch {...search} /> : null}
         {library ? <ToolbarReportLibrary fill={!search} {...library} /> : null}
+        {tabs ? <ToolbarTabs aria-label="View" {...tabs} /> : null}
+        {controls?.map(({ key, ...control }) => <ToolbarFilter key={key} {...control} />)}
         {columnsMenu ? (
           <CustomizeMenu label="Columns" itemsLabel="Columns" searchPlaceholder="Search columns" {...columnsMenu} />
         ) : null}
@@ -638,7 +648,6 @@ function Report<Row>({
         ) : null}
         {exportMenu ? <ToolbarExport {...exportMenu} /> : null}
       </Toolbar>
-      {tabs ? <ToolbarTabs aria-label="View" {...tabs} /> : null}
       <div className={cn("flex min-w-0 flex-col overflow-x-hidden", stacked ? "gap-4" : "min-h-0 flex-1 gap-2")}>
         {summary}
         {placeholder ??
