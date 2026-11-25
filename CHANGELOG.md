@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.22.3
+
+### Patch Changes
+
+- 5c582a4: DataList sub-rows: the tree guide's tick is a straight corner, as in a sidebar.
+
 ## 0.22.2
 
 ### Patch Changes
