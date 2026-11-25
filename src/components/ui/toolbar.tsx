@@ -335,7 +335,8 @@ function ToolbarViews({
 type ToolbarTab = { value: string; label: string; count?: number }
 
 /** Tabs that filter the list by status, like Active, Monitor, Defaulted. Unlike views,
-    they stay tabs at any number and scroll sideways when they do not fit. */
+    they stay tabs at any number. When the row of tabs is wider than the whole toolbar (a
+    small screen), it turns into a dropdown with the same choices (owner, 11/25/2026). */
 function ToolbarTabs({
   tabs,
   value,
@@ -352,40 +353,107 @@ function ToolbarTabs({
   className?: string
   "aria-label"?: string
 }) {
+  const ref = React.useRef<HTMLDivElement>(null)
+  const probe = React.useRef<HTMLDivElement>(null)
+  const [dropdown, setDropdown] = React.useState(false)
+
+  // The tabs' natural width (a hidden copy that is always laid out) against the bar's inner width.
+  const measure = React.useCallback(() => {
+    const bar = ref.current?.closest<HTMLElement>("[data-slot=toolbar]")
+    const copy = probe.current?.firstElementChild as HTMLElement | null
+    if (!bar || !copy) return
+    const styles = getComputedStyle(bar)
+    const inner = bar.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight)
+    setDropdown(copy.scrollWidth > inner)
+  }, [])
+  React.useLayoutEffect(measure)
+  React.useEffect(() => {
+    const bar = ref.current?.closest<HTMLElement>("[data-slot=toolbar]")
+    if (!bar) return
+    const ro = new ResizeObserver(measure)
+    ro.observe(bar)
+    return () => ro.disconnect()
+  }, [measure])
+
+  const group = (
+    <ToggleGroup
+      value={[value]}
+      onValueChange={(next: unknown[]) => {
+        const picked = next.at(-1)
+        if (typeof picked === "string") onValueChange(picked)
+      }}
+      spacing={1}
+      aria-label={ariaLabel}
+      className={cn("bg-muted min-w-max rounded-lg p-0.5", stretch && !dropdown && "w-full")}
+    >
+      {tabs.map((tab) => (
+        <ToggleGroupItem
+          key={tab.value}
+          value={tab.value}
+          className={cn(
+            "text-muted-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:hover:bg-background dark:aria-pressed:bg-input/50 h-8 gap-1.5 px-3 aria-pressed:shadow-sm",
+            stretch && !dropdown && "flex-[1_0_auto]",
+          )}
+        >
+          {tab.label}
+          <Count value={tab.count} />
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
+  )
+
   return (
     <div
+      ref={ref}
       data-slot="toolbar-tabs"
-      data-toolbar-fill=""
+      data-toolbar-fill={dropdown ? undefined : ""}
       className={cn(
-        "max-w-full min-w-0 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-        stretch ? "flex-[999_1_24rem]" : "shrink-0",
+        "relative max-w-full min-w-0",
+        !dropdown && "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        stretch && !dropdown ? "flex-[999_1_24rem]" : "shrink-0",
         className,
       )}
     >
-      <ToggleGroup
-        value={[value]}
-        onValueChange={(next: unknown[]) => {
-          const picked = next.at(-1)
-          if (typeof picked === "string") onValueChange(picked)
-        }}
-        spacing={1}
-        aria-label={ariaLabel}
-        className={cn("bg-muted min-w-max rounded-lg p-0.5", stretch && "w-full")}
-      >
-        {tabs.map((tab) => (
-          <ToggleGroupItem
-            key={tab.value}
-            value={tab.value}
-            className={cn(
-              "text-muted-foreground aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:hover:bg-background dark:aria-pressed:bg-input/50 h-8 gap-1.5 px-3 aria-pressed:shadow-sm",
-              stretch && "flex-[1_0_auto]",
-            )}
+      {/* Measuring copy: never seen, never focusable, always laid out at its natural width. */}
+      <div ref={probe} aria-hidden="true" className="pointer-events-none invisible absolute top-0 left-0 h-0 overflow-hidden" inert>
+        {group}
+      </div>
+      {dropdown ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={<Button variant="outline" size="lg" aria-label={ariaLabel} className={cn(triggerClass, "w-full")} />}
           >
-            {tab.label}
-            <Count value={tab.count} />
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+            <StandInIcon>
+              <ListFilterIcon />
+            </StandInIcon>
+            <StableLabel
+              active={value}
+              items={tabs.map((tab) => ({
+                key: tab.value,
+                node: (
+                  <>
+                    {tab.label}
+                    <Count value={tab.count} />
+                  </>
+                ),
+              }))}
+            />
+            <Chevron />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuRadioGroup value={value} onValueChange={(v: unknown) => onValueChange(String(v))}>
+              {tabs.map((tab) => (
+                <DropdownMenuRadioItem key={tab.value} value={tab.value} closeOnClick>
+                  {tab.label}
+                  <Count value={tab.count} />
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        group
+      )}
     </div>
   )
 }
