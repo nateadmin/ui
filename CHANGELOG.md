@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.21.0
+
+### Minor Changes
+
+- 3814942: DataList: sub-rows. `children(row)` gives the rows under a row, drawn in the same columns, indented, folded by a chevron on the parent; the header offers Expand all / Collapse all; `openRows`/`onOpenRowsChange` or `defaultOpen` control what starts open. Sub-rows count for column widths and cannot be selected.
+
 ## 0.20.1
 
 ### Patch Changes
