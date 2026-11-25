@@ -81,7 +81,7 @@ function StatStrip({
               setOpen(true)
             }
           }}
-          className="flex cursor-pointer flex-wrap items-center gap-x-6 gap-y-1 px-3 py-1.5 pr-8 text-[13px] outline-none"
+          className="flex cursor-pointer flex-wrap items-center justify-between gap-x-6 gap-y-1 px-3 py-1.5 pr-8 text-[13px] outline-none"
         >
           {items.map((item) => (
             <span key={item.key} className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
