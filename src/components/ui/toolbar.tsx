@@ -18,7 +18,7 @@ import {
   SlidersHorizontalIcon,
   XIcon,
 } from "lucide-react"
-import { CalendarRangeIcon, CheckIcon as TreeCheckIcon, ChevronRightIcon as TreeChevronIcon } from "lucide-react"
+import { CalendarRangeIcon, CheckIcon as TreeCheckIcon, ChevronRightIcon as TreeChevronIcon, ChevronsDownUpIcon, ChevronsUpDownIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -332,7 +332,13 @@ function ToolbarViews({
 
 /* ---------- Tabs (status tabs that filter the list) ---------- */
 
-type ToolbarTab = { value: string; label: string; count?: number }
+type ToolbarTab = {
+  value: string
+  label: string
+  count?: number
+  /** A small red dot inside the tab, for example unread replies in that bucket. */
+  dot?: boolean
+}
 
 /** Tabs that filter the list by status, like Active, Monitor, Defaulted. Unlike views,
     they stay tabs at any number. When the row of tabs is wider than the whole toolbar (a
@@ -397,6 +403,7 @@ function ToolbarTabs({
         >
           {tab.label}
           <Count value={tab.count} />
+          {tab.dot ? <span aria-label="Unread" className="size-1.5 shrink-0 rounded-full bg-red-500" /> : null}
         </ToggleGroupItem>
       ))}
     </ToggleGroup>
@@ -434,6 +441,7 @@ function ToolbarTabs({
                   <>
                     {tab.label}
                     <Count value={tab.count} />
+                    {tab.dot ? <span aria-label="Unread" className="size-1.5 shrink-0 rounded-full bg-red-500" /> : null}
                   </>
                 ),
               }))}
@@ -446,6 +454,7 @@ function ToolbarTabs({
                 <DropdownMenuRadioItem key={tab.value} value={tab.value} closeOnClick>
                   {tab.label}
                   <Count value={tab.count} />
+                  {tab.dot ? <span aria-label="Unread" className="size-1.5 shrink-0 rounded-full bg-red-500" /> : null}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -455,6 +464,37 @@ function ToolbarTabs({
         group
       )}
     </div>
+  )
+}
+
+/* ---------- Fold all ---------- */
+
+/**
+ * Expand all / Collapse all for a list with sub-rows (DataList `children`). The one control for
+ * folding: rows carry no chevron of their own (owner, 11/25/2026). Pass the list's `openRows`
+ * state: `open` is whether every parent is open; `onOpenChange(true)` opens them all.
+ */
+function ToolbarFoldAll({
+  open,
+  onOpenChange,
+  className,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  className?: string
+}) {
+  return (
+    <Button
+      variant="outline"
+      size="lg"
+      data-slot="toolbar-fold-all"
+      aria-pressed={open}
+      onClick={() => onOpenChange(!open)}
+      className={cn("shrink-0 gap-2 font-normal", className)}
+    >
+      {open ? <ChevronsDownUpIcon aria-hidden="true" /> : <ChevronsUpDownIcon aria-hidden="true" />}
+      <ToolbarLabel>{open ? "Collapse all" : "Expand all"}</ToolbarLabel>
+    </Button>
   )
 }
 
@@ -2240,6 +2280,7 @@ export {
   ToolbarExport,
   ToolbarFilter,
   ToolbarFilterDialog,
+  ToolbarFoldAll,
   ToolbarSavedViews,
   ToolbarSearch,
   ToolbarTabs,

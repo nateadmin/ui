@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { CheckIcon, ChevronRightIcon, ChevronsDownUpIcon, ChevronsUpDownIcon, CornerDownRightIcon, MinusIcon, MoreVerticalIcon } from "lucide-react"
+import { CheckIcon, ChevronRightIcon, CornerDownRightIcon, MinusIcon, MoreVerticalIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useTextWidth } from "@/lib/text-width"
 import { Button } from "@/components/ui/button"
@@ -108,9 +108,9 @@ type DataListProps<T> = {
   onExpandedChange?: (ids: string[]) => void
   /**
    * Sub-rows (owner, 11/25/2026): the rows under a row, in the same columns, for example a merchant
-   * and its bounced payments. A row with sub-rows gets a chevron at its start that folds them; the
-   * header gets Expand all / Collapse all. Sub-rows are indented, cannot be selected, and count for
-   * column widths. They sort with their parent, never on their own.
+   * and its bounced payments. They fold from one place, the toolbar's ToolbarFoldAll (pass it
+   * `openRows` and `parentIds`); rows carry no chevron of their own. Sub-rows are indented, cannot
+   * be selected, and count for column widths. They sort with their parent, never on their own.
    */
   children?: (row: T) => T[] | undefined
   /** Which rows show their sub-rows. Controlled when passed; otherwise kept here (`defaultOpen`). */
@@ -339,8 +339,7 @@ function DataList<T>({
   const [ownOpen, setOwnOpen] = React.useState<string[] | null>(null)
   const openRows = openRowsProp ?? ownOpen ?? (defaultOpen ? parentIds : [])
   const setOpenRows = onOpenRowsChange ?? setOwnOpen
-  const toggleOpen = (id: string) => setOpenRows(openRows.includes(id) ? openRows.filter((x) => x !== id) : [...openRows, id])
-  const allOpen = parentIds.length > 0 && parentIds.every((id) => openRows.includes(id))
+  void setOpenRows
 
   const desktop = React.useRef<HTMLDivElement>(null)
   const mobile = React.useRef<HTMLUListElement>(null)
@@ -383,7 +382,7 @@ function DataList<T>({
      columns (justify-content: space-between), so the first column stays at
      the left edge, the row end stays at the right edge, and every gap in
      between is the same. */
-  const leadCount = (renderExpanded ? 1 : 0) + (selectable ? 1 : 0) + (children ? 1 : 0)
+  const leadCount = (renderExpanded ? 1 : 0) + (selectable ? 1 : 0)
   /* Column widths, settled once from every row the list can show (owner rule, 11/25/2026): the widest
      text of each column and its title, capped at the column's maxWidth. A page turn or a sort never
      moves a column. A column without `text` keeps the browser's max-content width and can shift. */
@@ -515,21 +514,6 @@ function DataList<T>({
               )}
             >
               {i === 0 && renderExpanded ? <span aria-hidden="true" className="w-4 shrink-0" /> : null}
-              {i === 0 && children ? (
-                parentIds.length ? (
-                  <button
-                    type="button"
-                    aria-label={allOpen ? "Collapse all" : "Expand all"}
-                    title={allOpen ? "Collapse all" : "Expand all"}
-                    onClick={() => setOpenRows(allOpen ? [] : parentIds)}
-                    className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -m-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded outline-none focus-visible:ring-2"
-                  >
-                    {allOpen ? <ChevronsDownUpIcon className="size-4" /> : <ChevronsUpDownIcon className="size-4" />}
-                  </button>
-                ) : (
-                  <span aria-hidden="true" className="w-4 shrink-0" />
-                )
-              ) : null}
               {i === 0 && selectable ? (
                 <ListCheckbox
                   checked={allPicked}
@@ -614,6 +598,7 @@ function DataList<T>({
           const content = (
             <div
               role={lead ? undefined : "cell"}
+              data-sub-cell={sub && i === 0 ? "" : undefined}
               onClick={c.interactive ? (e) => e.stopPropagation() : undefined}
               onKeyDown={c.interactive ? (e) => e.stopPropagation() : undefined}
               style={{ maxWidth: capOf(c as DataListColumn<never>) }}
@@ -627,6 +612,7 @@ function DataList<T>({
                 muted && !c.interactive && "opacity-50",
               )}
             >
+              {sub && i === 0 ? <CornerDownRightIcon aria-hidden="true" className="text-muted-foreground/60 mr-1 ml-5 inline size-3.5 shrink-0 align-[-2px]" /> : null}
               {c.cell(row)}
             </div>
           )
@@ -647,28 +633,6 @@ function DataList<T>({
                   >
                     <ChevronRightIcon className={cn("size-4 transition-transform", open && "rotate-90")} />
                   </button>
-                </div>
-              ) : null}
-              {children ? (
-                <div className="flex shrink-0">
-                  {hasKids ? (
-                    <button
-                      type="button"
-                      aria-label={kidsOpen ? `Hide ${kids.length} rows` : `Show ${kids.length} rows`}
-                      aria-expanded={kidsOpen}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleOpen(id)
-                      }}
-                      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 -m-1 flex size-6 cursor-pointer items-center justify-center rounded outline-none focus-visible:ring-2"
-                    >
-                      <ChevronRightIcon className={cn("size-4 transition-transform", kidsOpen && "rotate-90")} />
-                    </button>
-                  ) : sub ? (
-                    <CornerDownRightIcon aria-hidden="true" className="text-muted-foreground/60 ml-4 size-3.5" />
-                  ) : (
-                    <span aria-hidden="true" className="w-4" />
-                  )}
                 </div>
               ) : null}
               {selectable ? (
