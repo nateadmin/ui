@@ -106,7 +106,7 @@ type ReportItem<Row> =
   | { kind: "gap"; key: string }
 
 type ReportGridProps<Row> = {
-  /** Heading over the grid, when a report shows more than one. */
+  /** The grid's name for screen readers only. Never drawn: no heading above a grid (owner, 11/25/2026). */
   title?: string
   /** In a stacked report on a wide screen: how much of the row the grid takes. Default "full". */
   span?: "full" | "half" | "third"
@@ -134,10 +134,14 @@ type ReportGridProps<Row> = {
   cellTone?: (column: ReportColumn, row: Row) => "good" | "bad" | undefined
   /** Frozen when the grid first shows, for example the first column of a wide grid. People can still unfreeze it. */
   defaultFrozen?: ReportFrozen
+  /**
+   * Every grid sorts, reorders its columns and freezes with nothing passed: it keeps that itself while
+   * it is open (owner, 11/25/2026: one feature set on every report window). Pass sort and onSortChange,
+   * or onColumnsReorder, only to own that state, for example to sort on the server or save it with a
+   * report. With onSortChange the app sorts the rows; without it the grid sorts them by their text.
+   */
   sort?: ReportSort
-  /** Leave out for a grid that cannot sort. Gets the next state of the cycle: up, down, none. */
   onSortChange?: (sort: ReportSort) => void
-  /** Leave out for a grid whose columns stay put. Gets the new order of column keys. */
   onColumnsReorder?: (keys: string[]) => void
   onRowClick?: (row: Row) => void
   /** The last rows are in view: the app may load the next ones. */
@@ -200,8 +204,8 @@ function useTextWidth() {
 function ReportGrid<Row>({
   title,
   span: _span,
-  columns: givenColumns,
-  items: allItems,
+  columns: columnsProp,
+  items: givenItems,
   cell,
   widest,
   cellText,
@@ -223,6 +227,56 @@ function ReportGrid<Row>({
   className,
 }: ReportGridProps<Row> & { className?: string }) {
   const textWidth = useTextWidth()
+
+  /* Sort and column order the grid keeps itself when the app does not own them. */
+  const [ownSort, setOwnSort] = React.useState<ReportSort>(null)
+  const sortState = onSortChange ? sort : ownSort
+  const changeSort = onSortChange ?? setOwnSort
+  const [ownOrder, setOwnOrder] = React.useState<string[] | null>(null)
+  const givenColumns = React.useMemo(() => {
+    if (onColumnsReorder || !ownOrder) return columnsProp
+    const byKey = new Map(columnsProp.map((c) => [c.key, c]))
+    const placed = ownOrder.map((k) => byKey.get(k)).filter((c): c is ReportColumn => !!c)
+    const rest = columnsProp.filter((c) => !ownOrder.includes(c.key))
+    return [...placed, ...rest]
+  }, [columnsProp, ownOrder, onColumnsReorder])
+  const allItems = React.useMemo(() => {
+    if (onSortChange || !ownSort || !cellText) return givenItems
+    const column = columnsProp.find((c) => c.key === ownSort.key)
+    if (!column) return givenItems
+    // A figure ($1,234.50, 12%) sorts as a number and a date (mm/dd/yyyy) as a date; anything else as text.
+    const num = (t: string) => {
+      const date = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t.trim())
+      if (date) return new Date(Number(date[3]), Number(date[1]) - 1, Number(date[2])).getTime()
+      if (!/[0-9]/.test(t)) return null
+      const n = Number(t.replace(/[^0-9.-]/g, ""))
+      return Number.isNaN(n) ? null : n
+    }
+    const compare = (a: Row, b: Row) => {
+      const ta = cellText(column, a)
+      const tb = cellText(column, b)
+      const na = num(ta)
+      const nb = num(tb)
+      const out = na != null && nb != null ? na - nb : ta.localeCompare(tb, undefined, { numeric: true, sensitivity: "base" })
+      return ownSort.dir === "asc" ? out : -out
+    }
+    // Rows are sorted within their run (between group lines and subtotals), so groups keep their shape.
+    const out: ReportItem<Row>[] = []
+    let run: Extract<ReportItem<Row>, { kind: "row" }>[] = []
+    const flush = () => {
+      if (run.length) out.push(...[...run].sort((a, b) => compare(a.row, b.row)))
+      run = []
+    }
+    for (const item of givenItems) {
+      if (item.kind === "row") run.push(item)
+      else {
+        flush()
+        out.push(item)
+      }
+    }
+    flush()
+    return out
+  }, [givenItems, ownSort, onSortChange, cellText, columnsProp])
 
   /* Frozen columns and rows. Frozen columns are drawn first, in their own order, and stay at the
      left. Frozen rows are drawn under the titles and stay there. */
@@ -264,12 +318,12 @@ function ReportGrid<Row>({
       const total = i === 0 && totals ? totalLabel : (totals?.[c.key] ?? "")
       w = Math.max(w, textWidth(total, 600, 13))
       // Title: 11px semibold caps with wide letter spacing, then the 11px sort arrows after a 4px gap.
-      w = Math.max(w, textWidth(c.label.toUpperCase(), 600, 11, 11 * 0.05) + (onSortChange ? 15 : 0))
+      w = Math.max(w, textWidth(c.label.toUpperCase(), 600, 11, 11 * 0.05) + 15)
       // Cell padding 8px a side, the first column 16px on the left, a few px for rounding.
       return Math.ceil(w + 16 + (i === 0 ? 8 : 0) + 4)
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [keys.join("\u0001"), widest, totals, totalLabel, allItems, textWidth, !!onSortChange])
+  }, [keys.join("\u0001"), widest, totals, totalLabel, allItems, textWidth])
 
   /* Widths a person set by dragging a title's edge. For viewing only: kept while the grid is open. */
   const [sized, setSized] = React.useState<Record<string, number>>({})
@@ -331,10 +385,9 @@ function ReportGrid<Row>({
 
   // The sort cycle, the same on every report: up, down, then back to the report's own order.
   const cycle = (key: string) => {
-    if (!onSortChange) return
-    if (sort?.key !== key) onSortChange({ key, dir: "asc" })
-    else if (sort.dir === "asc") onSortChange({ key, dir: "desc" })
-    else onSortChange(null)
+    if (sortState?.key !== key) changeSort({ key, dir: "asc" })
+    else if (sortState.dir === "asc") changeSort({ key, dir: "desc" })
+    else changeSort(null)
   }
 
   const pad = (px: number, key: string) =>
@@ -402,7 +455,7 @@ function ReportGrid<Row>({
 
   return (
     <ReportGridCard className={cn("h-full flex-1", className)}>
-      {title ? <h2 className="shrink-0 px-4 pt-3 pb-2 text-sm font-medium">{title}</h2> : <h2 className="sr-only">Report</h2>}
+      <h2 className="sr-only">{title || "Report"}</h2>
       <div className="min-h-0 flex-1 overflow-hidden">
         {allItems.length === 0 ? (
           <div className="text-muted-foreground flex h-full min-h-24 items-center justify-center text-[13px]">
@@ -439,17 +492,13 @@ function ReportGrid<Row>({
               <thead>
                 <ReportGridColumns
                   columns={columns}
-                  sort={sort}
-                  onSort={onSortChange ? cycle : undefined}
-                  onReorder={
-                    onColumnsReorder
-                      ? (key, target, side) => {
-                          const next = keys.filter((k) => k !== key)
-                          next.splice(next.indexOf(target) + (side === "after" ? 1 : 0), 0, key)
-                          onColumnsReorder(next)
-                        }
-                      : undefined
-                  }
+                  sort={sortState}
+                  onSort={cycle}
+                  onReorder={(key, target, side) => {
+                    const next = keys.filter((k) => k !== key)
+                    next.splice(next.indexOf(target) + (side === "after" ? 1 : 0), 0, key)
+                    ;(onColumnsReorder ?? setOwnOrder)(next)
+                  }}
                   headClassName="sticky top-0 z-10"
                   onResize={(key, width) =>
                     setSized((cur) => {
