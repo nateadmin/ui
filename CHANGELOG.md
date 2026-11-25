@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.13.0
+
+### Minor Changes
+
+- b4072ec: Report: the tabs (Table, Charts) sit on the bar, and a view's own choices (a chart's type, its metrics) go on the bar too through `controls`. Nothing is picked from inside the page.
+
 ## 0.12.0
 
 ### Minor Changes
