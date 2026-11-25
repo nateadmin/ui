@@ -591,6 +591,8 @@ function DataList<T>({
           // A sub-row: a shade darker, so the parent reads as the line that speaks for it, with the
           // tree guide a sidebar draws for its sub-items: a line down from the parent and a tick in.
           sub && "bg-muted/20 hover:bg-muted/40",
+          // The parent whose sub-rows are open shares their band, so the group reads as one.
+          hasKids && kidsOpen && "bg-muted/20 hover:bg-muted/40",
           // The line runs under the parent's name (past its select circle and marker), as a sidebar's
           // sub-items hang under their parent's label.
           sub && "before:bg-sidebar-border/70 after:border-sidebar-border/70 before:absolute before:top-0 before:bottom-0 before:left-[4.1rem] before:w-px after:absolute after:top-0 after:left-[4.1rem] after:h-1/2 after:w-3 after:border-b after:border-l",

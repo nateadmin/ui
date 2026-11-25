@@ -484,8 +484,9 @@ function ToolbarFoldAll({
   className?: string
 }) {
   return (
+    // Filled with the accent while everything is open, so the state stands out on the bar.
     <Button
-      variant="outline"
+      variant={open ? "default" : "outline"}
       size="lg"
       data-slot="toolbar-fold-all"
       aria-pressed={open}
@@ -562,14 +563,63 @@ function ToolbarDateRange({
 
 /* ---------- Search ---------- */
 
+type ToolbarSearchResultItem = {
+  id: string
+  /** The name, which may be a link. */
+  title: React.ReactNode
+  /** Small text after the name, for example an id. */
+  detail?: React.ReactNode
+  /** Text at the right, for example a status or an owner. */
+  meta?: React.ReactNode
+  /** One button at the right edge, for example "Assign to Me". */
+  action?: { label: string; onClick: () => void; disabled?: boolean }
+  /** Clicking the row. */
+  onSelect?: () => void
+}
+
+type ToolbarSearchSection = {
+  title: string
+  items: ToolbarSearchResultItem[]
+  /** Shown when the section has no rows. Default "None". */
+  empty?: string
+}
+
+type ToolbarSearchResults = {
+  sections: ToolbarSearchSection[]
+  /** Shown while the rows are on their way. */
+  loading?: boolean
+}
+
+/**
+ * The search box. With `matches`, the matches drop down right under the box in sections (owner,
+ * 11/25/2026): each section has a title and its rows, a row has a name, a detail, a note at the right
+ * and one action. The dropdown shows while the box has text and closes on Escape or a click outside.
+ */
 function ToolbarSearch({
   className,
   placeholder = "Search",
   "aria-label": ariaLabel,
+  matches,
   ...props
-}: React.ComponentProps<"input">) {
+}: React.ComponentProps<"input"> & { matches?: ToolbarSearchResults }) {
+  const box = React.useRef<HTMLDivElement>(null)
+  const [dismissed, setDismissed] = React.useState(false)
+  const hasText = typeof props.value === "string" ? props.value.trim().length > 0 : false
+  const open = !!matches && hasText && !dismissed
+  React.useEffect(() => {
+    setDismissed(false)
+  }, [props.value])
+  React.useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setDismissed(true)
+    }
+    document.addEventListener("mousedown", onDown)
+    return () => document.removeEventListener("mousedown", onDown)
+  }, [open])
   return (
     <div
+      ref={box}
       data-slot="toolbar-search"
       data-toolbar-fill=""
       className={cn("relative min-w-48 flex-[1_1_16rem]", className)}
@@ -582,9 +632,71 @@ function ToolbarSearch({
         type="search"
         placeholder={placeholder}
         aria-label={ariaLabel ?? placeholder}
+        aria-expanded={matches ? open : undefined}
         className="h-9 pl-9"
+        onKeyDown={(e) => {
+          if (e.key === "Escape") setDismissed(true)
+          props.onKeyDown?.(e)
+        }}
+        onFocus={(e) => {
+          setDismissed(false)
+          props.onFocus?.(e)
+        }}
         {...props}
       />
+      {open ? (
+        <div
+          data-slot="toolbar-search-results"
+          role="listbox"
+          aria-label="Search results"
+          className="bg-popover text-popover-foreground absolute top-full left-0 z-50 mt-1 max-h-[min(28rem,60vh)] w-full min-w-[28rem] overflow-y-auto rounded-xl border p-1 text-[13px] shadow-lg"
+        >
+          {matches.loading && !matches.sections.some((s) => s.items.length) ? (
+            <p className="text-muted-foreground m-0 px-3 py-2">Searching...</p>
+          ) : null}
+          {matches.sections.map((section) => (
+            <div key={section.title} role="group" aria-label={section.title} className="py-1">
+              <p className="text-muted-foreground m-0 px-3 py-1 text-[10px] font-semibold tracking-wide uppercase">
+                {section.title}
+                <span className="ml-1 font-normal tabular-nums">({section.items.length})</span>
+              </p>
+              {section.items.length === 0 ? (
+                <p className="text-muted-foreground m-0 px-3 py-1.5">{section.empty ?? "None"}</p>
+              ) : (
+                section.items.map((item) => (
+                  <div
+                    key={item.id}
+                    role="option"
+                    aria-selected={false}
+                    onClick={item.onSelect}
+                    className={cn(
+                      "flex items-center gap-3 rounded-md px-3 py-1.5",
+                      item.onSelect && "hover:bg-muted/40 cursor-pointer",
+                    )}
+                  >
+                    <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
+                    {item.detail != null ? <span className="text-muted-foreground shrink-0 font-mono text-xs">{item.detail}</span> : null}
+                    {item.meta != null ? <span className="text-muted-foreground shrink-0 text-xs">{item.meta}</span> : null}
+                    {item.action ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={item.action.disabled}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          item.action?.onClick()
+                        }}
+                      >
+                        {item.action.label}
+                      </Button>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -2290,6 +2402,9 @@ export {
   matchesCondition,
 }
 export type {
+  ToolbarSearchResults,
+  ToolbarSearchSection,
+  ToolbarSearchResultItem,
   ToolbarTreeGroup,
   ToolbarReport,
   ToolbarReportCategory,
