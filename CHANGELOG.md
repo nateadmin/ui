@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.23.1
+
+### Patch Changes
+
+- 44b612b: DataList: a "fit" or "grow" column without `text()` made an invalid grid track (fit-content inside minmax), which collapsed every column into one. The track is valid again.
+
 ## 0.23.0
 
 ### Minor Changes
