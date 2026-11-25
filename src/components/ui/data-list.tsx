@@ -146,8 +146,9 @@ const squeezes = (c: DataListColumn<never>) => c.width === "fit" || c.width === 
    the gaps share it evenly (owner rule, 11/25/2026). */
 function track(c: DataListColumn<never>, lead = "0px") {
   const min = `calc(${c.minWidth ?? "6rem"} + ${lead})`
-  if (c.width === "fit") return `minmax(min(${min}, calc(${c.maxWidth ?? "14rem"} + ${lead})), fit-content(calc(${c.maxWidth ?? "14rem"} + ${lead})))`
-  if (c.width === "grow") return `minmax(min(${min}, calc(${c.maxWidth ?? "24rem"} + ${lead})), fit-content(calc(${c.maxWidth ?? "24rem"} + ${lead})))`
+  // minmax() takes no fit-content(): the cell itself is capped at maxWidth, so max-content stays under the cap.
+  if (c.width === "fit") return `minmax(min(${min}, calc(${c.maxWidth ?? "14rem"} + ${lead})), max-content)`
+  if (c.width === "grow") return `minmax(min(${min}, calc(${c.maxWidth ?? "24rem"} + ${lead})), max-content)`
   return `fit-content(calc(${c.maxWidth ?? "20rem"} + ${lead}))`
 }
 
