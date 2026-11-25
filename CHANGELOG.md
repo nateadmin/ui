@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.20.1
+
+### Patch Changes
+
+- b19f743: DataList: no column takes the free room any more; "grow" is content width up to its cap like the others, and the gaps between columns share the free room evenly. ListPage sizes columns from every row when it pages client-side.
+
 ## 0.20.0
 
 ### Minor Changes
