@@ -130,11 +130,13 @@ const squeezes = (c: DataListColumn<never>) => c.width === "fit" || c.width === 
 
 /* lead: extra width in front of the column (the select circle and expand
    arrow live inside the first column so they stay tight to it). */
+/* A column without text(): as wide as its content up to its cap. No column ever takes the free room;
+   the gaps share it evenly (owner rule, 11/25/2026). */
 function track(c: DataListColumn<never>, lead = "0px") {
   const min = `calc(${c.minWidth ?? "6rem"} + ${lead})`
-  if (c.width === "fit") return `minmax(${min},max-content)`
-  if (c.width === "grow") return `minmax(${min},1fr)`
-  return "max-content"
+  if (c.width === "fit") return `minmax(min(${min}, calc(${c.maxWidth ?? "14rem"} + ${lead})), fit-content(calc(${c.maxWidth ?? "14rem"} + ${lead})))`
+  if (c.width === "grow") return `minmax(min(${min}, calc(${c.maxWidth ?? "24rem"} + ${lead})), fit-content(calc(${c.maxWidth ?? "24rem"} + ${lead})))`
+  return `fit-content(calc(${c.maxWidth ?? "20rem"} + ${lead}))`
 }
 
 /** Sorts rows with the sorted column's sortValue. Returns the rows as they are when nothing is sorted. */

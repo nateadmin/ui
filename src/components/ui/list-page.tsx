@@ -201,6 +201,7 @@ function ListPage<T>({
           <DataList<T>
             {...list}
             rows={shown}
+            sizeFrom={total == null ? rows : undefined}
             sort={activeSort}
             onSortChange={setSort}
             scrollKey={`${current}:${activeSort?.column ?? ""}:${activeSort?.dir ?? ""}`}
