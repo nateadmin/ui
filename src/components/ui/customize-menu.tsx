@@ -196,6 +196,16 @@ function CustomizeMenu<K extends string>({
               ref={listRef}
               id={listId}
               aria-label={itemsLabel}
+              // The gaps between rows and the list's own padding accept the drag too, so the cursor never
+              // flips to "not allowed" on the way from one row to another. Dropping there changes nothing.
+              onDragOver={(e) => {
+                if (!dragging) return
+                e.preventDefault()
+                e.dataTransfer.dropEffect = "move"
+              }}
+              onDrop={(e) => {
+                if (dragging) e.preventDefault()
+              }}
               className="m-0 min-h-0 flex-1 list-none overflow-y-auto p-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {rows.length === 0 ? (
@@ -246,8 +256,11 @@ function CustomizeMenu<K extends string>({
                       setOver(null)
                     }}
                     onDragOver={(e) => {
-                      if (!dragging || !on) return
+                      if (!dragging) return
+                      // Anywhere over the list is a fine place to be while dragging: no "not allowed" cursor.
                       e.preventDefault()
+                      e.dataTransfer.dropEffect = "move"
+                      if (!on) return
                       const r = e.currentTarget.getBoundingClientRect()
                       const side = e.clientY < r.top + r.height / 2 ? "before" : "after"
                       if (over?.key !== k || over.side !== side) setOver({ key: k, side })
