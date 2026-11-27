@@ -367,14 +367,28 @@ function ToolbarTabs({
   const probe = React.useRef<HTMLDivElement>(null)
   const [dropdown, setDropdown] = React.useState(false)
 
-  // The tabs' natural width (a hidden copy that is always laid out) against the bar's inner width.
+  // The tabs' natural width (a hidden copy that is always laid out) against the room left on the bar
+  // once the other parts have their own width: when the tabs and the filters would not fit on one row,
+  // the tabs become a dropdown (owner, 11/25/2026). The other parts are read with their growth off,
+  // since they grow into whatever the tabs leave, which would make the answer depend on itself.
   const measure = React.useCallback(() => {
-    const bar = ref.current?.closest<HTMLElement>("[data-slot=toolbar]")
+    const self = ref.current
+    const bar = self?.closest<HTMLElement>("[data-slot=toolbar]")
     const copy = probe.current?.firstElementChild as HTMLElement | null
-    if (!bar || !copy) return
+    if (!self || !bar || !copy) return
     const styles = getComputedStyle(bar)
     const inner = bar.clientWidth - parseFloat(styles.paddingLeft) - parseFloat(styles.paddingRight)
-    setDropdown(copy.scrollWidth > inner)
+    const gap = parseFloat(styles.columnGap) || 0
+    const others = Array.from(bar.children).filter(
+      (el): el is HTMLElement => el instanceof HTMLElement && el !== self && !el.hasAttribute("data-base-ui-focus-guard"),
+    )
+    const grown = others.map((el) => el.style.flexGrow)
+    for (const el of others) el.style.flexGrow = "0"
+    const used = others.reduce((sum, el) => sum + el.getBoundingClientRect().width, 0)
+    others.forEach((el, i) => {
+      el.style.flexGrow = grown[i]
+    })
+    setDropdown(copy.scrollWidth + used + gap * others.length > inner)
   }, [])
   React.useLayoutEffect(measure)
   React.useEffect(() => {
