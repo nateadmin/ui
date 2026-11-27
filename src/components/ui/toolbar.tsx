@@ -145,8 +145,10 @@ function Toolbar({
       data-wrapped={wrapped ? "true" : undefined}
       className={cn(
         "bg-card text-card-foreground flex w-full flex-wrap items-center gap-2 rounded-xl border p-2",
-        // Every part grows so each row is full. Spacers (aria-hidden) and the actions stay put.
-        "[&:not([data-icons])>*:not([aria-hidden=true]):not([data-slot=toolbar-actions])]:grow",
+        // Fields and dropdowns grow so each row is full; the tabs keep their own, far larger, grow so they
+        // take the free room first; buttons (Expand All, Export, Chat), the count, spacers (aria-hidden) and
+        // the actions stay at their size (a grown Expand All squeezed the tabs, 11/27/2026).
+        "[&:not([data-icons])>*:not([aria-hidden=true]):not([data-slot=toolbar-actions]):not([data-slot=toolbar-tabs]):not([data-slot=toolbar-fold-all]):not([data-slot=toolbar-count]):not([data-slot=toolbar-export]):not(button:not([data-slot]))]:grow",
         // Icons only: hide text and dropdown arrows, show the stand-in icons.
         "[&[data-icons]_[data-toolbar-label]]:sr-only [&[data-icons]_[data-toolbar-chevron]]:hidden [&[data-icons]_[data-toolbar-icon]]:block",
         // Icons only: every button with a label starts as a 36px square.

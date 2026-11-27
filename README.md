@@ -128,7 +128,7 @@ Rule of thumb: a filter is multi-select whenever picking two values makes sense 
 
 `ToolbarExport` takes `onEmail` to add Email to its menu: a dialog with several addresses, the format and an optional message, which calls `onEmail({ to, format, message })`. Return a promise to show "Sending..." until it settles.
 
-The bar is always full width: every part stretches so no row ends in empty space, on one row or when the parts wrap onto more (tablet, phone). Tabs take the free room first, dropdown buttons grow up to their cap, and `ToolbarActions` stays at its own size on the right edge. `labels` is `"show"` (default), `"icons"` (icons only, fewer rows; text stays readable by screen readers) or `"icons-on-phones"` (icons only below 640px). Wrap your own button text in `ToolbarLabel` so it hides too.
+The bar is always full width: the fields and dropdowns stretch so no row ends in empty space, on one row or when the parts wrap onto more (tablet, phone). Tabs take the free room first, dropdown buttons grow up to their cap, and buttons (Expand All, Export, Chat, your own), the count and `ToolbarActions` stay at their own size. `labels` is `"show"` (default), `"icons"` (icons only, fewer rows; text stays readable by screen readers) or `"icons-on-phones"` (icons only below 640px). Wrap your own button text in `ToolbarLabel` so it hides too.
 
 `activeFilterItems` builds the chips from the same filter groups and values the Filters dialog uses. For inline filters, pass chips yourself: `{ id, label, value, onRemove }`.
 
