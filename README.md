@@ -66,7 +66,7 @@ The library is the only place shadcn lives. Apps never run `shadcn init` or `sha
 | Component | Notes |
 | --- | --- |
 | Toolbar | The bar on top of a list, table, or board. Parts below. Include only the parts a page needs. Wraps on narrow screens. |
-| StatStrip | Headline numbers above a list. Starts as one thin row with each title and value side by side; the row or its tiny arrow opens it into tiles. |
+| StatStrip | Headline numbers above a list. Starts as one thin row with each title and value side by side; the row or its tiny arrow opens it into tiles. A number with `onClick` opens the rows behind it, in the row and in the tiles. |
 | MultiSelect | Searchable checkbox dropdown for long lists (people, statuses). |
 | DatePicker | Calendar in a popover, shows mm/dd/yyyy, optional label and min/max. The date can be typed (DateInput, also exported). |
 | DateRangePicker | One field for a start and end date. Opens two months side by side (one on phones), like an airline site: first click sets the start, second the end, hover previews the range. Optional `presets` add a Period dropdown at the top. Start and End can be typed (mm/dd/yyyy; slashes fill in). |
