@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.25.0
+
+### Minor Changes
+
+- d653f58: StatStrip: a number with `onClick` opens the rows behind it, in the closed row and in the tiles, without folding the strip.
+
 ## 0.24.0
 
 ### Minor Changes
