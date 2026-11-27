@@ -386,7 +386,7 @@ function ToolbarTabs({
     for (const el of others) el.style.flexGrow = "0"
     const used = others.reduce((sum, el) => sum + el.getBoundingClientRect().width, 0)
     others.forEach((el, i) => {
-      el.style.flexGrow = grown[i]
+      el.style.flexGrow = grown[i] ?? ""
     })
     setDropdown(copy.scrollWidth + used + gap * others.length > inner)
   }, [])
