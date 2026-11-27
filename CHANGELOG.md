@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.25.3
+
+### Patch Changes
+
+- a0ca7d3: DataList: the first and last columns carry the row padding on top of their text, so a name on the first column is no longer cut by 12px.
+
 ## 0.25.2
 
 ### Patch Changes
