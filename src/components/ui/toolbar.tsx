@@ -79,8 +79,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
  * "icons-on-phones" does that below 640px only. Wrap your own text in
  * <ToolbarLabel> (for example a "New project" button) so it follows along.
  *
- * When the parts wrap onto more than one row, every part on every row
- * stretches so each row fills the full width.
+ * Every part stretches so the bar is always full width, on one row or on
+ * several: a bar never ends in empty space (owner, 11/27/2026). Tabs take
+ * the free room first, dropdown buttons grow only up to their cap, and the
+ * actions stay pushed to the right edge at their own size.
  */
 /* Below 640px. */
 function usePhone() {
@@ -143,8 +145,8 @@ function Toolbar({
       data-wrapped={wrapped ? "true" : undefined}
       className={cn(
         "bg-card text-card-foreground flex w-full flex-wrap items-center gap-2 rounded-xl border p-2",
-        // Wrapped: every part grows so each row is full. Spacers (aria-hidden) stay put.
-        "[&[data-wrapped]:not([data-icons])>*:not([aria-hidden=true])]:grow",
+        // Every part grows so each row is full. Spacers (aria-hidden) and the actions stay put.
+        "[&:not([data-icons])>*:not([aria-hidden=true]):not([data-slot=toolbar-actions])]:grow",
         // Icons only: hide text and dropdown arrows, show the stand-in icons.
         "[&[data-icons]_[data-toolbar-label]]:sr-only [&[data-icons]_[data-toolbar-chevron]]:hidden [&[data-icons]_[data-toolbar-icon]]:block",
         // Icons only: every button with a label starts as a 36px square.
@@ -312,7 +314,7 @@ function ToolbarViews({
         <ToggleGroupItem
           key={view.value}
           value={view.value}
-          className="text-muted-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary in-data-wrapped:grow h-8 px-3"
+          className="text-muted-foreground aria-pressed:bg-primary aria-pressed:text-primary-foreground aria-pressed:hover:bg-primary grow h-8 px-3"
         >
           {view.icon}
           <ToolbarLabel>
@@ -347,14 +349,14 @@ function ToolbarTabs({
   tabs,
   value,
   onValueChange,
-  stretch = false,
+  stretch = true,
   className,
   "aria-label": ariaLabel = "Status",
 }: {
   tabs: ToolbarTab[]
   value: string
   onValueChange: (value: string) => void
-  /** Fill the free space on the row, with tabs sharing it evenly. */
+  /** Fill the free space on the row, with tabs sharing it evenly (the default; false keeps the tabs at their own width). */
   stretch?: boolean
   className?: string
   "aria-label"?: string

@@ -90,7 +90,7 @@ Toolbar parts:
 | Part | Does |
 | --- | --- |
 | `ToolbarViews` | Switch between views (Board, List). Up to 3 show as a segmented switch, 4 or more as a dropdown. Optional counts. |
-| `ToolbarTabs` | Status tabs that filter the list (Active 128, Monitor 41). Stay tabs at any number; when the row of tabs is wider than the whole bar (a small screen) they turn into a dropdown with the same choices. `stretch` fills the row. |
+| `ToolbarTabs` | Status tabs that filter the list (Active 128, Monitor 41). Stay tabs at any number; when the row of tabs is wider than the whole bar (a small screen) they turn into a dropdown with the same choices. They fill the free space on the row (`stretch={false}` keeps them at their own width). |
 | `ToolbarSearch` | Search box that fills the free space. Always the first part on the left when a bar has one. With `matches`, the matches drop down right under the box in titled sections, each row with a name, a detail, a note and one action. |
 | `ToolbarFilter` | One filter. Use `multiple` unless the choices exclude each other. Over 10 options it becomes a searchable dropdown. The button keeps one width whatever is picked. |
 | `ToolbarFilterDialog` | "Filters" button with a count, opening every filter group in a dialog. Groups up to 8 options show as pills, longer ones as a searchable dropdown (`pillLimit`). Multi-select pills all start selected (everything shows); unselect to hide, the last can't be turned off, Select all puts them back. `required` groups get a red star. Pass `columns`, `conditions` and `onConditionsChange` for a Column filters section (column, condition, value; text, number and date columns); apply them with `matchesCondition`. |
@@ -128,7 +128,7 @@ Rule of thumb: a filter is multi-select whenever picking two values makes sense 
 
 `ToolbarExport` takes `onEmail` to add Email to its menu: a dialog with several addresses, the format and an optional message, which calls `onEmail({ to, format, message })`. Return a promise to show "Sending..." until it settles.
 
-When the parts wrap onto more rows (tablet, phone), every part stretches so each row fills the full width. `labels` is `"show"` (default), `"icons"` (icons only, fewer rows; text stays readable by screen readers) or `"icons-on-phones"` (icons only below 640px). Wrap your own button text in `ToolbarLabel` so it hides too.
+The bar is always full width: every part stretches so no row ends in empty space, on one row or when the parts wrap onto more (tablet, phone). Tabs take the free room first, dropdown buttons grow up to their cap, and `ToolbarActions` stays at its own size on the right edge. `labels` is `"show"` (default), `"icons"` (icons only, fewer rows; text stays readable by screen readers) or `"icons-on-phones"` (icons only below 640px). Wrap your own button text in `ToolbarLabel` so it hides too.
 
 `activeFilterItems` builds the chips from the same filter groups and values the Filters dialog uses. For inline filters, pass chips yourself: `{ id, label, value, onRemove }`.
 
