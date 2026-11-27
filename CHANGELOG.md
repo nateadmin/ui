@@ -1,5 +1,11 @@
 # @nateadmin/ui
 
+## 0.25.1
+
+### Patch Changes
+
+- 85ce58d: DataList and Report: column widths are measured again once the page's web font has loaded, so a list drawn before the font was in no longer cuts its names short.
+
 ## 0.25.0
 
 ### Minor Changes
