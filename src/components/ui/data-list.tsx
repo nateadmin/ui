@@ -428,8 +428,15 @@ function DataList<T>({
     }
     return size
   }
+  // The rows are padded 12px on each side, and a subgrid takes that out of its first and last track,
+  // so those tracks carry the padding on top of their text (a name on the first column was cut by
+  // exactly that much, 11/27/2026). The end slot sizes itself to its content, padding included.
+  const last = columns.length - 1
   const template = [
-    ...columns.map((c, i) => fixedTrack(c as DataListColumn<never>, i === 0 && leadCount ? "var(--lead)" : "0px")),
+    ...columns.map((c, i) => {
+      const extra = [i === 0 && leadCount ? "var(--lead)" : "", i === 0 ? "0.75rem" : "", i === last && !showEnd ? "0.75rem" : ""].filter(Boolean)
+      return fixedTrack(c as DataListColumn<never>, extra.length ? extra.join(" + ") : "0px")
+    }),
     ...(showEnd ? ["max-content"] : []),
   ].join(" ")
 
